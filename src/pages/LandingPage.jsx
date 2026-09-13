@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 import Logo from '../components/Logo.jsx'
 import BrandFrame from '../components/BrandFrame.jsx'
-import { formatBRL, loadData, fetchData, whatsappLink } from '../storage'
+import { formatBRL, loadData, subscribeData, whatsappLink } from '../storage'
 
 const benefits = [
   { icon: Dumbbell, title: 'Treino A a E', text: 'Planilha completa, objetiva e pronta para usar na academia.' },
@@ -25,7 +25,8 @@ export default function LandingPage() {
   const [plan, setPlan] = useState(() => loadData().plan)
 
   useEffect(() => {
-    fetchData().then((data) => setPlan(data.plan))
+    const stop = subscribeData((data) => setPlan(data.plan))
+    return stop
   }, [])
 
   return (

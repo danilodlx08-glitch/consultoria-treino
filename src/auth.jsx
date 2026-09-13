@@ -26,8 +26,9 @@ export function AuthProvider({ children }) {
             s.password === password
         )
         if (!found) return false
-        setStudent(found)
-        sessionStorage.setItem('dl_student', JSON.stringify(found))
+        const session = { id: found.id, name: found.name, code: found.code }
+        setStudent(session)
+        sessionStorage.setItem('dl_student', JSON.stringify(session))
         return true
       },
       logoutStudent() {

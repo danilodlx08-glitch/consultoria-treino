@@ -1,10 +1,20 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ImagePlus, LogOut, Plus, Trash2 } from 'lucide-react'
+import { Copy, ImagePlus, LogOut, Plus, Trash2, UserPlus } from 'lucide-react'
 import Logo from '../components/Logo.jsx'
 import { useAuth } from '../auth.jsx'
 import { useBrand } from '../brand.jsx'
-import { createId, fetchData, loadData, saveData } from '../storage'
+import {
+  cloneWorkouts,
+  createId,
+  generateAccessCode,
+  generatePassword,
+  loadData,
+  logoSrc,
+  saveData,
+  subscribeData,
+  uploadLogo,
+} from '../storage'
 
 const DAYS = ['A', 'B', 'C', 'D', 'E']
 const TABS = [
@@ -32,17 +42,27 @@ export default function AdminPanel() {
   const [day, setDay] = useState('A')
   const [saved, setSaved] = useState('')
   const [logoError, setLogoError] = useState('')
-  const [studentForm, setStudentForm] = useState({ name: '', code: '', password: '' })
+  const [selectedStudentId, setSelectedStudentId] = useState('')
+  const [studentForm, setStudentForm] = useState({ name: '', code: generateAccessCode(), password: generatePassword() })
 
   useEffect(() => {
-    fetchData().then(setData)
+    const stop = subscribeData((next) => {
+      setData(next)
+      setSelectedStudentId((current) => current || next.students[0]?.id || '')
+    })
+    return stop
   }, [])
+
+  const selectedStudent = useMemo(
+    () => data.students.find((item) => item.id === selectedStudentId) || data.students[0],
+    [data.students, selectedStudentId]
+  )
 
   function persist(next) {
     setData(next)
     saveData(next)
-    setSaved('Alteracoes salvas para todos os alunos.')
-    setTimeout(() => setSaved(''), 1800)
+    setSaved('Salvo na nuvem. Os alunos recebem a atualizacao automaticamente.')
+    setTimeout(() => setSaved(''), 2200)
   }
 
   function fileToDataUrl(file) {
@@ -67,8 +87,9 @@ export default function AdminPanel() {
       return
     }
     try {
-      const logo = await fileToDataUrl(file)
-      persist({ ...data, brand: { ...(data.brand || {}), logo } })
+      const dataUrl = await fileToDataUrl(file)
+      const result = await uploadLogo(dataUrl)
+      persist({ ...data, brand: { ...(data.brand || {}), logo: result.logo } })
       await refresh()
       setLogoError('')
     } catch {
@@ -77,7 +98,7 @@ export default function AdminPanel() {
   }
 
   async function resetLogo() {
-    persist({ ...data, brand: { logo: '/logo.svg' } })
+    persist({ ...data, brand: { logo: '/api/logo' } })
     await refresh()
     setLogoError('')
   }
@@ -103,51 +124,73 @@ export default function AdminPanel() {
     })
   }
 
-  function updateWorkoutMeta(field, value) {
+  function studentWorkouts() {
+    return selectedStudent?.workouts || cloneWorkouts(data.workouts)
+  }
+
+  function persistStudentWorkouts(workouts) {
+    if (!selectedStudent) return
     persist({
       ...data,
-      workouts: { ...data.workouts, [day]: { ...data.workouts[day], [field]: value } },
+      students: data.students.map((item) =>
+        item.id === selectedStudent.id
+          ? { ...item, workouts, updatedAt: new Date().toISOString() }
+          : item
+      ),
     })
   }
 
+  function updateWorkoutMeta(field, value) {
+    const workouts = studentWorkouts()
+    persistStudentWorkouts({ ...workouts, [day]: { ...workouts[day], [field]: value } })
+  }
+
   function updateExercise(exerciseId, field, value) {
-    const exercises = data.workouts[day].exercises.map((item) =>
+    const workouts = studentWorkouts()
+    const exercises = workouts[day].exercises.map((item) =>
       item.id === exerciseId ? { ...item, [field]: value } : item
     )
-    persist({ ...data, workouts: { ...data.workouts, [day]: { ...data.workouts[day], exercises } } })
+    persistStudentWorkouts({ ...workouts, [day]: { ...workouts[day], exercises } })
   }
 
   function addExercise() {
-    persist({
-      ...data,
-      workouts: {
-        ...data.workouts,
-        [day]: { ...data.workouts[day], exercises: [...data.workouts[day].exercises, emptyExercise()] },
-      },
+    const workouts = studentWorkouts()
+    persistStudentWorkouts({
+      ...workouts,
+      [day]: { ...workouts[day], exercises: [...workouts[day].exercises, emptyExercise()] },
     })
   }
 
   function removeExercise(exerciseId) {
-    persist({
-      ...data,
-      workouts: {
-        ...data.workouts,
-        [day]: {
-          ...data.workouts[day],
-          exercises: data.workouts[day].exercises.filter((item) => item.id !== exerciseId),
-        },
+    const workouts = studentWorkouts()
+    persistStudentWorkouts({
+      ...workouts,
+      [day]: {
+        ...workouts[day],
+        exercises: workouts[day].exercises.filter((item) => item.id !== exerciseId),
       },
     })
   }
 
   function addStudent(event) {
     event.preventDefault()
-    if (!studentForm.name || !studentForm.code || !studentForm.password) return
-    persist({
-      ...data,
-      students: [{ id: createId(), ...studentForm, active: true }, ...data.students],
-    })
-    setStudentForm({ name: '', code: '', password: '' })
+    if (!studentForm.name) return
+    const code = (studentForm.code || generateAccessCode()).toUpperCase()
+    const password = studentForm.password || generatePassword()
+    if (data.students.some((item) => item.code === code)) return
+    const nextStudent = {
+      id: createId(),
+      name: studentForm.name,
+      code,
+      password,
+      active: true,
+      updatedAt: new Date().toISOString(),
+      workouts: cloneWorkouts(data.workouts),
+    }
+    persist({ ...data, students: [nextStudent, ...data.students] })
+    setSelectedStudentId(nextStudent.id)
+    setStudentForm({ name: '', code: generateAccessCode(), password: generatePassword() })
+    setTab('workouts')
   }
 
   function toggleStudent(id) {
@@ -158,13 +201,22 @@ export default function AdminPanel() {
   }
 
   function removeStudent(id) {
-    persist({ ...data, students: data.students.filter((item) => item.id !== id) })
+    const next = data.students.filter((item) => item.id !== id)
+    persist({ ...data, students: next })
+    if (selectedStudentId === id) setSelectedStudentId(next[0]?.id || '')
+  }
+
+  function copyCredentials(student) {
+    const text = `Acesso Danilo Lopes\nCodigo: ${student.code}\nSenha: ${student.password}`
+    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text)
   }
 
   function exit() {
     logoutAdmin()
     navigate('/')
   }
+
+  const currentWorkout = studentWorkouts()[day] || { title: '', focus: '', exercises: [] }
 
   return (
     <div className="min-h-dvh bg-ink-950">
@@ -197,21 +249,22 @@ export default function AdminPanel() {
           <section className="space-y-4">
             <h1 className="font-display text-2xl uppercase">Logomarca</h1>
             <p className="text-sm leading-6 text-zinc-400">
-              O chat nao recebe arquivos. Envie a logo aqui, direto da galeria do celular. A imagem aparece na landing, no login e nas areas restritas.
+              Envie a logo oficial. Ela e salva em um caminho permanente (/api/logo) e usada na landing, nos logins e no icone da tela inicial do celular.
             </p>
             <div className="rounded-2xl border border-white/5 bg-ink-800 p-4">
               <p className="text-xs uppercase tracking-[0.18em] text-gold-400">Preview atual</p>
               <div className="mt-4 flex items-center justify-center rounded-2xl border border-gold-400/20 bg-ink-950 p-6">
                 <img
-                  src={data.brand?.logo || '/logo.svg'}
+                  src={logoSrc(data.brand?.logo || '/api/logo')}
                   alt="Logo atual"
                   className="h-28 w-28 rounded-2xl object-cover"
                 />
               </div>
+              <p className="mt-3 break-all text-[11px] text-zinc-500">{logoSrc(data.brand?.logo || '/api/logo')}</p>
             </div>
             <label className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-gold-400 px-4 py-3.5 text-sm font-semibold uppercase tracking-wide text-ink-950">
               <ImagePlus size={16} />
-              Enviar logo
+              Enviar logo oficial
               <input type="file" accept="image/*" className="hidden" onChange={handleLogoFile} />
             </label>
             <button
@@ -280,7 +333,22 @@ export default function AdminPanel() {
 
         {tab === 'workouts' && (
           <section>
-            <h1 className="font-display text-2xl uppercase">Fichas de Treino</h1>
+            <h1 className="font-display text-2xl uppercase">Fichas individuais</h1>
+            <p className="mt-2 text-sm text-zinc-400">Cada aluno tem as proprias planilhas A a E. Alteracoes sincronizam no celular dele.</p>
+            <label className="mt-4 block text-xs uppercase tracking-[0.18em] text-gold-400">
+              Aluno
+              <select
+                value={selectedStudent?.id || ''}
+                onChange={(e) => setSelectedStudentId(e.target.value)}
+                className="mt-2 w-full rounded-xl border border-white/10 bg-ink-800 px-4 py-3 text-sm"
+              >
+                {data.students.map((student) => (
+                  <option key={student.id} value={student.id}>
+                    {student.name} ({student.code})
+                  </option>
+                ))}
+              </select>
+            </label>
             <div className="mt-4 grid grid-cols-5 gap-2">
               {DAYS.map((item) => (
                 <button
@@ -297,7 +365,7 @@ export default function AdminPanel() {
             <label className="mt-4 block text-xs uppercase tracking-[0.18em] text-gold-400">
               Titulo
               <input
-                value={data.workouts[day].title}
+                value={currentWorkout.title}
                 onChange={(e) => updateWorkoutMeta('title', e.target.value)}
                 className="mt-2 w-full rounded-xl border border-white/10 bg-ink-800 px-4 py-3 text-sm"
               />
@@ -305,13 +373,13 @@ export default function AdminPanel() {
             <label className="mt-4 block text-xs uppercase tracking-[0.18em] text-gold-400">
               Foco
               <input
-                value={data.workouts[day].focus}
+                value={currentWorkout.focus}
                 onChange={(e) => updateWorkoutMeta('focus', e.target.value)}
                 className="mt-2 w-full rounded-xl border border-white/10 bg-ink-800 px-4 py-3 text-sm"
               />
             </label>
             <div className="mt-5 space-y-4">
-              {data.workouts[day].exercises.map((exercise, index) => (
+              {(currentWorkout.exercises || []).map((exercise, index) => (
                 <div key={exercise.id} className="rounded-2xl border border-white/5 bg-ink-800 p-4">
                   <div className="mb-3 flex items-center justify-between">
                     <p className="text-xs uppercase tracking-[0.18em] text-gold-400">Exercicio {index + 1}</p>
@@ -367,7 +435,7 @@ export default function AdminPanel() {
 
         {tab === 'students' && (
           <section>
-            <h1 className="font-display text-2xl uppercase">Alunos e Senhas</h1>
+            <h1 className="font-display text-2xl uppercase">Alunos e acessos</h1>
             <form onSubmit={addStudent} className="mt-4 space-y-3 rounded-2xl border border-white/5 bg-ink-800 p-4">
               <input
                 value={studentForm.name}
@@ -378,7 +446,7 @@ export default function AdminPanel() {
               <input
                 value={studentForm.code}
                 onChange={(e) => setStudentForm({ ...studentForm, code: e.target.value.toUpperCase() })}
-                placeholder="Codigo de acesso"
+                placeholder="Codigo unico"
                 className="w-full rounded-xl border border-white/10 bg-ink-700 px-3 py-2 text-sm"
               />
               <input
@@ -388,10 +456,17 @@ export default function AdminPanel() {
                 className="w-full rounded-xl border border-white/10 bg-ink-700 px-3 py-2 text-sm"
               />
               <button
+                type="button"
+                onClick={() => setStudentForm({ ...studentForm, code: generateAccessCode(), password: generatePassword() })}
+                className="w-full rounded-xl border border-gold-400/20 py-2 text-xs uppercase tracking-wide text-gold-300"
+              >
+                Gerar codigo e senha
+              </button>
+              <button
                 type="submit"
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-gold-400 py-3 text-sm font-semibold uppercase tracking-wide text-ink-950"
               >
-                <Plus size={16} />
+                <UserPlus size={16} />
                 Cadastrar aluno
               </button>
             </form>
@@ -408,14 +483,32 @@ export default function AdminPanel() {
                       <Trash2 size={16} />
                     </button>
                   </div>
-                  <button
-                    onClick={() => toggleStudent(student.id)}
-                    className={`mt-3 rounded-lg px-3 py-1 text-xs uppercase tracking-wide ${
-                      student.active !== false ? 'bg-gold-400/15 text-gold-300' : 'bg-zinc-700 text-zinc-400'
-                    }`}
-                  >
-                    {student.active !== false ? 'Ativo' : 'Inativo'}
-                  </button>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      onClick={() => toggleStudent(student.id)}
+                      className={`rounded-lg px-3 py-1 text-xs uppercase tracking-wide ${
+                        student.active !== false ? 'bg-gold-400/15 text-gold-300' : 'bg-zinc-700 text-zinc-400'
+                      }`}
+                    >
+                      {student.active !== false ? 'Ativo' : 'Inativo'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSelectedStudentId(student.id)
+                        setTab('workouts')
+                      }}
+                      className="rounded-lg bg-ink-700 px-3 py-1 text-xs uppercase tracking-wide text-zinc-200"
+                    >
+                      Editar treinos
+                    </button>
+                    <button
+                      onClick={() => copyCredentials(student)}
+                      className="inline-flex items-center gap-1 rounded-lg bg-ink-700 px-3 py-1 text-xs uppercase tracking-wide text-zinc-200"
+                    >
+                      <Copy size={12} />
+                      Copiar acesso
+                    </button>
+                  </div>
                 </article>
               ))}
             </div>

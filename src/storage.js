@@ -3,12 +3,33 @@ const STORAGE_KEY = 'dl_consultoria_v1'
 export const ADMIN_PASSWORD = 'admin17249'
 export const WHATSAPP_NUMBER = '5527996247906'
 
+function clone(value) {
+  return JSON.parse(JSON.stringify(value))
+}
+
 const defaultExercises = (list) =>
   list.map((item, index) => ({ id: `${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}`, ...item }))
 
+export function cloneWorkouts(source) {
+  return clone(source || defaultData.workouts)
+}
+
+export function generateAccessCode() {
+  const token = Math.random().toString(36).slice(2, 6).toUpperCase()
+  return `DL${token}`
+}
+
+export function generatePassword() {
+  return Math.random().toString(36).slice(2, 8)
+}
+
+export function createId() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+}
+
 const defaultData = {
   brand: {
-    logo: '/logo.svg',
+    logo: '/api/logo',
   },
   plan: {
     name: 'Plano Unico',
@@ -240,16 +261,29 @@ const defaultData = {
   },
 }
 
-function clone(value) {
-  return JSON.parse(JSON.stringify(value))
+function normalizeStudent(student, templateWorkouts) {
+  const workouts = student?.workouts
+    ? { ...clone(templateWorkouts), ...clone(student.workouts) }
+    : clone(templateWorkouts)
+  return {
+    id: student?.id || createId(),
+    name: student?.name || 'Aluno',
+    code: String(student?.code || generateAccessCode()).toUpperCase(),
+    password: student?.password || generatePassword(),
+    active: student?.active !== false,
+    updatedAt: student?.updatedAt || null,
+    workouts,
+  }
 }
 
 export function mergeData(parsed) {
+  const workouts = { ...clone(defaultData.workouts), ...(parsed?.workouts || {}) }
+  const studentsSource = Array.isArray(parsed?.students) ? parsed.students : clone(defaultData.students)
   return {
     brand: { ...defaultData.brand, ...(parsed?.brand || {}) },
     plan: { ...defaultData.plan, ...(parsed?.plan || {}) },
-    students: Array.isArray(parsed?.students) ? parsed.students : clone(defaultData.students),
-    workouts: { ...clone(defaultData.workouts), ...(parsed?.workouts || {}) },
+    students: studentsSource.map((student) => normalizeStudent(student, workouts)),
+    workouts,
   }
 }
 
@@ -293,6 +327,47 @@ export async function saveData(data) {
   }
 }
 
+export async function uploadLogo(dataUrl) {
+  const res = await fetch('/api/logo', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ dataUrl }),
+  })
+  if (!res.ok) throw new Error('upload_failed')
+  return res.json()
+}
+
+export function logoSrc(path) {
+  const value = path && !String(path).startsWith('data:') ? path : '/api/logo'
+  if (value.startsWith('http')) return value
+  return `${window.location.origin}${value.startsWith('/') ? value : `/${value}`}`
+}
+
+export function subscribeData(onChange) {
+  let closed = false
+  let source
+  const tick = async () => {
+    if (closed) return
+    const data = await fetchData()
+    onChange(data)
+  }
+  try {
+    source = new EventSource('/api/stream')
+    source.onmessage = () => {
+      tick()
+    }
+  } catch {
+    source = null
+  }
+  const interval = setInterval(tick, 4000)
+  tick()
+  return () => {
+    closed = true
+    clearInterval(interval)
+    if (source) source.close()
+  }
+}
+
 export function formatBRL(value) {
   return Number(value || 0).toLocaleString('pt-BR', {
     style: 'currency',
@@ -303,8 +378,4 @@ export function formatBRL(value) {
 export function whatsappLink(plan) {
   const message = `Ola Danilo! Quero garantir minha vaga na consultoria de treino online (${plan.name} - ${formatBRL(plan.price)}).`
   return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`
-}
-
-export function createId() {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 }
