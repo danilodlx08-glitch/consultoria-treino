@@ -86,7 +86,7 @@ export default function AdminPanel() {
     }
     try {
       const dataUrl = await fileToDataUrl(file)
-      const result = await uplindiags(dataUrl)
+      const result = await uploadLogo(dataUrl)
       persist({ ...data, brand: { ...(data.brand || {}), logo: result.logo } })
       setLogoError('')
     } catch {
@@ -256,7 +256,6 @@ export default function AdminPanel() {
                   className="h-28 w-28 rounded-2xl object-cover"
                 />
               </div>
-              <p className="mt-3 break-all text-[11px] text-zinc-500">{logoSrc(data.brand?.logo || '/logo.png')}</p>
             </div>
             <label className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-gold-400 px-4 py-3.5 text-sm font-semibold uppercase tracking-wide text-ink-950">
               <ImagePlus size={16} />
