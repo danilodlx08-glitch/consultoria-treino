@@ -1,19 +1,19 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Cópia, ImagePlus, Sair, Mais, Lixo2, UsuarioPlus } from 'lucide-react'
+import { Cópia, ImagePlus, Sair, Mais, Lixo, UsuarioPlus } from 'lucide-react'
 import { useAuth } from '../auth.jsx'
 import { supabase } from '../services/supabase'
 import {
   cloneWorkouts,
-  createID,
-  gerarCódigoDeAcesso,
-  gerarSenha,
-  carregarDados,
-  logoSrc,
-  salvarDados,
-  subscribeData,
-  uploadLogo,
- from '../storage'
+  criarlo,
+  gerarcódigodeacesso,
+  gerarlenha,
+  carregardados,
+  jogdivx,
+  salvardados,
+  subscribedata,
+  uplindiags,
+} from '../storage'
 
 const DAYS = ['A', 'B', 'C', 'D', 'E']
 const TABS = [
