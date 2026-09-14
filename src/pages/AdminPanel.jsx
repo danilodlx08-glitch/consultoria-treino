@@ -5,14 +5,6 @@ import { useAuth } from '../auth.jsx'
 import { supabase } from '../services/supabase'
 import {
   cloneWorkouts,
-  criarlo,
-  gerarcódigodeacesso,
-  gerarlenha,
-  carregardados,
-  jogdivx,
-  salvardados,
-  subscribedata,
-  uplindiags,
   loadData,
   saveData,
   subscribeData,
