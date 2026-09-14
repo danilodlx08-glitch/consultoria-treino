@@ -4,7 +4,7 @@ import { Copy, ImagePlus, LogOut, Plus, Trash2, UserPlus } from 'lucide-react'
 import Logo from '../components/Logo.jsx'
 import { useAuth } from '../auth.jsx'
 import { useBrand } from '../brand.jsx'
-import {
+import { supabase } from '../services/supabase'
   cloneWorkouts,
   createId,
   generateAccessCode,
