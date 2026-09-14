@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Cópia, ImagePlus, Sair, Mais, Lixo, UsuarioPlus } from 'lucide-react'
+import { Copy, ImagePlus, LogOut, Plus, Trash2, UserPlus } from 'lucide-react'
 import { useAuth } from '../auth.jsx'
 import { supabase } from '../services/supabase'
 import {
@@ -13,6 +13,14 @@ import {
   salvardados,
   subscribedata,
   uplindiags,
+  loadData,
+  saveData,
+  subscribeData,
+  uploadLogo,
+  logoSrc,
+  createId,
+  generateAccessCode,
+  generatePassword,
 } from '../storage'
 
 const DAYS = ['A', 'B', 'C', 'D', 'E']
@@ -34,7 +42,6 @@ const emptyExercise = () => ({
 
 export default function AdminPanel() {
   const { logoutAdmin } = useAuth()
-  const { refresh } = useBrand()
   const navigate = useNavigate()
   const [data, setData] = useState(() => loadData())
   const [tab, setTab] = useState('brand')
@@ -87,9 +94,8 @@ export default function AdminPanel() {
     }
     try {
       const dataUrl = await fileToDataUrl(file)
-      const result = await uploadLogo(dataUrl)
+      const result = await uplindiags(dataUrl)
       persist({ ...data, brand: { ...(data.brand || {}), logo: result.logo } })
-      await refresh()
       setLogoError('')
     } catch {
       setLogoError('Nao foi possivel carregar a imagem. Tente outro arquivo.')
@@ -97,8 +103,7 @@ export default function AdminPanel() {
   }
 
   async function resetLogo() {
-    persist({ ...data, brand: { logo: '/api/logo' } })
-    await refresh()
+    persist({ ...data, brand: { logo: '/logo.png' } })
     setLogoError('')
   }
 
@@ -218,10 +223,10 @@ export default function AdminPanel() {
   const currentWorkout = studentWorkouts()[day] || { title: '', focus: '', exercises: [] }
 
   return (
-    <div className="min-h-dvh bg-ink-950">
+    <div className="min-h-dvh bg-ink-950 text-white">
       <header className="sticky top-0 z-20 border-b border-white/5 bg-ink-950/90 backdrop-blur">
         <div className="mx-auto flex max-w-md items-center justify-between px-4 py-3">
-          <Logo className="h-10 w-10" showText />
+          <span className="font-display text-lg tracking-wider text-gold-400">DANILO LOPES</span>
           <button onClick={exit} className="rounded-full border border-white/10 p-2 text-zinc-300">
             <LogOut size={16} />
           </button>
@@ -241,25 +246,25 @@ export default function AdminPanel() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-md px-4 py-5 safe-bottom">
+      <main className="mx-auto max-w-md px-4 py-5 pb-24">
         {saved && <p className="mb-4 rounded-xl bg-gold-400/10 px-3 py-2 text-sm text-gold-300">{saved}</p>}
 
         {tab === 'brand' && (
           <section className="space-y-4">
             <h1 className="font-display text-2xl uppercase">Logomarca</h1>
             <p className="text-sm leading-6 text-zinc-400">
-              Envie a logo oficial. Ela e salva em um caminho permanente (/api/logo) e usada na landing, nos logins e no icone da tela inicial do celular.
+              Envie a logo oficial. Ela e salva e usada na landing, nos logins e no icone da tela inicial.
             </p>
             <div className="rounded-2xl border border-white/5 bg-ink-800 p-4">
               <p className="text-xs uppercase tracking-[0.18em] text-gold-400">Preview atual</p>
               <div className="mt-4 flex items-center justify-center rounded-2xl border border-gold-400/20 bg-ink-950 p-6">
                 <img
-                  src={logoSrc(data.brand?.logo || '/api/logo')}
+                  src={logoSrc(data.brand?.logo || '/logo.png')}
                   alt="Logo atual"
                   className="h-28 w-28 rounded-2xl object-cover"
                 />
               </div>
-              <p className="mt-3 break-all text-[11px] text-zinc-500">{logoSrc(data.brand?.logo || '/api/logo')}</p>
+              <p className="mt-3 break-all text-[11px] text-zinc-500">{logoSrc(data.brand?.logo || '/logo.png')}</p>
             </div>
             <label className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-gold-400 px-4 py-3.5 text-sm font-semibold uppercase tracking-wide text-ink-950">
               <ImagePlus size={16} />
@@ -285,7 +290,7 @@ export default function AdminPanel() {
               <input
                 value={data.plan.name}
                 onChange={(e) => updatePlan('name', e.target.value)}
-                className="mt-2 w-full rounded-xl border border-white/10 bg-ink-800 px-4 py-3 text-sm"
+                className="mt-2 w-full rounded-xl border border-white/10 bg-ink-800 px-4 py-3 text-sm text-white"
               />
             </label>
             <label className="block text-xs uppercase tracking-[0.18em] text-gold-400">
@@ -294,7 +299,7 @@ export default function AdminPanel() {
                 type="number"
                 value={data.plan.price}
                 onChange={(e) => updatePlan('price', Number(e.target.value))}
-                className="mt-2 w-full rounded-xl border border-white/10 bg-ink-800 px-4 py-3 text-sm"
+                className="mt-2 w-full rounded-xl border border-white/10 bg-ink-800 px-4 py-3 text-sm text-white"
               />
             </label>
             <label className="block text-xs uppercase tracking-[0.18em] text-gold-400">
@@ -303,7 +308,7 @@ export default function AdminPanel() {
                 value={data.plan.description}
                 onChange={(e) => updatePlan('description', e.target.value)}
                 rows={4}
-                className="mt-2 w-full rounded-xl border border-white/10 bg-ink-800 px-4 py-3 text-sm"
+                className="mt-2 w-full rounded-xl border border-white/10 bg-ink-800 px-4 py-3 text-sm text-white"
               />
             </label>
             <div>
@@ -314,7 +319,7 @@ export default function AdminPanel() {
                     <input
                       value={item}
                       onChange={(e) => updateInclude(index, e.target.value)}
-                      className="w-full rounded-xl border border-white/10 bg-ink-800 px-4 py-3 text-sm"
+                      className="w-full rounded-xl border border-white/10 bg-ink-800 px-4 py-3 text-sm text-white"
                     />
                     <button onClick={() => removeInclude(index)} className="rounded-xl border border-white/10 px-3 text-zinc-400">
                       <Trash2 size={16} />
@@ -339,10 +344,10 @@ export default function AdminPanel() {
               <select
                 value={selectedStudent?.id || ''}
                 onChange={(e) => setSelectedStudentId(e.target.value)}
-                className="mt-2 w-full rounded-xl border border-white/10 bg-ink-800 px-4 py-3 text-sm"
+                className="mt-2 w-full rounded-xl border border-white/10 bg-ink-800 px-4 py-3 text-sm text-white"
               >
                 {data.students.map((student) => (
-                  <option key={student.id} value={student.id}>
+                  <option key={student.id} value={student.id} className="bg-ink-900 text-white">
                     {student.name} ({student.code})
                   </option>
                 ))}
@@ -354,7 +359,7 @@ export default function AdminPanel() {
                   key={item}
                   onClick={() => setDay(item)}
                   className={`rounded-xl py-2 font-display ${
-                    day === item ? 'bg-gold-400 text-ink-950' : 'border border-white/10 bg-ink-800'
+                    day === item ? 'bg-gold-400 text-ink-950' : 'border border-white/10 bg-ink-800 text-white'
                   }`}
                 >
                   {item}
@@ -366,7 +371,7 @@ export default function AdminPanel() {
               <input
                 value={currentWorkout.title}
                 onChange={(e) => updateWorkoutMeta('title', e.target.value)}
-                className="mt-2 w-full rounded-xl border border-white/10 bg-ink-800 px-4 py-3 text-sm"
+                className="mt-2 w-full rounded-xl border border-white/10 bg-ink-800 px-4 py-3 text-sm text-white"
               />
             </label>
             <label className="mt-4 block text-xs uppercase tracking-[0.18em] text-gold-400">
@@ -374,7 +379,7 @@ export default function AdminPanel() {
               <input
                 value={currentWorkout.focus}
                 onChange={(e) => updateWorkoutMeta('focus', e.target.value)}
-                className="mt-2 w-full rounded-xl border border-white/10 bg-ink-800 px-4 py-3 text-sm"
+                className="mt-2 w-full rounded-xl border border-white/10 bg-ink-800 px-4 py-3 text-sm text-white"
               />
             </label>
             <div className="mt-5 space-y-4">
@@ -390,20 +395,20 @@ export default function AdminPanel() {
                     value={exercise.name}
                     onChange={(e) => updateExercise(exercise.id, 'name', e.target.value)}
                     placeholder="Nome do exercicio"
-                    className="mb-2 w-full rounded-xl border border-white/10 bg-ink-700 px-3 py-2 text-sm"
+                    className="mb-2 w-full rounded-xl border border-white/10 bg-ink-700 px-3 py-2 text-sm text-white"
                   />
                   <div className="mb-2 grid grid-cols-2 gap-2">
                     <input
                       value={exercise.sets}
                       onChange={(e) => updateExercise(exercise.id, 'sets', e.target.value)}
                       placeholder="Series"
-                      className="rounded-xl border border-white/10 bg-ink-700 px-3 py-2 text-sm"
+                      className="rounded-xl border border-white/10 bg-ink-700 px-3 py-2 text-sm text-white"
                     />
                     <input
                       value={exercise.reps}
                       onChange={(e) => updateExercise(exercise.id, 'reps', e.target.value)}
                       placeholder="Repeticoes"
-                      className="rounded-xl border border-white/10 bg-ink-700 px-3 py-2 text-sm"
+                      className="rounded-xl border border-white/10 bg-ink-700 px-3 py-2 text-sm text-white"
                     />
                   </div>
                   <textarea
@@ -411,13 +416,13 @@ export default function AdminPanel() {
                     onChange={(e) => updateExercise(exercise.id, 'notes', e.target.value)}
                     placeholder="Observacoes"
                     rows={2}
-                    className="mb-2 w-full rounded-xl border border-white/10 bg-ink-700 px-3 py-2 text-sm"
+                    className="mb-2 w-full rounded-xl border border-white/10 bg-ink-700 px-3 py-2 text-sm text-white"
                   />
                   <input
                     value={exercise.video}
                     onChange={(e) => updateExercise(exercise.id, 'video', e.target.value)}
                     placeholder="Cole o link do video"
-                    className="w-full rounded-xl border border-white/10 bg-ink-700 px-3 py-2 text-sm"
+                    className="w-full rounded-xl border border-white/10 bg-ink-700 px-3 py-2 text-sm text-white"
                   />
                 </div>
               ))}
@@ -440,19 +445,19 @@ export default function AdminPanel() {
                 value={studentForm.name}
                 onChange={(e) => setStudentForm({ ...studentForm, name: e.target.value })}
                 placeholder="Nome do aluno"
-                className="w-full rounded-xl border border-white/10 bg-ink-700 px-3 py-2 text-sm"
+                className="w-full rounded-xl border border-white/10 bg-ink-700 px-3 py-2 text-sm text-white"
               />
               <input
                 value={studentForm.code}
                 onChange={(e) => setStudentForm({ ...studentForm, code: e.target.value.toUpperCase() })}
                 placeholder="Codigo unico"
-                className="w-full rounded-xl border border-white/10 bg-ink-700 px-3 py-2 text-sm"
+                className="w-full rounded-xl border border-white/10 bg-ink-700 px-3 py-2 text-sm text-white"
               />
               <input
                 value={studentForm.password}
                 onChange={(e) => setStudentForm({ ...studentForm, password: e.target.value })}
                 placeholder="Senha"
-                className="w-full rounded-xl border border-white/10 bg-ink-700 px-3 py-2 text-sm"
+                className="w-full rounded-xl border border-white/10 bg-ink-700 px-3 py-2 text-sm text-white"
               />
               <button
                 type="button"
