@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Cópia, ImagePlus, Sair, Mais, Lixo2, UsuarioPlus } from 'lucide-react'
 import { useAuth } from '../auth.jsx'
-import { useBrand } from '../marca.jsx'
 import { supabase } from '../services/supabase'
 import {
   cloneWorkouts,
@@ -14,7 +13,7 @@ import {
   salvarDados,
   subscribeData,
   uploadLogo,
-} from '../storage'
+ from '../storage'
 
 const DAYS = ['A', 'B', 'C', 'D', 'E']
 const TABS = [
