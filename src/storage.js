@@ -2,7 +2,7 @@ const STORAGE_KEY = 'dl_consultoria_v1'
 
 export const ADMIN_PASSWORD = 'admin17249'
 export const WHATSAPP_NUMBER = '5527996247906'
-
+import { supabase } from './supabase'
 function clone(value) {
   return JSON.parse(JSON.stringify(value))
 }
@@ -299,31 +299,42 @@ export function loadData() {
 
 export async function fetchData() {
   try {
-    const res = await fetch('/api/data')
-    if (res.ok) {
-      const parsed = await res.json()
-      if (parsed && !parsed.empty) {
-        const merged = mergeData(parsed)
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(merged))
-        return merged
-      }
+    const { data, error } = await supabase.from('alunos').select('*')
+    if (!error && data) {
+      const current = loadData()
+      // Mapeia os dados do Supabase para o formato de estudantes da aplicação
+      current.students = data.map(aluno => ({
+        id: aluno.id,
+        name: aluno.nome,
+        code: aluno.code || generateAccessCode(),
+        password: aluno.password || generatePassword(),
+        active: true,
+        workouts: current.workouts
+      }))
+      return current
     }
   } catch {
     // fallback local
   }
   return loadData()
 }
+}
 
 export async function saveData(data) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
   try {
-    await fetch('/api/data', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    })
-  } catch {
-    // keep local copy
+    if (data && Array.isArray(data.students)) {
+      for (const aluno of data.students) {
+        await supabase.from('alunos').upsert({
+          id: aluno.id,
+          nome: aluno.name,
+          code: aluno.code,
+          password: aluno.password
+        })
+      }
+    }
+  } catch (error) {
+    // keep local copy if supabase sync fails
   }
 }
 
