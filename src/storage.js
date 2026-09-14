@@ -30,7 +30,7 @@ export function createId() {
 
 const defaultData = {
   brand: {
-    logo: '/api/logo',
+    logo: '',
   },
   plan: {
     name: 'Plano Unico',
@@ -192,7 +192,7 @@ const defaultData = {
           name: 'Elevacao lateral',
           sets: '3',
           reps: '12-15',
-          notes: 'Mindinho para cima. Sem trapézio.',
+          notes: 'Mindinho para cima. Sem trapesio.',
           video: 'https://www.youtube.com/watch?v=3VcKaXpzqRo',
         },
         {
@@ -301,15 +301,15 @@ export function loadData() {
 export async function fetchData() {
   try {
     const { data, error } = await supabase.from('alunos').select('*')
-    if (!error && data) {
+    if (!error && data && data.length > 0) {
       const current = loadData()
       current.students = data.map(aluno => ({
         id: aluno.id,
         name: aluno.nome,
         code: aluno.code || generateAccessCode(),
         password: aluno.password || generatePassword(),
-        active: true,
-        workouts: current.workouts
+        active: aluno.active !== false,
+        workouts: aluno.workouts ? { ...clone(current.workouts), ...aluno.workouts } : clone(current.workouts)
       }))
       return current
     }
@@ -328,7 +328,9 @@ export async function saveData(data) {
           id: aluno.id,
           nome: aluno.name,
           code: aluno.code,
-          password: aluno.password
+          password: aluno.password,
+          active: aluno.active !== false,
+          workouts: aluno.workouts
         })
       }
     }
@@ -338,43 +340,27 @@ export async function saveData(data) {
 }
 
 export async function uploadLogo(dataUrl) {
-  const res = await fetch('/api/logo', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ dataUrl }),
-  })
-  if (!res.ok) throw new Error('upload_failed')
-  return res.json()
+  return { logo: dataUrl }
 }
 
 export function logoSrc(path) {
-  const value = path && !String(path).startsWith('data:') ? path : '/api/logo'
-  if (value.startsWith('http')) return value
-  return `${window.location.origin}${value.startsWith('/') ? value : `/${value}`}`
+  if (!path) return ''
+  if (path.startsWith('http') || path.startsWith('data:')) return path
+  return path
 }
 
 export function subscribeData(onChange) {
   let closed = false
-  let source
   const tick = async () => {
     if (closed) return
     const data = await fetchData()
     onChange(data)
   }
-  try {
-    source = new EventSource('/api/stream')
-    source.onmessage = () => {
-      tick()
-    }
-  } catch {
-    source = null
-  }
-  const interval = setInterval(tick, 4000)
+  const interval = setInterval(tick, 3000)
   tick()
   return () => {
     closed = true
     clearInterval(interval)
-    if (source) source.close()
   }
 }
 
