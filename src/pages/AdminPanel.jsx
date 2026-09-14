@@ -14,7 +14,7 @@ import { supabase } from '../services/supabase'
   saveData,
   subscribeData,
   uploadLogo,
- from '../storage'
+ from '../storage;
 
 const DAYS = ['A', 'B', 'C', 'D', 'E']
 const TABS = [
