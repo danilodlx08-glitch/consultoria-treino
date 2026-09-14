@@ -3,6 +3,7 @@ const STORAGE_KEY = 'dl_consultoria_v1'
 export const ADMIN_PASSWORD = 'admin17249'
 export const WHATSAPP_NUMBER = '5527996247906'
 import { supabase } from './supabase'
+
 function clone(value) {
   return JSON.parse(JSON.stringify(value))
 }
@@ -302,7 +303,6 @@ export async function fetchData() {
     const { data, error } = await supabase.from('alunos').select('*')
     if (!error && data) {
       const current = loadData()
-      // Mapeia os dados do Supabase para o formato de estudantes da aplicação
       current.students = data.map(aluno => ({
         id: aluno.id,
         name: aluno.nome,
@@ -317,7 +317,6 @@ export async function fetchData() {
     // fallback local
   }
   return loadData()
-}
 }
 
 export async function saveData(data) {
