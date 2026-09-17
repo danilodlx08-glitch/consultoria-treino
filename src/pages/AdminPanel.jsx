@@ -408,10 +408,6 @@ export default function AdminPanel() {
     setLibraryOpen(false)
   }
 
-  /*
-   * Adiciona rapidamente um exercício que já existe no
-   * treino atual à biblioteca.
-   */
   function saveWorkoutExerciseToLibrary(exercise) {
     if (!exercise.name?.trim()) return
 
