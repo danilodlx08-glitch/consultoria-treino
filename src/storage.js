@@ -308,10 +308,6 @@ const defaultData = {
 |--------------------------------------------------------------------------
 | BIBLIOTECA DE EXERCÍCIOS
 |--------------------------------------------------------------------------
-|
-| A biblioteca é criada automaticamente a partir dos exercícios
-| existentes nos treinos padrão.
-|
 */
 
 function buildInitialLibrary() {
@@ -556,15 +552,13 @@ export function removeLibraryExercise(data, exerciseId) {
   return next
 }
 
+// Atalho de compatibilidade para o AdminPanel
+export const removeExerciseFromLibrary = removeLibraryExercise
+
 /*
 |--------------------------------------------------------------------------
 | ADICIONAR EXERCÍCIO DA BIBLIOTECA AO ALUNO
 |--------------------------------------------------------------------------
-|
-| IMPORTANTE:
-| É criada uma cópia do exercício.
-| Alterar o exercício do aluno NÃO altera a biblioteca.
-|
 */
 
 export function addLibraryExerciseToWorkout(
