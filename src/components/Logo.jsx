@@ -4,7 +4,7 @@ export default function Logo({ className = 'h-12 w-12', showText = false }) {
   const { logo } = useBrand()
 
   // Fallback seguro caso a logo não esteja cadastrada
-  const fallbackLogo = '/logo.svg'
+  const fallbackLogo = '/logo.png'
 
   return (
     <div className="flex items-center gap-3">
