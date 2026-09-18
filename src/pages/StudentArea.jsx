@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ExternalLink, LogOut, RefreshCw, X, Play } from 'lucide-react'
+import { ExternalLink, LogOut, RefreshCw, X, Play, Timer, Check, RotateCcw } from 'lucide-react'
 import Logo from '../components/Logo.jsx'
 import { useAuth } from '../auth.jsx'
 import { loadData, subscribeData } from '../storage'
@@ -23,6 +23,11 @@ export default function StudentArea() {
   const [day, setDay] = useState('A')
   const [syncedAt, setSyncedAt] = useState('')
   const [selectedVideo, setSelectedVideo] = useState(null)
+
+  // Estados para o Timer de Descanso
+  const [timerSeconds, setTimerSeconds] = useState(0)
+  const [timerActive, setTimerActive] = useState(false)
+  const [initialTime, setInitialTime] = useState(60)
 
   const current = useMemo(() => {
     return (
@@ -54,6 +59,30 @@ export default function StudentArea() {
 
     return stop
   }, [])
+
+  // Lógica do Cronômetro de Descanso
+  useEffect(() => {
+    let interval = null
+    if (timerActive && timerSeconds > 0) {
+      interval = setInterval(() => {
+        setTimerSeconds((sec) => sec - 1)
+      }, 1000)
+    } else if (timerSeconds === 0 && timerActive) {
+      setTimerActive(false)
+    }
+    return () => clearInterval(interval)
+  }, [timerActive, timerSeconds])
+
+  function startTimer(seconds) {
+    setInitialTime(seconds)
+    setTimerSeconds(seconds)
+    setTimerActive(true)
+  }
+
+  function stopTimer() {
+    setTimerActive(false)
+    setTimerSeconds(0)
+  }
 
   // Fecha o vídeo ao apertar ESC
   useEffect(() => {
@@ -96,7 +125,7 @@ export default function StudentArea() {
   }
 
   return (
-    <div className="min-h-dvh bg-ink-950">
+    <div className="min-h-dvh bg-ink-950 pb-24 text-white">
       {/* HEADER FIXO */}
       <header className="sticky top-0 z-30 border-b border-white/5 bg-ink-950/95 backdrop-blur">
         <div className="mx-auto flex max-w-md items-center justify-between px-4 py-3">
@@ -124,9 +153,9 @@ export default function StudentArea() {
           )}
         </div>
 
-        {/* BARRA DE DIAS FIXA (STICKY) LOGO ABAIXO DO TOPO */}
+        {/* BARRA DE DIAS FIXA (STICKY) */}
         <div className="sticky top-[57px] z-20 border-b border-white/5 bg-ink-950/95 px-4 py-2.5 backdrop-blur">
-          <div className="mx-auto max-w-md grid grid-cols-5 gap-2">
+          <div className="mx-auto grid max-w-md grid-cols-5 gap-2">
             {DAYS.map((item) => (
               <button
                 key={item}
@@ -153,6 +182,56 @@ export default function StudentArea() {
         <h1 className="mt-1 font-display text-2xl uppercase">
           {workout.title}
         </h1>
+
+        {/* PAINEL RÁPIDO DO TIMER DE DESCANSO */}
+        <div className="mt-4 rounded-2xl border border-gold-400/30 bg-ink-900 p-4 shadow-lg">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Timer size={18} className="text-gold-400" />
+              <span className="text-xs font-semibold uppercase tracking-wider text-gold-300">
+                Descanso entre séries
+              </span>
+            </div>
+
+            {timerActive ? (
+              <button
+                onClick={stopTimer}
+                className="rounded-lg bg-red-500/20 px-3 py-1 text-xs font-bold uppercase text-red-400 border border-red-500/30 transition hover:bg-red-500/30"
+              >
+                Parar ({timerSeconds}s)
+              </button>
+            ) : timerSeconds > 0 ? (
+              <button
+                onClick={() => startTimer(initialTime)}
+                className="inline-flex items-center gap-1 rounded-lg bg-gold-400 px-3 py-1 text-xs font-bold uppercase text-ink-950 transition hover:bg-gold-300"
+              >
+                <RotateCcw size={12} /> Reiniciar
+              </button>
+            ) : (
+              <span className="text-xs text-zinc-500">Pronto</span>
+            )}
+          </div>
+
+          {timerActive && (
+            <div className="mt-3 text-center">
+              <span className="font-display text-4xl tracking-widest text-gold-400 animate-pulse">
+                {timerSeconds}s
+              </span>
+            </div>
+          )}
+
+          <div className="mt-3 grid grid-cols-4 gap-2">
+            {[30, 45, 60, 90].secs || [30, 45, 60, 90].map((sec) => (
+              <button
+                key={sec}
+                onClick={() => startTimer(sec)}
+                className="rounded-xl border border-white/10 bg-ink-800 py-2 text-xs font-semibold text-zinc-300 hover:border-gold-400/40 hover:text-gold-400 transition"
+              >
+                {sec}s
+              </button>
+            ))}
+          </div>
+        </div>
 
         <div className="mt-5 space-y-3">
           {(workout.exercises || []).map((exercise, index) => {
@@ -206,12 +285,24 @@ export default function StudentArea() {
                   </p>
                 )}
 
+                {/* BOTÃO RÁPIDO PARA DISPARAR DESCANSO DE 60s APÓS A SÉRIE */}
+                <div className="mt-4 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => startTimer(60)}
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-gold-400/20 bg-ink-700 py-2.5 text-xs font-semibold uppercase tracking-wider text-gold-300 hover:border-gold-400/50 transition"
+                  >
+                    <Timer size={14} />
+                    Descansar 60s
+                  </button>
+                </div>
+
                 {/* VÍDEO */}
                 {exercise.video && (
                   <button
                     type="button"
                     onClick={() => openVideo(exercise)}
-                    className="group mt-4 block w-full overflow-hidden rounded-xl border border-gold-400/20 bg-ink-700 text-left transition hover:border-gold-400/50"
+                    className="group mt-3 block w-full overflow-hidden rounded-xl border border-gold-400/20 bg-ink-700 text-left transition hover:border-gold-400/50"
                   >
                     {videoId ? (
                       <div className="relative">
