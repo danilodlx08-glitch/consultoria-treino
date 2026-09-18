@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ExternalLink, LogOut, RefreshCw, X, Play, Timer, Check, RotateCcw } from 'lucide-react'
+import { ExternalLink, LogOut, RefreshCw, X, Play, Timer, RotateCcw } from 'lucide-react'
 import Logo from '../components/Logo.jsx'
 import { useAuth } from '../auth.jsx'
 import { loadData, subscribeData } from '../storage'
@@ -125,7 +125,7 @@ export default function StudentArea() {
   }
 
   return (
-    <div className="min-h-dvh bg-ink-950 pb-24 text-white">
+    <div className="min-h-dvh bg-ink-950 pb-28 text-white">
       {/* HEADER FIXO */}
       <header className="sticky top-0 z-30 border-b border-white/5 bg-ink-950/95 backdrop-blur">
         <div className="mx-auto flex max-w-md items-center justify-between px-4 py-3">
@@ -183,56 +183,6 @@ export default function StudentArea() {
           {workout.title}
         </h1>
 
-        {/* PAINEL RÁPIDO DO TIMER DE DESCANSO */}
-        <div className="mt-4 rounded-2xl border border-gold-400/30 bg-ink-900 p-4 shadow-lg">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Timer size={18} className="text-gold-400" />
-              <span className="text-xs font-semibold uppercase tracking-wider text-gold-300">
-                Descanso entre séries
-              </span>
-            </div>
-
-            {timerActive ? (
-              <button
-                onClick={stopTimer}
-                className="rounded-lg bg-red-500/20 px-3 py-1 text-xs font-bold uppercase text-red-400 border border-red-500/30 transition hover:bg-red-500/30"
-              >
-                Parar ({timerSeconds}s)
-              </button>
-            ) : timerSeconds > 0 ? (
-              <button
-                onClick={() => startTimer(initialTime)}
-                className="inline-flex items-center gap-1 rounded-lg bg-gold-400 px-3 py-1 text-xs font-bold uppercase text-ink-950 transition hover:bg-gold-300"
-              >
-                <RotateCcw size={12} /> Reiniciar
-              </button>
-            ) : (
-              <span className="text-xs text-zinc-500">Pronto</span>
-            )}
-          </div>
-
-          {timerActive && (
-            <div className="mt-3 text-center">
-              <span className="font-display text-4xl tracking-widest text-gold-400 animate-pulse">
-                {timerSeconds}s
-              </span>
-            </div>
-          )}
-
-          <div className="mt-3 grid grid-cols-4 gap-2">
-            {[30, 45, 60, 90].secs || [30, 45, 60, 90].map((sec) => (
-              <button
-                key={sec}
-                onClick={() => startTimer(sec)}
-                className="rounded-xl border border-white/10 bg-ink-800 py-2 text-xs font-semibold text-zinc-300 hover:border-gold-400/40 hover:text-gold-400 transition"
-              >
-                {sec}s
-              </button>
-            ))}
-          </div>
-        </div>
-
         <div className="mt-5 space-y-3">
           {(workout.exercises || []).map((exercise, index) => {
             const videoId = youtubeId(exercise.video)
@@ -285,7 +235,7 @@ export default function StudentArea() {
                   </p>
                 )}
 
-                {/* BOTÃO RÁPIDO PARA DISPARAR DESCANSO DE 60s APÓS A SÉRIE */}
+                {/* BOTÃO RÁPIDO PARA DISPARAR DESCANSO DE 60s */}
                 <div className="mt-4 flex gap-2">
                   <button
                     type="button"
@@ -353,6 +303,60 @@ export default function StudentArea() {
           })}
         </div>
       </main>
+
+      {/* TIMER FLUTUANTE FIXO NO RODAPÉ (SEMPRE VISÍVEL DURANTE O TREINO) */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-gold-400/20 bg-ink-950/95 p-3 backdrop-blur shadow-2xl">
+        <div className="mx-auto max-w-md">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Timer size={18} className="text-gold-400 animate-pulse" />
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-zinc-400">
+                  Descanso entre séries
+                </p>
+                <p className="font-display text-xl text-gold-400">
+                  {timerActive ? `${timerSeconds}s` : timerSeconds === 0 && !timerActive ? 'Pronto' : `${timerSeconds}s`}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {timerActive ? (
+                <button
+                  onClick={stopTimer}
+                  className="rounded-xl bg-red-500/25 px-4 py-2 text-xs font-bold uppercase text-red-300 border border-red-500/30 transition hover:bg-red-500/40"
+                >
+                  Parar
+                </button>
+              ) : (
+                <button
+                  onClick={() => startTimer(initialTime)}
+                  className="inline-flex items-center gap-1 rounded-xl bg-gold-400 px-3 py-2 text-xs font-bold uppercase text-ink-950 transition hover:bg-gold-300"
+                >
+                  <RotateCcw size={12} /> Repetir ({initialTime}s)
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* BOTÕES DE ATALHO RÁPIDO DE TEMPO NO RODAPÉ */}
+          <div className="mt-2 grid grid-cols-4 gap-1.5">
+            {[30, 45, 60, 90].map((sec) => (
+              <button
+                key={sec}
+                onClick={() => startTimer(sec)}
+                className={`rounded-lg py-1.5 text-xs font-semibold transition ${
+                  initialTime === sec && timerActive
+                    ? 'bg-gold-400 text-ink-950 font-bold'
+                    : 'border border-white/10 bg-ink-900 text-zinc-300 hover:border-gold-400/40 hover:text-gold-400'
+                }`}
+              >
+                {sec}s
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
 
       {/* MODAL DO VÍDEO */}
       {selectedVideo && (
