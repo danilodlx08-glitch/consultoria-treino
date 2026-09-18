@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ExternalLink, LogOut, RefreshCw, X, Play, Timer, RotateCcw } from 'lucide-react'
+import { ExternalLink, LogOut, RefreshCw, X, Play, Timer, RotateCcw, MessageCircle } from 'lucide-react'
 import Logo from '../components/Logo.jsx'
 import { useAuth } from '../auth.jsx'
 import { loadData, subscribeData } from '../storage'
@@ -80,12 +80,31 @@ export default function StudentArea() {
     setInitialTime(seconds)
     setTimerSeconds(seconds)
     setTimerActive(true)
-    setActiveRestMenu(null) // Fecha o menu ao escolher
+    setActiveRestMenu(null)
   }
 
   function stopTimer() {
     setTimerActive(false)
     setTimerSeconds(0)
+  }
+
+  // Função para enviar feedback/cargas para o WhatsApp do Personal
+  function sendWhatsAppFeedback() {
+    const studentName = current?.name || student?.name || 'Aluno'
+    const workoutTitle = workout.title || `Treino ${day}`
+    
+    // Lista os exercícios do treino atual para formatar na mensagem
+    const exercisesList = (workout.exercises || [])
+      .map((ex, idx) => `*${idx + 1}. ${ex.name}* (Séries: ${ex.sets}, Reps: ${ex.reps})\nCarga: `)
+      .join('\n\n')
+
+    const message = encodeURIComponent(
+      `Olá Danilo! Aqui são as cargas e feedback do *${studentName}* referentes ao *${workoutTitle}* (${day}):\n\n${exercisesList}\n\nObservações / Dúvidas:`
+    )
+
+    // Número de WhatsApp configurado (ou pode deixar o link universal)
+    const phone = '5527999999999' // Substitua pelo seu número se desejar, ou use wa.me
+    window.open(`https://wa.me/${phone}?text=${message}`, '_blank', 'noopener,noreferrer')
   }
 
   // Fecha o vídeo ao apertar ESC
@@ -127,7 +146,7 @@ export default function StudentArea() {
   }
 
   return (
-    <div className="min-h-dvh bg-ink-950 pb-28 text-white">
+    <div className="min-h-dvh bg-ink-950 pb-36 text-white">
       {/* HEADER FIXO */}
       <header className="sticky top-0 z-30 border-b border-white/5 bg-ink-950/95 backdrop-blur">
         <div className="mx-auto flex max-w-md items-center justify-between px-4 py-3">
@@ -187,6 +206,16 @@ export default function StudentArea() {
         <h1 className="mt-1 font-display text-2xl uppercase">
           {workout.title}
         </h1>
+
+        {/* BOTÃO DE ENVIAR CARGAS / FEEDBACK VIA WHATSAPP */}
+        <button
+          type="button"
+          onClick={sendWhatsAppFeedback}
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600/20 border border-emerald-500/40 py-3.5 text-xs font-bold uppercase tracking-wider text-emerald-400 transition hover:bg-emerald-600/30 shadow-lg"
+        >
+          <MessageCircle size={18} />
+          Enviar cargas e feedback no WhatsApp
+        </button>
 
         <div className="mt-5 space-y-3">
           {(workout.exercises || []).map((exercise, index) => {
