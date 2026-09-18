@@ -12,6 +12,7 @@ import {
   X,
   Dumbbell,
   Play,
+  CheckCircle2,
 } from 'lucide-react'
 import { useAuth } from '../auth.jsx'
 import {
@@ -77,6 +78,7 @@ export default function AdminPanel() {
 
   const [libraryOpen, setLibraryOpen] = useState(false)
   const [librarySearch, setLibrarySearch] = useState('')
+  const [selectedMuscleFilter, setSelectedMuscleFilter] = useState('TODOS')
   const [showNewLibraryExercise, setShowNewLibraryExercise] = useState(false)
 
   const [libraryForm, setLibraryForm] = useState(emptyLibraryExercise())
@@ -104,7 +106,7 @@ export default function AdminPanel() {
     saveData(next)
 
     setSaved(
-      'Salvo na nuvem. Os alunos recebem a atualizacao automaticamente.'
+      'Salvo na nuvem. Os alunos recebem a atualização automaticamente.'
     )
 
     setTimeout(() => setSaved(''), 2200)
@@ -135,7 +137,7 @@ export default function AdminPanel() {
     }
 
     if (file.size > 4 * 1024 * 1024) {
-      setLogoError('A imagem deve ter no maximo 4 MB.')
+      setLogoError('A imagem deve ter no máximo 4 MB.')
       return
     }
 
@@ -154,7 +156,7 @@ export default function AdminPanel() {
       setLogoError('')
     } catch {
       setLogoError(
-        'Nao foi possivel carregar a imagem. Tente outro arquivo.'
+        'Não foi possível carregar a imagem. Tente outro arquivo.'
       )
     }
   }
@@ -307,29 +309,42 @@ export default function AdminPanel() {
 
   /*
    * ==========================================================
-   * BIBLIOTECA DE EXERCICIOS
+   * BIBLIOTECA DE EXERCÍCIOS
    * ==========================================================
    */
 
   const libraryExercises = data.exercisesLibrary || []
 
+  // Extrai lista única de músculos cadastrados para os filtros rápidos
+  const availableMuscles = useMemo(() => {
+    const muscles = new Set()
+    libraryExercises.forEach((item) => {
+      if (item.muscle?.trim()) {
+        muscles.add(item.muscle.trim().toUpperCase())
+      }
+    })
+    return ['TODOS', ...Array.from(muscles)]
+  }, [libraryExercises])
+
   const filteredLibrary = useMemo(() => {
     const term = librarySearch.trim().toLowerCase()
 
-    if (!term) return libraryExercises
+    return libraryExercises.filter((exercise) => {
+      const matchesSearch =
+        !term ||
+        [exercise.name, exercise.muscle, exercise.notes]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+          .includes(term)
 
-    return libraryExercises.filter((exercise) =>
-      [
-        exercise.name,
-        exercise.muscle,
-        exercise.notes,
-      ]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase()
-        .includes(term)
-    )
-  }, [libraryExercises, librarySearch])
+      const matchesMuscle =
+        selectedMuscleFilter === 'TODOS' ||
+        exercise.muscle?.trim().toUpperCase() === selectedMuscleFilter
+
+      return matchesSearch && matchesMuscle
+    })
+  }, [libraryExercises, librarySearch, selectedMuscleFilter])
 
   function addCurrentExerciseToLibrary(exercise) {
     const next = addExerciseToLibrary(data, {
@@ -381,18 +396,6 @@ export default function AdminPanel() {
     persist(next)
   }
 
-  function editLibraryExercise(exerciseId, field, value) {
-    const next = updateLibraryExercise(
-      data,
-      exerciseId,
-      {
-        [field]: value,
-      }
-    )
-
-    persist(next)
-  }
-
   function addFromLibrary(exerciseId) {
     if (!selectedStudent) return
 
@@ -418,12 +421,14 @@ export default function AdminPanel() {
     )
 
     if (alreadyExists) {
-      setSaved('Esse exercício ja esta na biblioteca.')
+      setSaved('Esse exercício já está na biblioteca.')
       setTimeout(() => setSaved(''), 2200)
       return
     }
 
     addCurrentExerciseToLibrary(exercise)
+    setSaved('Exercício salvo na biblioteca com sucesso!')
+    setTimeout(() => setSaved(''), 2200)
   }
 
   function addStudent(event) {
@@ -508,7 +513,7 @@ export default function AdminPanel() {
 
   function copyCredentials(student) {
     const text = `Acesso Danilo Lopes
-Codigo: ${student.code}
+Código: ${student.code}
 Senha: ${student.password}`
 
     if (navigator.clipboard?.writeText) {
@@ -563,7 +568,8 @@ Senha: ${student.password}`
 
       <main className="mx-auto max-w-md px-4 py-5 pb-24">
         {saved && (
-          <p className="mb-4 rounded-xl bg-gold-400/10 px-3 py-2 text-sm text-gold-300">
+          <p className="mb-4 flex items-center gap-2 rounded-xl bg-gold-400/15 px-3 py-2.5 text-sm font-medium text-gold-300">
+            <CheckCircle2 size={16} />
             {saved}
           </p>
         )}
@@ -579,8 +585,8 @@ Senha: ${student.password}`
             </h1>
 
             <p className="text-sm leading-6 text-zinc-400">
-              Envie a logo oficial. Ela e salva e usada na
-              landing, nos logins e no icone da tela inicial.
+              Envie a logo oficial. Ela é salva e usada na
+              landing, nos logins e no ícone da tela inicial.
             </p>
 
             <div className="rounded-2xl border border-white/5 bg-ink-800 p-4">
@@ -617,7 +623,7 @@ Senha: ${student.password}`
               onClick={resetLogo}
               className="w-full rounded-xl border border-white/10 py-3 text-sm uppercase tracking-wide text-zinc-400"
             >
-              Restaurar logo padrao
+              Restaurar logo padrão
             </button>
 
             {logoError && (
@@ -635,7 +641,7 @@ Senha: ${student.password}`
         {tab === 'sales' && (
           <section className="space-y-4">
             <h1 className="font-display text-2xl uppercase">
-              Gestao de Vendas
+              Gestão de Vendas
             </h1>
 
             <label className="block text-xs uppercase tracking-[0.18em] text-gold-400">
@@ -670,7 +676,7 @@ Senha: ${student.password}`
             </label>
 
             <label className="block text-xs uppercase tracking-[0.18em] text-gold-400">
-              Descricao
+              Descrição
 
               <textarea
                 value={data.plan.description}
@@ -743,8 +749,8 @@ Senha: ${student.password}`
             </h1>
 
             <p className="mt-2 text-sm text-zinc-400">
-              Cada aluno tem as proprias planilhas A a E.
-              Alteracoes sincronizam no celular dele.
+              Cada aluno tem as próprias planilhas A a E.
+              Alterações sincronizam no telemóvel dele.
             </p>
 
             <label className="mt-4 block text-xs uppercase tracking-[0.18em] text-gold-400">
@@ -780,7 +786,7 @@ Senha: ${student.password}`
                   onClick={() => setDay(item)}
                   className={`rounded-xl py-2 font-display ${
                     day === item
-                      ? 'bg-gold-400 text-ink-950'
+                      ? 'bg-gold-400 text-ink-950 font-bold'
                       : 'border border-white/10 bg-ink-800 text-white'
                   }`}
                 >
@@ -790,7 +796,7 @@ Senha: ${student.password}`
             </div>
 
             <label className="mt-4 block text-xs uppercase tracking-[0.18em] text-gold-400">
-              Titulo
+              Título
 
               <input
                 value={currentWorkout.title}
@@ -826,7 +832,7 @@ Senha: ${student.password}`
             <button
               type="button"
               onClick={() => setLibraryOpen(true)}
-              className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-gold-400 py-3 text-sm font-semibold uppercase tracking-wide text-ink-950"
+              className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-gold-400 py-3.5 text-sm font-semibold uppercase tracking-wide text-ink-950 shadow-lg hover:bg-gold-300 transition"
             >
               <Library size={17} />
               Biblioteca de exercícios
@@ -841,7 +847,7 @@ Senha: ${student.password}`
                   >
                     <div className="mb-3 flex items-center justify-between">
                       <p className="text-xs uppercase tracking-[0.18em] text-gold-400">
-                        Exercicio {index + 1}
+                        Exercício {index + 1}
                       </p>
 
                       <div className="flex items-center gap-3">
@@ -852,7 +858,7 @@ Senha: ${student.password}`
                               exercise
                             )
                           }
-                          className="text-gold-300"
+                          className="text-gold-300 hover:text-white transition"
                           title="Salvar na biblioteca"
                         >
                           <Library size={16} />
@@ -864,7 +870,7 @@ Senha: ${student.password}`
                               exercise.id
                             )
                           }
-                          className="text-zinc-400"
+                          className="text-zinc-400 hover:text-red-400 transition"
                           title="Excluir do treino"
                         >
                           <Trash2 size={16} />
@@ -881,7 +887,7 @@ Senha: ${student.password}`
                           e.target.value
                         )
                       }
-                      placeholder="Nome do exercicio"
+                      placeholder="Nome do exercício"
                       className="mb-2 w-full rounded-xl border border-white/10 bg-ink-700 px-3 py-2 text-sm text-white"
                     />
 
@@ -896,7 +902,7 @@ Senha: ${student.password}`
                           e.target.value
                         )
                       }
-                      placeholder="Grupo muscular"
+                      placeholder="Grupo muscular (ex: Peito)"
                       className="mb-2 w-full rounded-xl border border-white/10 bg-ink-700 px-3 py-2 text-sm text-white"
                     />
 
@@ -910,7 +916,7 @@ Senha: ${student.password}`
                             e.target.value
                           )
                         }
-                        placeholder="Series"
+                        placeholder="Séries"
                         className="rounded-xl border border-white/10 bg-ink-700 px-3 py-2 text-sm text-white"
                       />
 
@@ -923,7 +929,7 @@ Senha: ${student.password}`
                             e.target.value
                           )
                         }
-                        placeholder="Repeticoes"
+                        placeholder="Repetições"
                         className="rounded-xl border border-white/10 bg-ink-700 px-3 py-2 text-sm text-white"
                       />
                     </div>
@@ -937,7 +943,7 @@ Senha: ${student.password}`
                           e.target.value
                         )
                       }
-                      placeholder="Observacoes"
+                      placeholder="Observações"
                       rows={2}
                       className="mb-2 w-full rounded-xl border border-white/10 bg-ink-700 px-3 py-2 text-sm text-white"
                     />
@@ -951,7 +957,7 @@ Senha: ${student.password}`
                           e.target.value
                         )
                       }
-                      placeholder="Cole o link do video"
+                      placeholder="Cole o link do vídeo (YouTube)"
                       className="w-full rounded-xl border border-white/10 bg-ink-700 px-3 py-2 text-sm text-white"
                     />
                   </div>
@@ -961,10 +967,10 @@ Senha: ${student.password}`
 
             <button
               onClick={addExercise}
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-gold-400/30 py-3 text-sm font-semibold uppercase tracking-wide text-gold-300"
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-gold-400/30 py-3 text-sm font-semibold uppercase tracking-wide text-gold-300 hover:bg-gold-400/10 transition"
             >
               <Plus size={16} />
-              Adicionar exercicio manualmente
+              Adicionar exercício manualmente
             </button>
           </section>
         )}
@@ -1003,7 +1009,7 @@ Senha: ${student.password}`
                     code: e.target.value.toUpperCase(),
                   })
                 }
-                placeholder="Codigo unico"
+                placeholder="Código único"
                 className="w-full rounded-xl border border-white/10 bg-ink-700 px-3 py-2 text-sm text-white"
               />
 
@@ -1030,7 +1036,7 @@ Senha: ${student.password}`
                 }
                 className="w-full rounded-xl border border-gold-400/20 py-2 text-xs uppercase tracking-wide text-gold-300"
               >
-                Gerar codigo e senha
+                Gerar código e senha
               </button>
 
               <button
@@ -1056,7 +1062,7 @@ Senha: ${student.password}`
                         </h2>
 
                         <p className="mt-1 text-sm text-zinc-400">
-                          Codigo: {student.code}
+                          Código: {student.code}
                         </p>
 
                         <p className="text-sm text-zinc-400">
@@ -1150,7 +1156,7 @@ Senha: ${student.password}`
                 </p>
 
                 <h2 className="mt-1 font-display text-xl uppercase">
-                  Exercicios
+                  Exercícios
                 </h2>
               </div>
 
@@ -1181,10 +1187,30 @@ Senha: ${student.password}`
                       e.target.value
                     )
                   }
-                  placeholder="Buscar exercicio..."
+                  placeholder="Buscar exercício..."
                   className="w-full rounded-xl border border-white/10 bg-ink-800 py-3 pl-10 pr-3 text-sm text-white outline-none focus:border-gold-400/40"
                 />
               </div>
+
+              {/* FILTROS RÁPIDOS POR MÚSCULO (TAGS) */}
+              {availableMuscles.length > 1 && (
+                <div className="mt-3 flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                  {availableMuscles.map((muscle) => (
+                    <button
+                      key={muscle}
+                      type="button"
+                      onClick={() => setSelectedMuscleFilter(muscle)}
+                      className={`shrink-0 rounded-lg px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider transition ${
+                        selectedMuscleFilter === muscle
+                          ? 'bg-gold-400 text-ink-950'
+                          : 'bg-ink-800 border border-white/10 text-zinc-400 hover:text-white'
+                      }`}
+                    >
+                      {muscle}
+                    </button>
+                  ))}
+                </div>
+              )}
 
               {/* NOVO EXERCÍCIO */}
 
@@ -1196,10 +1222,10 @@ Senha: ${student.password}`
                       true
                     )
                   }
-                  className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-gold-400/30 py-3 text-sm font-semibold uppercase tracking-wide text-gold-300"
+                  className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-gold-400/30 py-3 text-sm font-semibold uppercase tracking-wide text-gold-300 hover:bg-gold-400/10 transition"
                 >
                   <Plus size={16} />
-                  Novo exercicio na biblioteca
+                  Novo exercício na biblioteca
                 </button>
               ) : (
                 <form
@@ -1210,7 +1236,7 @@ Senha: ${student.password}`
                 >
                   <div className="mb-3 flex items-center justify-between">
                     <p className="text-xs uppercase tracking-[0.18em] text-gold-400">
-                      Novo exercicio
+                      Novo exercício
                     </p>
 
                     <button
@@ -1240,7 +1266,7 @@ Senha: ${student.password}`
                           name: e.target.value,
                         })
                       }
-                      placeholder="Nome do exercicio"
+                      placeholder="Nome do exercício"
                       className="w-full rounded-xl border border-white/10 bg-ink-700 px-3 py-2.5 text-sm text-white"
                     />
 
@@ -1255,7 +1281,7 @@ Senha: ${student.password}`
                             e.target.value,
                         })
                       }
-                      placeholder="Grupo muscular"
+                      placeholder="Grupo muscular (ex: Peito)"
                       className="w-full rounded-xl border border-white/10 bg-ink-700 px-3 py-2.5 text-sm text-white"
                     />
 
@@ -1270,7 +1296,7 @@ Senha: ${student.password}`
                             sets: e.target.value,
                           })
                         }
-                        placeholder="Series"
+                        placeholder="Séries"
                         className="rounded-xl border border-white/10 bg-ink-700 px-3 py-2.5 text-sm text-white"
                       />
 
@@ -1284,7 +1310,7 @@ Senha: ${student.password}`
                             reps: e.target.value,
                           })
                         }
-                        placeholder="Repeticoes"
+                        placeholder="Repetições"
                         className="rounded-xl border border-white/10 bg-ink-700 px-3 py-2.5 text-sm text-white"
                       />
                     </div>
@@ -1299,7 +1325,7 @@ Senha: ${student.password}`
                           notes: e.target.value,
                         })
                       }
-                      placeholder="Observacoes"
+                      placeholder="Observações"
                       rows={2}
                       className="w-full rounded-xl border border-white/10 bg-ink-700 px-3 py-2.5 text-sm text-white"
                     />
@@ -1341,7 +1367,7 @@ Senha: ${student.password}`
                     />
 
                     <p className="mt-3 text-sm text-zinc-400">
-                      Nenhum exercicio
+                      Nenhum exercício
                       encontrado.
                     </p>
                   </div>
@@ -1372,7 +1398,7 @@ Senha: ${student.password}`
                                 exercise.id
                               )
                             }
-                            className="shrink-0 text-zinc-500 hover:text-red-400"
+                            className="shrink-0 text-zinc-500 hover:text-red-400 transition"
                             title="Excluir da biblioteca"
                           >
                             <Trash2 size={16} />
@@ -1382,7 +1408,7 @@ Senha: ${student.password}`
                         <div className="mt-3 grid grid-cols-2 gap-2">
                           <div className="rounded-xl bg-ink-700 px-3 py-2">
                             <p className="text-[10px] uppercase tracking-widest text-zinc-500">
-                              Series
+                              Séries
                             </p>
 
                             <p className="font-display text-lg text-gold-400">
@@ -1393,7 +1419,7 @@ Senha: ${student.password}`
 
                           <div className="rounded-xl bg-ink-700 px-3 py-2">
                             <p className="text-[10px] uppercase tracking-widest text-zinc-500">
-                              Repeticoes
+                              Repetições
                             </p>
 
                             <p className="font-display text-lg text-gold-400">
@@ -1412,7 +1438,7 @@ Senha: ${student.password}`
                         {exercise.video && (
                           <p className="mt-2 flex items-center gap-1 text-xs text-zinc-500">
                             <Play size={12} />
-                            Video cadastrado
+                            Vídeo cadastrado
                           </p>
                         )}
 
@@ -1423,7 +1449,7 @@ Senha: ${student.password}`
                               exercise.id
                             )
                           }
-                          className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-gold-400 py-2.5 text-xs font-semibold uppercase tracking-wide text-ink-950"
+                          className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-gold-400 py-2.5 text-xs font-semibold uppercase tracking-wide text-ink-950 hover:bg-gold-300 transition"
                         >
                           <Plus size={15} />
                           Adicionar ao treino {day}
