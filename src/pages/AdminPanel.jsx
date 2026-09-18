@@ -71,6 +71,10 @@ export default function AdminPanel() {
   const [logoError, setLogoError] = useState('')
   const [selectedStudentId, setSelectedStudentId] = useState('')
 
+  // Estado para controlar a exibição do painel/modal de copiar ficha entre alunos
+  const [showCopyStudentWorkoutsModal, setShowCopyStudentWorkoutsModal] = useState(false)
+  const [sourceStudentIdForCopy, setSourceStudentIdForCopy] = useState('')
+
   // Estado para a pesquisa rápida de alunos
   const [studentSearch, setStudentSearch] = useState('')
 
@@ -335,7 +339,7 @@ export default function AdminPanel() {
     })
   }
 
-  // NOVA FUNÇÃO: Copiar o conteúdo de um treino de outro dia para o dia atual
+  // Copiar o conteúdo de um treino de outro dia para o dia atual
   function copyWorkoutFromDay(sourceDay) {
     if (sourceDay === day) return
     const workouts = studentWorkouts()
@@ -352,7 +356,6 @@ export default function AdminPanel() {
     )
     if (!confirmed) return
 
-    // Clona os exercícios gerando novos IDs para evitar conflito
     const clonedExercises = sourceWorkout.exercises.map((ex) => ({
       ...ex,
       id: createId(),
@@ -368,6 +371,42 @@ export default function AdminPanel() {
     })
 
     setSaved(`Treino ${day} atualizado com base no Treino ${sourceDay}!`)
+    setTimeout(() => setSaved(''), 2200)
+  }
+
+  // NOVA FUNÇÃO: Copiar todas as fichas (A-E) de outro aluno para o aluno selecionado atual
+  function executeCopyWorkoutsFromStudent() {
+    if (!sourceStudentIdForCopy || !selectedStudent) return
+    const sourceStudent = data.students.find(s => s.id === sourceStudentIdForCopy)
+    if (!sourceStudent) return
+
+    const confirmed = window.confirm(
+      `Deseja substituir todas as fichas de ${selectedStudent.name} pelas fichas de ${sourceStudent.name}?`
+    )
+    if (!confirmed) return
+
+    // Clona os treinos gerando novos IDs para cada exercício de cada dia para evitar conflitos
+    const sourceWorkouts = sourceStudent.workouts || cloneWorkouts(data.workouts)
+    const clonedWorkouts = {}
+
+    DAYS.forEach(d => {
+      const dayData = sourceWorkouts[d]
+      if (dayData) {
+        clonedWorkouts[d] = {
+          title: dayData.title || '',
+          focus: dayData.focus || '',
+          exercises: (dayData.exercises || []).map(ex => ({
+            ...ex,
+            id: createId(),
+          }))
+        }
+      }
+    })
+
+    persistStudentWorkouts(clonedWorkouts)
+    setShowCopyStudentWorkoutsModal(false)
+    setSourceStudentIdForCopy('')
+    setSaved(`Fichas copiadas de ${sourceStudent.name} com sucesso!`)
     setTimeout(() => setSaved(''), 2200)
   }
 
@@ -844,6 +883,18 @@ Senha: ${student.password}`
               </select>
             </label>
 
+            {/* BOTÃO PARA COPIAR FICHA COMPLETA DE OUTRO ALUNO */}
+            {data.students.length > 1 && (
+              <button
+                type="button"
+                onClick={() => setShowCopyStudentWorkoutsModal(true)}
+                className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-gold-400/30 bg-ink-800 py-2.5 text-xs font-semibold uppercase tracking-wide text-gold-300 hover:bg-gold-400/10 transition"
+              >
+                <CopyCheck size={15} />
+                Copiar ficha completa de outro aluno
+              </button>
+            )}
+
             <div className="mt-4 grid grid-cols-5 gap-2">
               {DAYS.map((item) => (
                 <button
@@ -1245,6 +1296,80 @@ Senha: ${student.password}`
           </section>
         )}
       </main>
+
+      {/* =======================================================
+          MODAL DE COPIAR FICHA DE OUTRO ALUNO
+      ======================================================== */}
+
+      {showCopyStudentWorkoutsModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setShowCopyStudentWorkoutsModal(false)
+            }
+          }}
+        >
+          <div className="w-full max-w-sm rounded-3xl border border-white/10 bg-ink-900 p-5 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.2em] text-gold-400">
+                  Duplicação
+                </p>
+                <h2 className="mt-0.5 font-display text-lg uppercase">
+                  Copiar Ficha de Aluno
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCopyStudentWorkoutsModal(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 text-zinc-300"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <p className="mt-3 text-xs leading-relaxed text-zinc-400">
+              Selecione abaixo o aluno modelo cujas fichas (A a E) você deseja copiar para <strong className="text-white">{selectedStudent?.name}</strong>:
+            </p>
+
+            <div className="mt-4 space-y-3">
+              <select
+                value={sourceStudentIdForCopy}
+                onChange={(e) => setSourceStudentIdForCopy(e.target.value)}
+                className="w-full rounded-xl border border-white/10 bg-ink-800 px-4 py-3 text-sm text-white"
+              >
+                <option value="" disabled>Selecione o aluno de origem...</option>
+                {data.students
+                  .filter((s) => s.id !== selectedStudent?.id)
+                  .map((student) => (
+                    <option key={student.id} value={student.id} className="bg-ink-900 text-white">
+                      {student.name} ({student.code})
+                    </option>
+                  ))}
+              </select>
+
+              <div className="grid grid-cols-2 gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCopyStudentWorkoutsModal(false)}
+                  className="rounded-xl border border-white/10 py-3 text-xs uppercase tracking-wide text-zinc-300"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  disabled={!sourceStudentIdForCopy}
+                  onClick={executeCopyWorkoutsFromStudent}
+                  className="rounded-xl bg-gold-400 py-3 text-xs font-semibold uppercase tracking-wide text-ink-950 disabled:opacity-50"
+                >
+                  Copiar Fichas
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* =======================================================
           MODAL DA BIBLIOTECA
