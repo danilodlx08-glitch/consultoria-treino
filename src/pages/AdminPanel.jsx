@@ -13,6 +13,7 @@ import {
   Dumbbell,
   Play,
   CheckCircle2,
+  CopyCheck,
 } from 'lucide-react'
 import { useAuth } from '../auth.jsx'
 import {
@@ -70,6 +71,9 @@ export default function AdminPanel() {
   const [logoError, setLogoError] = useState('')
   const [selectedStudentId, setSelectedStudentId] = useState('')
 
+  // Estado para a pesquisa rápida de alunos
+  const [studentSearch, setStudentSearch] = useState('')
+
   const [studentForm, setStudentForm] = useState({
     name: '',
     code: generateAccessCode(),
@@ -100,6 +104,30 @@ export default function AdminPanel() {
       data.students[0],
     [data.students, selectedStudentId]
   )
+
+  // Filtro e ordenação alfabética de alunos baseada na pesquisa rápida
+  const filteredStudents = useMemo(() => {
+    const term = studentSearch.trim().toLowerCase()
+    
+    const sorted = [...data.students].sort((a, b) =>
+      a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' })
+    )
+
+    if (!term) return sorted
+
+    return sorted.filter(
+      (student) =>
+        student.name.toLowerCase().includes(term) ||
+        student.code.toLowerCase().includes(term)
+    )
+  }, [data.students, studentSearch])
+
+  // Contadores estatísticos rápidos para os alunos
+  const studentStats = useMemo(() => {
+    const total = data.students.length
+    const active = data.students.filter((s) => s.active !== false).length
+    return { total, active, inactive: total - active }
+  }, [data.students])
 
   function persist(next) {
     setData(next)
@@ -307,6 +335,42 @@ export default function AdminPanel() {
     })
   }
 
+  // NOVA FUNÇÃO: Copiar o conteúdo de um treino de outro dia para o dia atual
+  function copyWorkoutFromDay(sourceDay) {
+    if (sourceDay === day) return
+    const workouts = studentWorkouts()
+    const sourceWorkout = workouts[sourceDay]
+
+    if (!sourceWorkout || !sourceWorkout.exercises.length) {
+      setSaved(`O treino ${sourceDay} está vazio.`)
+      setTimeout(() => setSaved(''), 2200)
+      return
+    }
+
+    const confirmed = window.confirm(
+      `Deseja copiar todos os exercícios e dados do Treino ${sourceDay} para o Treino ${day}?`
+    )
+    if (!confirmed) return
+
+    // Clona os exercícios gerando novos IDs para evitar conflito
+    const clonedExercises = sourceWorkout.exercises.map((ex) => ({
+      ...ex,
+      id: createId(),
+    }))
+
+    persistStudentWorkouts({
+      ...workouts,
+      [day]: {
+        title: sourceWorkout.title,
+        focus: sourceWorkout.focus,
+        exercises: clonedExercises,
+      },
+    })
+
+    setSaved(`Treino ${day} atualizado com base no Treino ${sourceDay}!`)
+    setTimeout(() => setSaved(''), 2200)
+  }
+
   /*
    * ==========================================================
    * BIBLIOTECA DE EXERCÍCIOS
@@ -315,7 +379,6 @@ export default function AdminPanel() {
 
   const libraryExercises = data.exercisesLibrary || []
 
-  // Extrai lista única de músculos cadastrados para os filtros rápidos
   const availableMuscles = useMemo(() => {
     const muscles = new Set()
     libraryExercises.forEach((item) => {
@@ -518,6 +581,8 @@ Senha: ${student.password}`
 
     if (navigator.clipboard?.writeText) {
       navigator.clipboard.writeText(text)
+      setSaved(`Credenciais de ${student.name} copiadas!`)
+      setTimeout(() => setSaved(''), 2200)
     }
   }
 
@@ -795,6 +860,23 @@ Senha: ${student.password}`
               ))}
             </div>
 
+            {/* BOTÃO DE ATALHO PARA COPIAR TREINO DE OUTRO DIA */}
+            <div className="mt-3 flex items-center gap-1.5 overflow-x-auto pb-1">
+              <span className="text-[10px] uppercase tracking-wider text-zinc-500 shrink-0">
+                Copiar de:
+              </span>
+              {DAYS.filter((d) => d !== day).map((sourceDay) => (
+                <button
+                  key={sourceDay}
+                  type="button"
+                  onClick={() => copyWorkoutFromDay(sourceDay)}
+                  className="rounded-lg border border-white/10 bg-ink-800 px-2.5 py-1 text-[11px] font-semibold text-zinc-300 hover:border-gold-400/40 hover:text-gold-300 transition shrink-0"
+                >
+                  Treino {sourceDay}
+                </button>
+              ))}
+            </div>
+
             <label className="mt-4 block text-xs uppercase tracking-[0.18em] text-gold-400">
               Título
 
@@ -985,6 +1067,18 @@ Senha: ${student.password}`
               Alunos e acessos
             </h1>
 
+            {/* INDICADOR NUMÉRICO RÁPIDO */}
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <div className="rounded-xl border border-white/5 bg-ink-800 p-3">
+                <p className="text-[10px] uppercase tracking-wider text-zinc-400">Total cadastrados</p>
+                <p className="font-display text-lg text-white">{studentStats.total}</p>
+              </div>
+              <div className="rounded-xl border border-white/5 bg-ink-800 p-3">
+                <p className="text-[10px] uppercase tracking-wider text-gold-400">Ativos</p>
+                <p className="font-display text-lg text-gold-300">{studentStats.active}</p>
+              </div>
+            </div>
+
             <form
               onSubmit={addStudent}
               className="mt-4 space-y-3 rounded-2xl border border-white/5 bg-ink-800 p-4"
@@ -1048,9 +1142,29 @@ Senha: ${student.password}`
               </button>
             </form>
 
+            {/* BARRA DE PESQUISA RÁPIDA DE ALUNOS */}
+            <div className="mt-5 relative">
+              <Search
+                size={17}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"
+              />
+              <input
+                value={studentSearch}
+                onChange={(e) => setStudentSearch(e.target.value)}
+                placeholder="Pesquisar aluno por nome ou código..."
+                className="w-full rounded-xl border border-white/10 bg-ink-800 py-3 pl-10 pr-3 text-sm text-white outline-none focus:border-gold-400/40"
+              />
+            </div>
+
             <div className="mt-4 space-y-3">
-              {data.students.map(
-                (student) => (
+              {filteredStudents.length === 0 ? (
+                <div className="rounded-2xl border border-white/5 bg-ink-800 p-6 text-center">
+                  <p className="text-sm text-zinc-400">
+                    Nenhum aluno encontrado.
+                  </p>
+                </div>
+              ) : (
+                filteredStudents.map((student) => (
                   <article
                     key={student.id}
                     className="rounded-2xl border border-white/5 bg-ink-800 p-4"
@@ -1125,7 +1239,7 @@ Senha: ${student.password}`
                       </button>
                     </div>
                   </article>
-                )
+                ))
               )}
             </div>
           </section>
