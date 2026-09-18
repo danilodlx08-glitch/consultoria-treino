@@ -29,6 +29,9 @@ export default function StudentArea() {
   const [timerActive, setTimerActive] = useState(false)
   const [initialTime, setInitialTime] = useState(60)
 
+  // Estado para controlar qual exercício está com o menu de descanso aberto
+  const [activeRestMenu, setActiveRestMenu] = useState(null)
+
   const current = useMemo(() => {
     return (
       data.students.find(
@@ -77,6 +80,7 @@ export default function StudentArea() {
     setInitialTime(seconds)
     setTimerSeconds(seconds)
     setTimerActive(true)
+    setActiveRestMenu(null) // Fecha o menu ao escolher
   }
 
   function stopTimer() {
@@ -89,17 +93,15 @@ export default function StudentArea() {
     function handleKeyDown(event) {
       if (event.key === 'Escape') {
         setSelectedVideo(null)
+        setActiveRestMenu(null)
       }
     }
 
-    if (selectedVideo) {
-      document.addEventListener('keydown', handleKeyDown)
-    }
-
+    document.addEventListener('keydown', handleKeyDown)
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [selectedVideo])
+  }, [])
 
   function exit() {
     logoutStudent()
@@ -159,7 +161,10 @@ export default function StudentArea() {
             {DAYS.map((item) => (
               <button
                 key={item}
-                onClick={() => setDay(item)}
+                onClick={() => {
+                  setDay(item)
+                  setActiveRestMenu(null)
+                }}
                 className={`rounded-xl py-2 font-display text-lg transition shadow-sm ${
                   day === item
                     ? 'bg-gold-400 text-ink-950 font-bold shadow-gold/20'
@@ -186,11 +191,12 @@ export default function StudentArea() {
         <div className="mt-5 space-y-3">
           {(workout.exercises || []).map((exercise, index) => {
             const videoId = youtubeId(exercise.video)
+            const isMenuOpen = activeRestMenu === exercise.id
 
             return (
               <article
                 key={exercise.id || `${day}-${index}`}
-                className="rounded-2xl border border-white/5 bg-ink-800 p-4"
+                className="rounded-2xl border border-white/5 bg-ink-800 p-4 relative"
               >
                 {/* NOME DO EXERCÍCIO */}
                 <div className="flex items-start justify-between gap-3">
@@ -235,16 +241,46 @@ export default function StudentArea() {
                   </p>
                 )}
 
-                {/* BOTÃO RÁPIDO PARA DISPARAR DESCANSO DE 60s */}
-                <div className="mt-4 flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => startTimer(60)}
-                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-gold-400/20 bg-ink-700 py-2.5 text-xs font-semibold uppercase tracking-wider text-gold-300 hover:border-gold-400/50 transition"
-                  >
-                    <Timer size={14} />
-                    Descansar 60s
-                  </button>
+                {/* BOTÃO INTERATIVO DE DESCANSO / MENU RÁPIDO */}
+                <div className="mt-4 relative">
+                  {!isMenuOpen ? (
+                    <button
+                      type="button"
+                      onClick={() => setActiveRestMenu(exercise.id)}
+                      className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-gold-400/20 bg-ink-700 py-2.5 text-xs font-semibold uppercase tracking-wider text-gold-300 hover:border-gold-400/50 transition"
+                    >
+                      <Timer size={14} />
+                      Escolher Descanso
+                    </button>
+                  ) : (
+                    <div className="rounded-xl border border-gold-400/40 bg-ink-900 p-3 shadow-xl">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[11px] font-semibold uppercase tracking-wider text-gold-400">
+                          Selecione o tempo de descanso:
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setActiveRestMenu(null)}
+                          className="text-zinc-400 hover:text-white"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-4 gap-1.5">
+                        {[30, 45, 60, 90].map((sec) => (
+                          <button
+                            key={sec}
+                            type="button"
+                            onClick={() => startTimer(sec)}
+                            className="rounded-lg border border-gold-400/30 bg-ink-800 py-2 text-xs font-bold text-gold-300 hover:bg-gold-400 hover:text-ink-950 transition"
+                          >
+                            {sec}s
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* VÍDEO */}
@@ -304,7 +340,7 @@ export default function StudentArea() {
         </div>
       </main>
 
-      {/* TIMER FLUTUANTE FIXO NO RODAPÉ (SEMPRE VISÍVEL DURANTE O TREINO) */}
+      {/* TIMER FLUTUANTE FIXO NO RODAPÉ */}
       <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-gold-400/20 bg-ink-950/95 p-3 backdrop-blur shadow-2xl">
         <div className="mx-auto max-w-md">
           <div className="flex items-center justify-between">
