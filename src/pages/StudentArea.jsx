@@ -103,7 +103,7 @@ export default function StudentArea() {
     )
 
     // Número de WhatsApp configurado (ou pode deixar o link universal)
-    const phone = '5527999999999' // Substitua pelo seu número se desejar, ou use wa.me
+    const phone = '5527996247906' // Substitua pelo seu número se desejar, ou use wa.me
     window.open(`https://wa.me/${phone}?text=${message}`, '_blank', 'noopener,noreferrer')
   }
 
