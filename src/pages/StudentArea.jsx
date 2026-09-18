@@ -97,8 +97,8 @@ export default function StudentArea() {
 
   return (
     <div className="min-h-dvh bg-ink-950">
-      {/* HEADER */}
-      <header className="sticky top-0 z-20 border-b border-white/5 bg-ink-950/90 backdrop-blur">
+      {/* HEADER FIXO */}
+      <header className="sticky top-0 z-30 border-b border-white/5 bg-ink-950/95 backdrop-blur">
         <div className="mx-auto flex max-w-md items-center justify-between px-4 py-3">
           <Logo className="h-10 w-10" showText />
 
@@ -122,16 +122,18 @@ export default function StudentArea() {
               Atualizado às {syncedAt}
             </p>
           )}
+        </div>
 
-          {/* DIAS */}
-          <div className="mt-3 grid grid-cols-5 gap-2">
+        {/* BARRA DE DIAS FIXA (STICKY) LOGO ABAIXO DO TOPO */}
+        <div className="sticky top-[57px] z-20 border-b border-white/5 bg-ink-950/95 px-4 py-2.5 backdrop-blur">
+          <div className="mx-auto max-w-md grid grid-cols-5 gap-2">
             {DAYS.map((item) => (
               <button
                 key={item}
                 onClick={() => setDay(item)}
-                className={`rounded-xl py-2 font-display text-lg transition ${
+                className={`rounded-xl py-2 font-display text-lg transition shadow-sm ${
                   day === item
-                    ? 'bg-gold-400 text-ink-950'
+                    ? 'bg-gold-400 text-ink-950 font-bold shadow-gold/20'
                     : 'border border-white/10 bg-ink-800 text-zinc-300 hover:border-gold-400/30'
                 }`}
               >
