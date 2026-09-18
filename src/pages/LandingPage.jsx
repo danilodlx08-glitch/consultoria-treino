@@ -16,8 +16,8 @@ import { formatBRL, loadData, subscribeData, whatsappLink } from '../storage'
 
 const benefits = [
   { icon: Dumbbell, title: 'Treino A a E', text: 'Planilha completa, objetiva e pronta para usar na academia.' },
-  { icon: PlayCircle, title: 'Videos de cada movimento', text: 'Consulte a execucao correta em segundos, direto do celular.' },
-  { icon: Smartphone, title: 'Feito para o celular', text: 'Interface rapida para consultar series e repeticoes entre series.' },
+  { icon: PlayCircle, title: 'Vídeos de cada movimento', text: 'Consulte a execução correta em segundos, direto do telemóvel.' },
+  { icon: Smartphone, title: 'Feito para o telemóvel', text: 'Interface rápida para consultar séries e repetições entre as séries.' },
   { icon: ShieldCheck, title: 'Acompanhamento real', text: 'Ajustes e suporte direto com o personal via WhatsApp.' },
 ]
 
@@ -44,11 +44,11 @@ export default function LandingPage() {
           Consultoria online
         </p>
         <h1 className="font-display text-4xl uppercase leading-[0.95] tracking-wide">
-          Treino com metodo.
-          <span className="block text-gold-400">Resultado com constancia.</span>
+          Treino com método.
+          <span className="block text-gold-400">Resultado com constância.</span>
         </h1>
         <p className="mt-4 text-sm leading-6 text-zinc-400">
-          Consultoria de treino online com acompanhamento individual. Visual limpo, foco em musculacao e acesso rapido as fichas na academia.
+          Consultoria de treino online com acompanhamento individual. Visual limpo, foco em musculação e acesso rápido às fichas na academia.
         </p>
 
         <BrandFrame className="mt-8 p-5">
@@ -67,7 +67,7 @@ export default function LandingPage() {
 
         <section className="mt-8">
           <BrandFrame className="p-5 shadow-gold">
-            <p className="text-[11px] uppercase tracking-[0.24em] text-gold-400">Plano Unico</p>
+            <p className="text-[11px] uppercase tracking-[0.24em] text-gold-400">Plano Único</p>
             <h2 className="mt-2 font-display text-3xl uppercase text-white">{plan.name}</h2>
             <p className="mt-3 text-sm leading-6 text-zinc-400">{plan.description}</p>
             <p className="mt-5 font-display text-5xl text-gold-400">{formatBRL(plan.price)}</p>
@@ -103,17 +103,17 @@ export default function LandingPage() {
           ))}
         </section>
 
-        <div className="mt-8 grid grid-cols-2 gap-3">
+        <div className="mt-8 flex flex-col items-center justify-center w-full max-w-sm mx-auto gap-3">
           <Link
             to="/aluno"
-            className="flex items-center justify-center gap-2 rounded-xl border border-gold-400/30 bg-ink-800 px-3 py-3 text-xs font-semibold uppercase tracking-wide text-gold-300"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-gold-400 px-4 py-4 text-sm font-bold uppercase tracking-wide text-ink-950 shadow-lg hover:bg-gold-300 transition-all"
           >
-            <Lock size={14} />
+            <Lock size={16} />
             Login do Aluno
           </Link>
           <Link
             to="/personal"
-            className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-ink-800 px-3 py-3 text-xs font-semibold uppercase tracking-wide text-zinc-300"
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-gold-400/30 bg-ink-800 px-4 py-3 text-xs font-medium uppercase tracking-wide text-zinc-300 hover:bg-gold-500/10 transition-all"
           >
             Painel do Personal
           </Link>
