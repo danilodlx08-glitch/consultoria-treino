@@ -44,13 +44,13 @@ const defaultData = {
   },
 
   plan: {
-    name: 'Plano Unico',
+    name: 'Plano Único',
     price: 200,
     description:
-      'Consultoria individual de treino online com periodizacao, ajustes mensais e acompanhamento direto com Danilo Lopes.',
+      'Consultoria individual de treino online com periodização, ajustes mensais e acompanhamento direto com Danilo Lopes.',
     includes: [
-      'Planilha personalizada de A a E',
-      'Ajustes conforme evolucao',
+      'Planilhas personalizadas de A   a   E',
+      'Ajustes conforme evolução',
       'Videos explicativos de cada movimento',
       'Suporte direto via WhatsApp',
     ],
