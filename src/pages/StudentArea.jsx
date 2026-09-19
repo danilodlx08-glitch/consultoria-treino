@@ -23,7 +23,6 @@ export default function StudentArea() {
   const [syncedAt, setSyncedAt] = useState('')
   const [selectedVideo, setSelectedVideo] = useState(null)
 
-  // Estado local para controlar os exercícios concluídos durante o uso do app (reseta ao sair)
   const [completedExercises, setCompletedExercises] = useState([])
 
   const [timerSeconds, setTimerSeconds] = useState(0)
@@ -73,13 +72,11 @@ export default function StudentArea() {
     return result
   }, [workout.exercises])
 
-  // Cálculo do progresso atual do treino
   const totalExercises = sortedExercises.length
   const completedCount = sortedExercises.filter((ex) => completedExercises.includes(ex.id)).length
   const progressPercent = totalExercises > 0 ? Math.round((completedCount / totalExercises) * 100) : 0
   const isWorkoutCompleted = totalExercises > 0 && completedCount === totalExercises
 
-  // Sempre que mudar de dia, podemos opcionalmente limpar os checks ou mantê-los. Aqui mantemos por sessão geral.
   useEffect(() => {
     const stop = subscribeData((next) => {
       setData(next)
@@ -232,7 +229,7 @@ export default function StudentArea() {
             {workout.focus}
           </p>
           <span className="text-xs font-bold text-zinc-400">
-            {completedCount}/{totalExercises} conclídos
+            {completedCount}/{totalExercises} concluídos
           </span>
         </div>
         <h1 className="mt-1 font-display text-2xl uppercase">
@@ -246,19 +243,6 @@ export default function StudentArea() {
             style={{ width: `${progressPercent}%` }}
           />
         </div>
-
-        {/* ALERTA DE TREINO CONCLUÍDO */}
-        {isWorkoutCompleted && (
-          <div className="mt-4 flex items-center gap-3 rounded-2xl bg-gold-400/20 border border-gold-400/40 p-4 shadow-lg animate-fade-in">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold-400 text-ink-950 shadow-md">
-              <Trophy size={20} />
-            </div>
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-gold-300">Treino Concluído!</p>
-              <p className="text-xs text-zinc-300">Parabéns pelo foco hoje! Não se esqueça de enviar as cargas no WhatsApp.</p>
-            </div>
-          </div>
-        )}
 
         <button
           type="button"
@@ -420,52 +404,67 @@ export default function StudentArea() {
         </div>
       </main>
 
-      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-gold-400/20 bg-ink-950/95 p-3 backdrop-blur shadow-2xl">
+      {/* BARRA INFERIOR DINÂMICA: CRONÔMETRO OU AVISO DE TREINO CONCLUÍDO */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-gold-400/20 bg-ink-950/95 p-3 backdrop-blur shadow-2xl transition-all">
         <div className="mx-auto max-w-md">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Timer size={18} className="text-gold-400 animate-pulse" />
-              <div>
-                <p className="text-[10px] uppercase tracking-wider text-zinc-400">Descanso entre séries</p>
-                <p className="font-display text-xl text-gold-400">
-                  {timerActive ? `${timerSeconds}s` : timerSeconds === 0 && !timerActive ? 'Pronto' : `${timerSeconds}s`}
-                </p>
+          {isWorkoutCompleted ? (
+            <div className="flex items-center gap-3 py-1">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold-400 text-ink-950 shadow-md">
+                <Trophy size={20} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-gold-300">Treino Concluído!</p>
+                <p className="text-xs text-zinc-300 truncate">Parabéns pelo foco! Envie as cargas no WhatsApp.</p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              {timerActive ? (
-                <button
-                  onClick={stopTimer}
-                  className="rounded-xl bg-red-500/25 px-4 py-2 text-xs font-bold uppercase text-red-300 border border-red-500/30 transition hover:bg-red-500/40"
-                >
-                  Parar
-                </button>
-              ) : (
-                <button
-                  onClick={() => startTimer(initialTime)}
-                  className="inline-flex items-center gap-1 rounded-xl bg-gold-400 px-3 py-2 text-xs font-bold uppercase text-ink-950 transition hover:bg-gold-300"
-                >
-                  <RotateCcw size={12} /> Repetir ({initialTime}s)
-                </button>
-              )}
-            </div>
-          </div>
+          ) : (
+            <>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Timer size={18} className="text-gold-400 animate-pulse" />
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-zinc-400">Descanso entre séries</p>
+                    <p className="font-display text-xl text-gold-400">
+                      {timerActive ? `${timerSeconds}s` : timerSeconds === 0 && !timerActive ? 'Pronto' : `${timerSeconds}s`}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {timerActive ? (
+                    <button
+                      onClick={stopTimer}
+                      className="rounded-xl bg-red-500/25 px-4 py-2 text-xs font-bold uppercase text-red-300 border border-red-500/30 transition hover:bg-red-500/40"
+                    >
+                      Parar
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => startTimer(initialTime)}
+                      className="inline-flex items-center gap-1 rounded-xl bg-gold-400 px-3 py-2 text-xs font-bold uppercase text-ink-950 transition hover:bg-gold-300"
+                    >
+                      <RotateCcw size={12} /> Repetir ({initialTime}s)
+                    </button>
+                  )}
+                </div>
+              </div>
 
-          <div className="mt-2 grid grid-cols-4 gap-1.5">
-            {[30, 45, 60, 90].map((sec) => (
-              <button
-                key={sec}
-                onClick={() => startTimer(sec)}
-                className={`rounded-lg py-1.5 text-xs font-semibold transition ${
-                  initialTime === sec && timerActive
-                    ? 'bg-gold-400 text-ink-950 font-bold'
-                    : 'border border-white/10 bg-ink-900 text-zinc-300 hover:border-gold-400/40 hover:text-gold-400'
-                }`}
-              >
-                {sec}s
-              </button>
-            ))}
-          </div>
+              <div className="mt-2 grid grid-cols-4 gap-1.5">
+                {[30, 45, 60, 90].map((sec) => (
+                  <button
+                    key={sec}
+                    onClick={() => startTimer(sec)}
+                    className={`rounded-lg py-1.5 text-xs font-semibold transition ${
+                      initialTime === sec && timerActive
+                        ? 'bg-gold-400 text-ink-950 font-bold'
+                        : 'border border-white/10 bg-ink-900 text-zinc-300 hover:border-gold-400/40 hover:text-gold-400'
+                    }`}
+                  >
+                    {sec}s
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -490,7 +489,7 @@ export default function StudentArea() {
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 text-zinc-300 transition hover:border-gold-400/40 hover:text-gold-400"
                 aria-label="Fechar vídeo"
               >
-                <X size={18} />
+                <X size= {18} />
               </button>
             </div>
             <div className="aspect-video w-full bg-black">
