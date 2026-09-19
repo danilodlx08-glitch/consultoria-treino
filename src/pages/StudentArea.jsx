@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ExternalLink, LogOut, RefreshCw, X, Play, Timer, RotateCcw, MessageCircle, Link2 } from 'lucide-react'
+import { ExternalLink, LogOut, RefreshCw, X, Play, Timer, RotateCcw, MessageCircle, Link2, CheckCircle2 } from 'lucide-react'
 import Logo from '../components/Logo.jsx'
 import { useAuth } from '../auth.jsx'
 import { loadData, subscribeData } from '../storage'
@@ -23,6 +23,9 @@ export default function StudentArea() {
   const [syncedAt, setSyncedAt] = useState('')
   const [selectedVideo, setSelectedVideo] = useState(null)
 
+  // Estado local para controlar os exercícios concluídos durante o uso do app (reseta ao sair)
+  const [completedExercises, setCompletedExercises] = useState([])
+
   const [timerSeconds, setTimerSeconds] = useState(0)
   const [timerActive, setTimerActive] = useState(false)
   const [initialTime, setInitialTime] = useState(60)
@@ -44,7 +47,7 @@ export default function StudentArea() {
     exercises: [],
   }
 
-  // NOVA ORDENAÇÃO INTELIGENTE: Puxa todos os exercícios do mesmo grupo para ficarem juntos em sequência
+  // Sempre que mudar de dia de treino, limpa os checks dos exercícios anteriores se preferir, ou mantém. Aqui mantemos por sessão.
   const sortedExercises = useMemo(() => {
     const original = workout.exercises || []
     const groupedMap = new Map()
@@ -62,7 +65,6 @@ export default function StudentArea() {
       }
     })
 
-    // Reorganiza: insere primeiro os blocos agrupados (Bi-sets/Trí-sets) e depois os avulsos
     const result = []
     groupedMap.forEach((exercisesInGroup) => {
       result.push(...exercisesInGroup)
@@ -107,6 +109,15 @@ export default function StudentArea() {
   function stopTimer() {
     setTimerActive(false)
     setTimerSeconds(0)
+  }
+
+  // Função para alternar o status de concluído do exercício (local)
+  function toggleCompleteExercise(exerciseId) {
+    setCompletedExercises((prev) =>
+      prev.includes(exerciseId)
+        ? prev.filter((id) => id !== exerciseId)
+        : [...prev, exerciseId]
+    )
   }
 
   function sendWhatsAppFeedback() {
@@ -231,12 +242,17 @@ export default function StudentArea() {
           {(sortedExercises || []).map((exercise, index) => {
             const videoId = youtubeId(exercise.video)
             const isMenuOpen = activeRestMenu === exercise.id
+            const isDone = completedExercises.includes(exercise.id)
 
             return (
               <article
                 key={exercise.id || `${day}-${index}`}
-                className={`rounded-2xl border bg-ink-800 p-4 relative ${
-                  exercise.group ? 'border-gold-400/50 shadow-lg shadow-gold-400/5' : 'border-white/5'
+                className={`rounded-2xl border p-4 relative transition-all duration-200 ${
+                  isDone
+                    ? 'bg-ink-900/40 border-white/5 opacity-50'
+                    : exercise.group
+                    ? 'bg-ink-800 border-gold-400/50 shadow-lg shadow-gold-400/5'
+                    : 'bg-ink-800 border-white/5'
                 }`}
               >
                 {/* ETIQUETA DE BI-SET / CONJUGADO */}
@@ -254,10 +270,24 @@ export default function StudentArea() {
                     <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-400">
                       Exercício {index + 1}
                     </p>
-                    <h2 className="mt-1 font-display text-xl uppercase leading-tight">
+                    <h2 className={`mt-1 font-display text-xl uppercase leading-tight ${isDone ? 'line-through text-zinc-400' : ''}`}>
                       {exercise.name}
                     </h2>
                   </div>
+
+                  {/* BOTÃO DE CHECK / CONCLUÍDO */}
+                  <button
+                    type="button"
+                    onClick={() => toggleCompleteExercise(exercise.id)}
+                    className={`flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold uppercase tracking-wider transition ${
+                      isDone
+                        ? 'bg-emerald-500 text-ink-950 shadow-md'
+                        : 'border border-white/15 bg-ink-700 text-zinc-300 hover:border-gold-400/50 hover:text-gold-300'
+                    }`}
+                  >
+                    <CheckCircle2 size={15} />
+                    {isDone ? 'Feito' : 'Marcar Feito'}
+                  </button>
                 </div>
 
                 <div className="mt-3 grid grid-cols-2 gap-2">
