@@ -44,18 +44,32 @@ export default function StudentArea() {
     exercises: [],
   }
 
-  // Ordena os exercícios para que os que pertencem ao mesmo grupo (Bi-set/Conjugado) fiquem juntos
+  // NOVA ORDENAÇÃO INTELIGENTE: Puxa todos os exercícios do mesmo grupo para ficarem juntos em sequência
   const sortedExercises = useMemo(() => {
-    const exercises = [...(workout.exercises || [])]
-    exercises.sort((a, b) => {
-      const gA = (a.group || '').trim().toLowerCase()
-      const gB = (b.group || '').trim().toLowerCase()
-      if (gA && gB) return gA.localeCompare(gB)
-      if (gA) return -1
-      if (gB) return 1
-      return 0
+    const original = workout.exercises || []
+    const groupedMap = new Map()
+    const ungrouped = []
+
+    original.forEach((ex) => {
+      const groupKey = (ex.group || '').trim()
+      if (groupKey) {
+        if (!groupedMap.has(groupKey)) {
+          groupedMap.set(groupKey, [])
+        }
+        groupedMap.get(groupKey).push(ex)
+      } else {
+        ungrouped.push(ex)
+      }
     })
-    return exercises
+
+    // Reorganiza: insere primeiro os blocos agrupados (Bi-sets/Trí-sets) e depois os avulsos
+    const result = []
+    groupedMap.forEach((exercisesInGroup) => {
+      result.push(...exercisesInGroup)
+    })
+    result.push(...ungrouped)
+
+    return result
   }, [workout.exercises])
 
   useEffect(() => {
