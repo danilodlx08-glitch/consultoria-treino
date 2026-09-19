@@ -1221,7 +1221,7 @@ export default function AdminPanel() {
                         <p className="mt-3 text-xs leading-5 text-zinc-400">{exercise.notes}</p>
                       )}
 
-                      <button
+                    <button
                         type="button"
                         onClick={() => addFromLibrary(exercise.id)}
                         className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-gold-400 py-2.5 text-xs font-semibold uppercase tracking-wide text-ink-950 hover:bg-gold-300 transition"
@@ -1235,8 +1235,8 @@ export default function AdminPanel() {
               </div>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }
