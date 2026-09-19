@@ -66,7 +66,7 @@ export default function LandingPage() {
         {/* CARTÃO DE APRESENTAÇÃO COM A LOGO AMPLIADA E DESTACADA */}
         <BrandFrame className="mt-8 p-6 w-full">
           <div className="flex flex-col items-center gap-4 text-center">
-            <Logo className="h-32 w-32 shadow-xl" />
+            <Logo className="h-40 w-40 shadow-xl" />
             <div>
               <p className="font-display text-2xl uppercase tracking-wide text-white">Danilo Lopes</p>
               <p className="mt-1 text-xs uppercase tracking-[0.18em] text-gold-400">Personal Trainer</p>
