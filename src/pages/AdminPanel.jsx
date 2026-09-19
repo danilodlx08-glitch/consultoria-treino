@@ -50,7 +50,7 @@ const emptyExercise = () => ({
   reps: '',
   notes: '',
   video: '',
-  group: '', // Novo campo para identificar Bi-set / Trí-set / Conjugado
+  group: '',
 })
 
 const emptyLibraryExercise = () => ({
@@ -98,7 +98,6 @@ export default function AdminPanel() {
         (current) => current || next.students[0]?.id || ''
       )
     })
-
     return stop
   }, [])
 
@@ -114,9 +113,7 @@ export default function AdminPanel() {
     const sorted = [...data.students].sort((a, b) =>
       a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' })
     )
-
     if (!term) return sorted
-
     return sorted.filter(
       (student) =>
         student.name.toLowerCase().includes(term) ||
@@ -793,7 +790,6 @@ export default function AdminPanel() {
                     className="mb-2 w-full rounded-xl border border-white/10 bg-ink-700 px-3 py-2 text-sm text-white"
                   />
 
-                  {/* CAMPO DE CONJUGAÇÃO / BI-SET */}
                   <div className="mb-2 flex items-center gap-2">
                     <div className="relative flex-1">
                       <Link2 size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gold-400" />
