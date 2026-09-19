@@ -63,9 +63,10 @@ export default function LandingPage() {
           Consultoria de treino online com acompanhamento individual. Visual limpo, foco em musculação e acesso rápido às fichas na academia.
         </p>
 
-        <BrandFrame className="mt-8 p-5 w-full">
-          <div className="flex flex-col items-center gap-3 text-center">
-            <Logo className="h-16 w-16" />
+        {/* CARTÃO DE APRESENTAÇÃO COM A LOGO AMPLIADA E DESTACADA */}
+        <BrandFrame className="mt-8 p-6 w-full">
+          <div className="flex flex-col items-center gap-4 text-center">
+            <Logo className="h-24 w-24 shadow-lg" />
             <div>
               <p className="font-display text-2xl uppercase tracking-wide text-white">Danilo Lopes</p>
               <p className="mt-1 text-xs uppercase tracking-[0.18em] text-gold-400">Personal Trainer</p>
