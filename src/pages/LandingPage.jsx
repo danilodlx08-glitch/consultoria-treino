@@ -16,8 +16,8 @@ import { formatBRL, loadData, subscribeData, whatsappLink } from '../storage'
 
 const benefits = [
   { icon: Dumbbell, title: 'Treino A a E', text: 'Planilha completa, objetiva e pronta para usar na academia.' },
-  { icon: PlayCircle, title: 'Vídeos de cada movimento', text: 'Consulte a execução correta em segundos, direto do telemóvel.' },
-  { icon: Smartphone, title: 'Feito para o telemóvel', text: 'Interface rápida para consultar séries e repetições entre as séries.' },
+  { icon: PlayCircle, title: 'Vídeos de cada movimento', text: 'Consulte a execução correta em segundos, direto do celular.' },
+  { icon: Smartphone, title: 'Feito para o celular', text: 'Interface rápida para consultar séries e repetições entre as séries.' },
   { icon: ShieldCheck, title: 'Acompanhamento real', text: 'Ajustes e suporte direto com o personal via WhatsApp.' },
 ]
 
@@ -85,7 +85,7 @@ export default function LandingPage() {
               rel="noreferrer"
               className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-gold-400 px-4 py-3.5 text-sm font-semibold uppercase tracking-wide text-ink-950"
             >
-              <MessageCircle size={18} />
+              <MessageCircle size= {18} />
               Garantir Minha Vaga
             </a>
           </BrandFrame>
@@ -93,8 +93,8 @@ export default function LandingPage() {
 
         <section className="mt-8 grid gap-3">
           {benefits.map(({ icon: Icon, title, text }) => (
-            <div key={title} className="rounded-2xl border border-white/5 bg-ink-800/70 p-4">
-              <div className="mb-2 flex items-center gap-2 text-gold-400">
+            <div key={title} className="rounded-2xl border border-white/5 bg-ink-800/70 p-4 text-center flex flex-col items-center">
+              <div className="mb-2 flex items-center justify-center gap-2 text-gold-400">
                 <Icon size={18} />
                 <h3 className="font-display text-lg uppercase">{title}</h3>
               </div>
