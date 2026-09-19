@@ -404,18 +404,18 @@ export default function StudentArea() {
         </div>
       </main>
 
-      {/* RODAPÉ FIXO INTELIGENTE: CRONÔMETRO DURANTE O TREINO OU MISSÃO CUMPRIDA AO FINALIZAR */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 border-t-2 border-gold-400/30 bg-ink-950/95 p-4 backdrop-blur shadow-2xl">
+      {/* RODAPÉ FIXO INTELIGENTE: CRONÔMETRO OU CONQUISTA GIGANTE DE CONCLUÍDO */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 border-t-2 border-gold-400/40 bg-ink-950/95 p-5 backdrop-blur shadow-2xl">
         <div className="mx-auto max-w-md">
           {isWorkoutCompleted ? (
-            /* CONQUISTA DE TREINO CONCLUÍDO NO LUGAR DO CRONÔMETRO */
-            <div className="flex items-center gap-3 animate-fade-in py-1">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gold-400 text-ink-950 shadow-lg shadow-gold-400/30">
-                <Trophy size={24} />
+            /* CONQUISTA GRANDE E IMPONENTE NO LUGAR DO CRONÔMETRO */
+            <div className="flex items-center gap-4 animate-fade-in py-1">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-gold-400 to-gold-600 text-ink-950 shadow-xl shadow-gold-400/30">
+                <Trophy size={32} />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="font-display text-base uppercase tracking-wider text-gold-300 truncate">Missão Cumprida!</p>
-                <p className="text-[11px] text-zinc-300 truncate">Todos os exercícios concluídos com sucesso.</p>
+                <p className="font-display text-xl uppercase tracking-wider text-gold-300">Missão Cumprida!</p>
+                <p className="text-xs text-zinc-200">Treino finalizado com sucesso total. Parabéns pelo foco!</p>
               </div>
             </div>
           ) : (
