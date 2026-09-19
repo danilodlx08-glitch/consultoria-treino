@@ -44,6 +44,20 @@ export default function StudentArea() {
     exercises: [],
   }
 
+  // Ordena os exercícios para que os que pertencem ao mesmo grupo (Bi-set/Conjugado) fiquem juntos
+  const sortedExercises = useMemo(() => {
+    const exercises = [...(workout.exercises || [])]
+    exercises.sort((a, b) => {
+      const gA = (a.group || '').trim().toLowerCase()
+      const gB = (b.group || '').trim().toLowerCase()
+      if (gA && gB) return gA.localeCompare(gB)
+      if (gA) return -1
+      if (gB) return 1
+      return 0
+    })
+    return exercises
+  }, [workout.exercises])
+
   useEffect(() => {
     const stop = subscribeData((next) => {
       setData(next)
@@ -85,7 +99,7 @@ export default function StudentArea() {
     const studentName = current?.name || student?.name || 'Aluno'
     const workoutTitle = workout.title || `Treino ${day}`
     
-    const exercisesList = (workout.exercises || [])
+    const exercisesList = (sortedExercises || [])
       .map((ex, idx) => {
         const groupTag = ex.group ? ` [${ex.group}]` : ''
         return `*${idx + 1}. ${ex.name}*${groupTag} (Séries: ${ex.sets}, Reps: ${ex.reps})\nCarga: `
@@ -200,7 +214,7 @@ export default function StudentArea() {
         </button>
 
         <div className="mt-5 space-y-3">
-          {(workout.exercises || []).map((exercise, index) => {
+          {(sortedExercises || []).map((exercise, index) => {
             const videoId = youtubeId(exercise.video)
             const isMenuOpen = activeRestMenu === exercise.id
 
