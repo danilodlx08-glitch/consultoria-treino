@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ExternalLink, LogOut, RefreshCw, X, Play, Timer, RotateCcw, MessageCircle, Link2, CheckCircle2 } from 'lucide-react'
+import { ExternalLink, LogOut, RefreshCw, X, Play, Timer, RotateCcw, MessageCircle, Link2, CheckCircle2, Trophy } from 'lucide-react'
 import Logo from '../components/Logo.jsx'
 import { useAuth } from '../auth.jsx'
 import { loadData, subscribeData } from '../storage'
@@ -47,7 +47,6 @@ export default function StudentArea() {
     exercises: [],
   }
 
-  // Sempre que mudar de dia de treino, limpa os checks dos exercícios anteriores se preferir, ou mantém. Aqui mantemos por sessão.
   const sortedExercises = useMemo(() => {
     const original = workout.exercises || []
     const groupedMap = new Map()
@@ -74,6 +73,13 @@ export default function StudentArea() {
     return result
   }, [workout.exercises])
 
+  // Cálculo do progresso atual do treino
+  const totalExercises = sortedExercises.length
+  const completedCount = sortedExercises.filter((ex) => completedExercises.includes(ex.id)).length
+  const progressPercent = totalExercises > 0 ? Math.round((completedCount / totalExercises) * 100) : 0
+  const isWorkoutCompleted = totalExercises > 0 && completedCount === totalExercises
+
+  // Sempre que mudar de dia, podemos opcionalmente limpar os checks ou mantê-los. Aqui mantemos por sessão geral.
   useEffect(() => {
     const stop = subscribeData((next) => {
       setData(next)
@@ -111,7 +117,6 @@ export default function StudentArea() {
     setTimerSeconds(0)
   }
 
-  // Função para alternar o status de concluído do exercício (local)
   function toggleCompleteExercise(exerciseId) {
     setCompletedExercises((prev) =>
       prev.includes(exerciseId)
@@ -222,12 +227,38 @@ export default function StudentArea() {
       </header>
 
       <main className="mx-auto max-w-md px-4 py-5 safe-bottom">
-        <p className="text-[11px] uppercase tracking-[0.2em] text-gold-400">
-          {workout.focus}
-        </p>
+        <div className="flex items-center justify-between">
+          <p className="text-[11px] uppercase tracking-[0.2em] text-gold-400">
+            {workout.focus}
+          </p>
+          <span className="text-xs font-bold text-zinc-400">
+            {completedCount}/{totalExercises} conclídos
+          </span>
+        </div>
         <h1 className="mt-1 font-display text-2xl uppercase">
           {workout.title}
         </h1>
+
+        {/* BARRA DE PROGRESSO DINÂMICA */}
+        <div className="mt-3.5 h-2 w-full overflow-hidden rounded-full bg-ink-800 border border-white/5">
+          <div
+            className="h-full bg-gold-400 transition-all duration-300"
+            style={{ width: `${progressPercent}%` }}
+          />
+        </div>
+
+        {/* ALERTA DE TREINO CONCLUÍDO */}
+        {isWorkoutCompleted && (
+          <div className="mt-4 flex items-center gap-3 rounded-2xl bg-gold-400/20 border border-gold-400/40 p-4 shadow-lg animate-fade-in">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold-400 text-ink-950 shadow-md">
+              <Trophy size={20} />
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-gold-300">Treino Concluído!</p>
+              <p className="text-xs text-zinc-300">Parabéns pelo foco hoje! Não se esqueça de enviar as cargas no WhatsApp.</p>
+            </div>
+          </div>
+        )}
 
         <button
           type="button"
