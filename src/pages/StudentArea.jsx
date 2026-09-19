@@ -176,7 +176,7 @@ export default function StudentArea() {
   }
 
   return (
-    <div className="min-h-dvh bg-ink-950 pb-40 text-white">
+    <div className="min-h-dvh bg-ink-950 pb-48 text-white">
       <header className="sticky top-0 z-30 border-b border-white/5 bg-ink-950/95 backdrop-blur">
         <div className="mx-auto flex max-w-md items-center justify-between px-4 py-3">
           <Logo className="h-10 w-10" showText />
@@ -243,19 +243,6 @@ export default function StudentArea() {
             style={{ width: `${progressPercent}%` }}
           />
         </div>
-
-        {/* ALERTA DE CONQUISTA / TREINO CONCLUÍDO (MAIOR E MAIS DESTACADO) */}
-        {isWorkoutCompleted && (
-          <div className="mt-5 overflow-hidden rounded-3xl bg-gradient-to-br from-gold-500/20 via-gold-400/10 to-ink-900 border-2 border-gold-400/60 p-5 shadow-2xl shadow-gold-400/10 animate-fade-in text-center">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gold-400 text-ink-950 shadow-lg shadow-gold-400/30 mb-3">
-              <Trophy size={28} />
-            </div>
-            <p className="font-display text-xl uppercase tracking-wider text-gold-300">Missão Cumprida!</p>
-            <p className="mt-1 text-xs text-zinc-200 leading-relaxed max-w-xs mx-auto">
-              Sensacional! Você concluiu todos os exercícios de hoje com foco total. Sua evolução está garantida.
-            </p>
-          </div>
-        )}
 
         <button
           type="button"
@@ -417,55 +404,71 @@ export default function StudentArea() {
         </div>
       </main>
 
-      {/* PAINEL INFERIOR DO CRONÔMETRO (MAIOR E MAIS VISÍVEL) */}
+      {/* RODAPÉ FIXO INTELIGENTE: CRONÔMETRO DURANTE O TREINO OU MISSÃO CUMPRIDA AO FINALIZAR */}
       <div className="fixed bottom-0 left-0 right-0 z-40 border-t-2 border-gold-400/30 bg-ink-950/95 p-4 backdrop-blur shadow-2xl">
         <div className="mx-auto max-w-md">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gold-400/15 border border-gold-400/40 text-gold-400">
-                <Timer size={24} className="animate-pulse" />
+          {isWorkoutCompleted ? (
+            /* CONQUISTA DE TREINO CONCLUÍDO NO LUGAR DO CRONÔMETRO */
+            <div className="flex items-center gap-3 animate-fade-in py-1">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gold-400 text-ink-950 shadow-lg shadow-gold-400/30">
+                <Trophy size={24} />
               </div>
-              <div>
-                <p className="text-[11px] uppercase tracking-wider text-zinc-400">Descanso entre séries</p>
-                <p className="font-display text-2xl text-gold-400 font-bold tracking-wide">
-                  {timerActive ? `${timerSeconds}s` : timerSeconds === 0 && !timerActive ? 'Pronto' : `${timerSeconds}s`}
-                </p>
+              <div className="min-w-0 flex-1">
+                <p className="font-display text-base uppercase tracking-wider text-gold-300 truncate">Missão Cumprida!</p>
+                <p className="text-[11px] text-zinc-300 truncate">Todos os exercícios concluídos com sucesso.</p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              {timerActive ? (
-                <button
-                  onClick={stopTimer}
-                  className="rounded-xl bg-red-500/25 px-5 py-3 text-xs font-bold uppercase text-red-300 border border-red-500/30 transition hover:bg-red-500/40"
-                >
-                  Parar
-                </button>
-              ) : (
-                <button
-                  onClick={() => startTimer(initialTime)}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-gold-400 px-4 py-3 text-xs font-bold uppercase text-ink-950 transition hover:bg-gold-300 shadow-lg shadow-gold-400/20"
-                >
-                  <RotateCcw size={14} /> Repetir ({initialTime}s)
-                </button>
-              )}
-            </div>
-          </div>
+          ) : (
+            /* CRONÔMETRO NORMAL DURANTE O TREINO */
+            <>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gold-400/15 border border-gold-400/40 text-gold-400">
+                    <Timer size={24} className="animate-pulse" />
+                  </div>
+                  <div>
+                    <p className="text-[11px] uppercase tracking-wider text-zinc-400">Descanso entre séries</p>
+                    <p className="font-display text-2xl text-gold-400 font-bold tracking-wide">
+                      {timerActive ? `${timerSeconds}s` : timerSeconds === 0 && !timerActive ? 'Pronto' : `${timerSeconds}s`}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {timerActive ? (
+                    <button
+                      onClick={stopTimer}
+                      className="rounded-xl bg-red-500/25 px-5 py-3 text-xs font-bold uppercase text-red-300 border border-red-500/30 transition hover:bg-red-500/40"
+                    >
+                      Parar
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => startTimer(initialTime)}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-gold-400 px-4 py-3 text-xs font-bold uppercase text-ink-950 transition hover:bg-gold-300 shadow-lg shadow-gold-400/20"
+                    >
+                      <RotateCcw size={14} /> Repetir ({initialTime}s)
+                    </button>
+                  )}
+                </div>
+              </div>
 
-          <div className="mt-3 grid grid-cols-4 gap-2">
-            {[30, 45, 60, 90].map((sec) => (
-              <button
-                key={sec}
-                onClick={() => startTimer(sec)}
-                className={`rounded-xl py-2 text-xs font-bold transition shadow-sm ${
-                  initialTime === sec && timerActive
-                    ? 'bg-gold-400 text-ink-950 font-bold shadow-gold/20'
-                    : 'border border-white/10 bg-ink-900 text-zinc-300 hover:border-gold-400/40 hover:text-gold-400'
-                }`}
-              >
-                {sec}s
-              </button>
-            ))}
-          </div>
+              <div className="mt-3 grid grid-cols-4 gap-2">
+                {[30, 45, 60, 90].map((sec) => (
+                  <button
+                    key={sec}
+                    onClick={() => startTimer(sec)}
+                    className={`rounded-xl py-2 text-xs font-bold transition shadow-sm ${
+                      initialTime === sec && timerActive
+                        ? 'bg-gold-400 text-ink-950 font-bold shadow-gold/20'
+                        : 'border border-white/10 bg-ink-900 text-zinc-300 hover:border-gold-400/40 hover:text-gold-400'
+                    }`}
+                  >
+                    {sec}s
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </div>
 
