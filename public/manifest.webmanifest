@@ -1,0 +1,16 @@
+{
+  "name": "Danilo Lopes | Consultoria de Treino",
+  "short_name": "Danilo Lopes",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0c0c0c",
+  "theme_color": "#0c0c0c",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
