@@ -1,459 +1,210 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ExternalLink, LogOut, RefreshCw, X, Play, Timer, RotateCcw, MessageCircle, Link2 } from 'lucide-react'
+import { LogOut, Users, Dumbbell, Palette, DollarSign, Plus, Trash2, Edit2, Save, X, Check } from 'lucide-react'
 import Logo from '../components/Logo.jsx'
 import { useAuth } from '../auth.jsx'
-import { loadData, subscribeData } from '../storage'
+import { useBrand } from '../brand.jsx'
+import { fetchData, saveData } from '../storage'
 
-const DAYS = ['A', 'B', 'C', 'D', 'E']
-
-function youtubeId(url = '') {
-  const match = url.match(
-    /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{6,})/
-  )
-  return match ? match[1] : null
-}
-
-export default function StudentArea() {
-  const { student, logoutStudent } = useAuth()
+export default function AdminPanel() {
+  const { logoutAdmin } = useAuth()
+  const { brand, updateBrand } = useBrand()
   const navigate = useNavigate()
 
-  const [data, setData] = useState(() => loadData())
-  const [day, setDay] = useState('A')
-  const [syncedAt, setSyncedAt] = useState('')
-  const [selectedVideo, setSelectedVideo] = useState(null)
+  const [activeTab, setActiveTab] = useState('treinos')
+  const [data, setData] = useState({ students: [], workouts: {} })
+  const [loading, setLoading] = useState(true)
+  const [message, setMessage] = useState('')
 
-  const [timerSeconds, setTimerSeconds] = useState(0)
-  const [timerActive, setTimerActive] = useState(false)
-  const [initialTime, setInitialTime] = useState(60)
-  const [activeRestMenu, setActiveRestMenu] = useState(null)
+  // Estados locais para edição rápida (Marca)
+  const [brandForm, setBrandForm] = useState(brand)
 
-  const current = useMemo(() => {
+  useEffect(() => {
+    loadAppData()
+  }, [])
+
+  async function loadAppData() {
+    try {
+      const res = await fetchData()
+      setData(res)
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function handleLogout() {
+    logoutAdmin()
+    navigate('/personal')
+  }
+
+  async function handleSaveBrand(e) {
+    e.preventDefault()
+    updateBrand(brandForm)
+    setMessage('Marca atualizada com sucesso!')
+    setTimeout(() => setMessage(''), 3000)
+  }
+
+  if (loading) {
+    data
     return (
-      data.students.find(
-        (item) => item.id === student?.id || item.code === student?.code
-      ) || data.students[0]
+      <div className="flex min-h-dvh items-center justify-center bg-ink-950 text-white">
+        <p className="text-sm tracking-widest uppercase text-gold-400">A carregar painel...</p>
+      </div>
     )
-  }, [data, student])
-
-  const workouts = current?.workouts || data.workouts
-
-  const workout = workouts[day] || {
-    title: 'Treino',
-    focus: '',
-    exercises: [],
-  }
-
-  // NOVA ORDENAÇÃO INTELIGENTE: Puxa todos os exercícios do mesmo grupo para ficarem juntos em sequência
-  const sortedExercises = useMemo(() => {
-    const original = workout.exercises || []
-    const groupedMap = new Map()
-    const ungrouped = []
-
-    original.forEach((ex) => {
-      const groupKey = (ex.group || '').trim()
-      if (groupKey) {
-        if (!groupedMap.has(groupKey)) {
-          groupedMap.set(groupKey, [])
-        }
-        groupedMap.get(groupKey).push(ex)
-      } else {
-        ungrouped.push(ex)
-      }
-    })
-
-    // Reorganiza: insere primeiro os blocos agrupados (Bi-sets/Trí-sets) e depois os avulsos
-    const result = []
-    groupedMap.forEach((exercisesInGroup) => {
-      result.push(...exercisesInGroup)
-    })
-    result.push(...ungrouped)
-
-    return result
-  }, [workout.exercises])
-
-  useEffect(() => {
-    const stop = subscribeData((next) => {
-      setData(next)
-      setSyncedAt(
-        new Date().toLocaleTimeString('pt-BR', {
-          hour: '2-digit',
-          minute: '2-digit',
-        })
-      )
-    })
-    return stop
-  }, [])
-
-  useEffect(() => {
-    let interval = null
-    if (timerActive && timerSeconds > 0) {
-      interval = setInterval(() => {
-        setTimerSeconds((sec) => sec - 1)
-      }, 1000)
-    } else if (timerSeconds === 0 && timerActive) {
-      setTimerActive(false)
-    }
-    return () => clearInterval(interval)
-  }, [timerActive, timerSeconds])
-
-  function startTimer(seconds) {
-    setInitialTime(seconds)
-    setTimerSeconds(seconds)
-    setTimerActive(true)
-    setActiveRestMenu(null)
-  }
-
-  function stopTimer() {
-    setTimerActive(false)
-    setTimerSeconds(0)
-  }
-
-  function sendWhatsAppFeedback() {
-    const studentName = current?.name || student?.name || 'Aluno'
-    const workoutTitle = workout.title || `Treino ${day}`
-    
-    const exercisesList = (sortedExercises || [])
-      .map((ex, idx) => {
-        const groupTag = ex.group ? ` [${ex.group}]` : ''
-        return `*${idx + 1}. ${ex.name}*${groupTag} (Séries: ${ex.sets}, Reps: ${ex.reps})\nCarga: `
-      })
-      .join('\n\n')
-
-    const message = encodeURIComponent(
-      `Olá Danilo! Aqui são as cargas e feedback do *${studentName}* referentes ao *${workoutTitle}* (${day}):\n\n${exercisesList}\n\nObservações / Dúvidas:`
-    )
-
-    const phone = '5527996247906'
-    window.open(`https://wa.me/${phone}?text=${message}`, '_blank', 'noopener,noreferrer')
-  }
-
-  useEffect(() => {
-    function handleKeyDown(event) {
-      if (event.key === 'Escape') {
-        setSelectedVideo(null)
-        setActiveRestMenu(null)
-      }
-    }
-    document.addEventListener('keydown', handleKeyDown)
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [])
-
-  function exit() {
-    logoutStudent()
-    navigate('/')
-  }
-
-  function openVideo(exercise) {
-    const videoId = youtubeId(exercise.video)
-    if (!videoId) {
-      window.open(exercise.video, '_blank', 'noopener,noreferrer')
-      return
-    }
-    setSelectedVideo({
-      id: videoId,
-      name: exercise.name,
-    })
-  }
-
-  function closeVideo() {
-    setSelectedVideo(null)
   }
 
   return (
-    <div className="min-h-dvh bg-ink-950 pb-36 text-white">
-      <header className="sticky top-0 z-30 border-b border-white/5 bg-ink-950/95 backdrop-blur">
-        <div className="mx-auto flex max-w-md items-center justify-between px-4 py-3">
-          <Logo className="h-10 w-10" showText />
+    <div className="min-h-dvh bg-ink-950 text-white">
+      {/* Header do Painel Admin */}
+      <header className="border-b border-white/10 bg-ink-900 px-4 py-4 lg:px-8">
+        <div className="mx-auto flex max-w-7xl items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Logo className="h-10 w-10" />
+            <div>
+              <h1 className="font-display text-lg tracking-wider">PAINEL DO PERSONAL</h1>
+              <p className="text-xs text-zinc-400">Gestão completa da consultoria</p>
+            </div>
+          </div>
           <button
-            onClick={exit}
-            className="rounded-full border border-white/10 p-2 text-zinc-300 transition hover:border-gold-400/30 hover:text-gold-400"
-            aria-label="Sair"
+            onClick={handleLogout}
+            className="flex items-center gap-2 rounded-xl bg-red-500/10 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-red-400 hover:bg-red-500/20"
           >
             <LogOut size={16} />
+            Sair
           </button>
         </div>
 
-        <div className="mx-auto max-w-md px-4 pb-3">
-          <p className="text-xs text-zinc-500">
-            Olá, {current?.name || student?.name || 'aluno'}
-          </p>
-          {syncedAt && (
-            <p className="mt-1 flex items-center gap-1 text-[11px] text-gold-400/80">
-              <RefreshCw size={10} />
-              Atualizado às {syncedAt}
-            </p>
-          )}
-        </div>
-
-        <div className="sticky top-[57px] z-20 border-b border-white/5 bg-ink-950/95 px-4 py-2.5 backdrop-blur">
-          <div className="mx-auto grid max-w-md grid-cols-5 gap-2">
-            {DAYS.map((item) => (
-              <button
-                key={item}
-                onClick={() => {
-                  setDay(item)
-                  setActiveRestMenu(null)
-                }}
-                className={`rounded-xl py-2 font-display text-lg transition shadow-sm ${
-                  day === item
-                    ? 'bg-gold-400 text-ink-950 font-bold shadow-gold/20'
-                    : 'border border-white/10 bg-ink-800 text-zinc-300 hover:border-gold-400/30'
-                }`}
-              >
-                {item}
-              </button>
-            ))}
-          </div>
+        {/* Abas de Navegação do Painel */}
+        <div className="mx-auto mt-6 flex max-w-7xl gap-2 overflow-x-auto pb-2">
+          <button
+            onClick={() => setActiveTab('treinos')}
+            className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold uppercase tracking-wider transition-all ${
+              activeTab === 'treinos' ? 'bg-gold-400 text-ink-950' : 'bg-ink-800 text-zinc-400 hover:text-white'
+            }`}
+          >
+            <Dumbbell size={16} />
+            Gerir Treinos
+          </button>
+          <button
+            onClick={() => setActiveTab('alunos')}
+            className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold uppercase tracking-wider transition-all ${
+              activeTab === 'alunos' ? 'bg-gold-400 text-ink-950' : 'bg-ink-800 text-zinc-400 hover:text-white'
+            }`}
+          >
+            <Users size={16} />
+            Alunos ({data.students?.length || 0})
+          </button>
+          <button
+            onClick={() => setActiveTab('marca')}
+            className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold uppercase tracking-wider transition-all ${
+              activeTab === 'marca' ? 'bg-gold-400 text-ink-950' : 'bg-ink-800 text-zinc-400 hover:text-white'
+            }`}
+          >
+            <Palette size={16} />
+            Identidade Visual
+          </button>
         </div>
       </header>
 
-      <main className="mx-auto max-w-md px-4 py-5 safe-bottom">
-        <p className="text-[11px] uppercase tracking-[0.2em] text-gold-400">
-          {workout.focus}
-        </p>
-        <h1 className="mt-1 font-display text-2xl uppercase">
-          {workout.title}
-        </h1>
+      {/* Conteúdo Principal das Abas */}
+      <main className="mx-auto max-w-7xl px-4 py-8 lg:px-8">
+        {message && (
+          <div className="mb-6 rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-4 text-sm text-emerald-400 flex items-center gap-2">
+            <Check size={18} />
+            {message}
+          </div>
+        )}
 
-        <button
-          type="button"
-          onClick={sendWhatsAppFeedback}
-          className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600/20 border border-emerald-500/40 py-3.5 text-xs font-bold uppercase tracking-wider text-emerald-400 transition hover:bg-emerald-600/30 shadow-lg"
-        >
-          <MessageCircle size={18} />
-          Enviar cargas e feedback no WhatsApp
-        </button>
+        {/* ABA: TREINOS */}
+        {activeTab === 'treinos' && (
+          <div className="space-y-6">
+            <div className="rounded-2xl border border-white/10 bg-ink-900 p-6">
+              <h2 className="font-display text-xl uppercase text-gold-400">Gestão de Treinos e Fichas</h2>
+              <p className="mt-1 text-sm text-zinc-400">
+                Aqui podes consultar os alunos e configurar os blocos de treino por letra (A, B, C, D, E).
+              </p>
+              
+              <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {data.students?.map((student) => (
+                  <div key={student.id} className="rounded-xl border border-white/10 bg-ink-800 p-4">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-white">{student.name}</span>
+                      <span className="rounded bg-gold-400/10 px-2 py-0.5 text-xs font-mono text-gold-400">
+                        {student.code}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-xs text-zinc-400">ID: {student.id}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
-        <div className="mt-5 space-y-3">
-          {(sortedExercises || []).map((exercise, index) => {
-            const videoId = youtubeId(exercise.video)
-            const isMenuOpen = activeRestMenu === exercise.id
+        {/* ABA: ALUNOS */}
+        {activeTab === 'alunos' && (
+          <div className="space-y-6">
+            <div className="rounded-2xl border border-white/10 bg-ink-900 p-6">
+              <h2 className="font-display text-xl uppercase text-gold-400">Alunos Cadastrados</h2>
+              <p className="mt-1 text-sm text-zinc-400">Lista geral de utilizadores com acesso à plataforma.</p>
+              
+              <div className="mt-6 divide-y divide-white/10">
+                {data.students?.map((student) => (
+                  <div key={student.id} className="flex items-center justify-between py-4">
+                    <div>
+                      <p className="font-medium text-white">{student.name}</p>
+                      <p className="text-xs text-zinc-400">Código de Acesso: <span className="text-gold-400 font-mono">{student.code}</span></p>
+                    </div>
+                    <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-400">
+                      Ativo
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
-            return (
-              <article
-                key={exercise.id || `${day}-${index}`}
-                className={`rounded-2xl border bg-ink-800 p-4 relative ${
-                  exercise.group ? 'border-gold-400/50 shadow-lg shadow-gold-400/5' : 'border-white/5'
-                }`}
+        {/* ABA: MARCA */}
+        {activeTab === 'marca' && (
+          <div className="max-w-xl rounded-2xl border border-white/10 bg-ink-900 p-6">
+            <h2 className="font-display text-xl uppercase text-gold-400">Identidade Visual da Consultoria</h2>
+            <p className="mt-1 text-sm text-zinc-400">Altere o nome e detalhes da marca exibidos na aplicação.</p>
+
+            <form onSubmit={handleSaveBrand} className="mt-6 space-y-4">
+              <label className="block text-xs uppercase tracking-wider text-zinc-400">
+                Nome do Personal / Marca
+                <input
+                  type="text"
+                  value={brandForm.name || ''}
+                  onChange={(e) => setBrandForm({ ...brandForm, name: e.target.value })}
+                  className="mt-2 w-full rounded-xl border border-white/10 bg-ink-800 px-4 py-3 text-sm text-white"
+                />
+              </label>
+
+              <label className="block text-xs uppercase tracking-wider text-zinc-400">
+                Subtítulo / Slogan
+                <input
+                  type="text"
+                  value={brandForm.subtitle || ''}
+                  onChange={(e) => setBrandForm({ ...brandForm, subtitle: e.target.value })}
+                  className="mt-2 w-full rounded-xl border border-white/10 bg-ink-800 px-4 py-3 text-sm text-white"
+                />
+              </label>
+
+              <button
+                type="submit"
+                className="flex items-center gap-2 rounded-xl bg-gold-400 px-5 py-3 text-sm font-semibold uppercase tracking-wide text-ink-950"
               >
-                {/* ETIQUETA DE BI-SET / CONJUGADO */}
-                {exercise.group && (
-                  <div className="mb-2.5 flex items-center gap-1.5 text-gold-400">
-                    <div className="flex items-center gap-1 rounded-md bg-gold-400/15 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider border border-gold-400/30">
-                      <Link2 size={13} />
-                      {exercise.group}
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-400">
-                      Exercício {index + 1}
-                    </p>
-                    <h2 className="mt-1 font-display text-xl uppercase leading-tight">
-                      {exercise.name}
-                    </h2>
-                  </div>
-                </div>
-
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <div className="rounded-xl bg-ink-700 px-3 py-2">
-                    <p className="text-[10px] uppercase tracking-widest text-zinc-500">Séries</p>
-                    <p className="font-display text-lg text-gold-400">{exercise.sets}</p>
-                  </div>
-                  <div className="rounded-xl bg-ink-700 px-3 py-2">
-                    <p className="text-[10px] uppercase tracking-widest text-zinc-500">Repetições</p>
-                    <p className="font-display text-lg text-gold-400">{exercise.reps}</p>
-                  </div>
-                </div>
-
-                {exercise.notes && (
-                  <p className="mt-3 text-sm leading-6 text-zinc-400">{exercise.notes}</p>
-                )}
-
-                <div className="mt-4 relative">
-                  {!isMenuOpen ? (
-                    <button
-                      type="button"
-                      onClick={() => setActiveRestMenu(exercise.id)}
-                      className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-gold-400/20 bg-ink-700 py-2.5 text-xs font-semibold uppercase tracking-wider text-gold-300 hover:border-gold-400/50 transition"
-                    >
-                      <Timer size={14} />
-                      Escolher Descanso
-                    </button>
-                  ) : (
-                    <div className="rounded-xl border border-gold-400/40 bg-ink-900 p-3 shadow-xl">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-[11px] font-semibold uppercase tracking-wider text-gold-400">
-                          Selecione o tempo de descanso:
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setActiveRestMenu(null)}
-                          className="text-zinc-400 hover:text-white"
-                        >
-                          <X size={14} />
-                        </button>
-                      </div>
-                      <div className="grid grid-cols-4 gap-1.5">
-                        {[30, 45, 60, 90].map((sec) => (
-                          <button
-                            key={sec}
-                            type="button"
-                            onClick={() => startTimer(sec)}
-                            className="rounded-lg border border-gold-400/30 bg-ink-800 py-2 text-xs font-bold text-gold-300 hover:bg-gold-400 hover:text-ink-950 transition"
-                          >
-                            {sec}s
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {exercise.video && (
-                  <button
-                    type="button"
-                    onClick={() => openVideo(exercise)}
-                    className="group mt-3 block w-full overflow-hidden rounded-xl border border-gold-400/20 bg-ink-700 text-left transition hover:border-gold-400/50"
-                  >
-                    {videoId ? (
-                      <div className="relative">
-                        <img
-                          src={`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`}
-                          alt={`Vídeo demonstrativo de ${exercise.name}`}
-                          className="h-44 w-full object-cover transition duration-300 group-hover:scale-[1.02]"
-                        />
-                        <div className="absolute inset-0 bg-black/25 transition group-hover:bg-black/40" />
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gold-400 text-ink-950 shadow-lg transition duration-200 group-hover:scale-110">
-                            <Play size={24} fill="currentColor" className="ml-1" />
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-between px-3 py-3">
-                        <span className="flex items-center gap-2 text-sm text-gold-300">
-                          <ExternalLink size={16} />
-                          Ver vídeo do movimento
-                        </span>
-                        <ExternalLink size={14} />
-                      </div>
-                    )}
-
-                    {videoId && (
-                      <div className="flex items-center justify-between px-3 py-3">
-                        <span className="text-sm font-medium text-gold-300">Assistir demonstração</span>
-                        <Play size={15} fill="currentColor" />
-                      </div>
-                    )}
-                  </button>
-                )}
-              </article>
-            )
-          })}
-        </div>
+                <Save size={16} />
+                Guardar Alterações
+              </button>
+            </form>
+          </div>
+        )}
       </main>
-
-      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-gold-400/20 bg-ink-950/95 p-3 backdrop-blur shadow-2xl">
-        <div className="mx-auto max-w-md">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Timer size={18} className="text-gold-400 animate-pulse" />
-              <div>
-                <p className="text-[10px] uppercase tracking-wider text-zinc-400">Descanso entre séries</p>
-                <p className="font-display text-xl text-gold-400">
-                  {timerActive ? `${timerSeconds}s` : timerSeconds === 0 && !timerActive ? 'Pronto' : `${timerSeconds}s`}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {timerActive ? (
-                <button
-                  onClick={stopTimer}
-                  className="rounded-xl bg-red-500/25 px-4 py-2 text-xs font-bold uppercase text-red-300 border border-red-500/30 transition hover:bg-red-500/40"
-                >
-                  Parar
-                </button>
-              ) : (
-                <button
-                  onClick={() => startTimer(initialTime)}
-                  className="inline-flex items-center gap-1 rounded-xl bg-gold-400 px-3 py-2 text-xs font-bold uppercase text-ink-950 transition hover:bg-gold-300"
-                >
-                  <RotateCcw size={12} /> Repetir ({initialTime}s)
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div className="mt-2 grid grid-cols-4 gap-1.5">
-            {[30, 45, 60, 90].map((sec) => (
-              <button
-                key={sec}
-                onClick={() => startTimer(sec)}
-                className={`rounded-lg py-1.5 text-xs font-semibold transition ${
-                  initialTime === sec && timerActive
-                    ? 'bg-gold-400 text-ink-950 font-bold'
-                    : 'border border-white/10 bg-ink-900 text-zinc-300 hover:border-gold-400/40 hover:text-gold-400'
-                }`}
-              >
-                {sec}s
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {selectedVideo && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) {
-              closeVideo()
-            }
-          }}
-        >
-          <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-white/10 bg-ink-900 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-              <div className="min-w-0 pr-3">
-                <p className="text-[10px] uppercase tracking-[0.18em] text-gold-400">Demonstração</p>
-                <h3 className="mt-1 truncate font-display text-lg uppercase text-white">{selectedVideo.name}</h3>
-              </div>
-              <button
-                type="button"
-                onClick={closeVideo}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 text-zinc-300 transition hover:border-gold-400/40 hover:text-gold-400"
-                aria-label="Fechar vídeo"
-              >
-                <X size={18} />
-              </button>
-            </div>
-            <div className="aspect-video w-full bg-black">
-              <iframe
-                src={`https://www.youtube.com/embed/${selectedVideo.id}?autoplay=1&rel=0`}
-                title={selectedVideo.name}
-                className="h-full w-full"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                allowFullScreen
-              />
-            </div>
-            <div className="flex items-center justify-between px-4 py-3">
-              <p className="text-xs text-zinc-500">Assista à execução correta do movimento.</p>
-              <button
-                type="button"
-                onClick={closeVideo}
-                className="rounded-xl bg-gold-400 px-4 py-2 text-xs font-semibold uppercase text-ink-950 transition hover:bg-gold-300"
-              >
-                Fechar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
