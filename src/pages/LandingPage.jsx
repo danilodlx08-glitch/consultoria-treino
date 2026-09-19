@@ -38,7 +38,19 @@ export default function LandingPage() {
         </div>
       </header>
 
-      <main className="relative mx-auto max-w-md px-4 pb-28 pt-8 text-center flex flex-col items-center">
+      <main className="relative mx-auto max-w-md px-4 pb-28 pt-6 text-center flex flex-col items-center">
+        
+        {/* BOTÃO DE LOGIN DO ALUNO EM DESTAQUE MÁXIMO NO TOPO */}
+        <div className="w-full mb-8">
+          <Link
+            to="/aluno"
+            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gold-400 px-4 py-4 text-sm font-extrabold uppercase tracking-wide text-ink-950 shadow-gold hover:bg-gold-300 transition-all border border-gold-300/50"
+          >
+            <Lock size={18} />
+            Área do Aluno — Fazer Login
+          </Link>
+        </div>
+
         <p className="mb-3 inline-flex items-center gap-2 rounded-full border border-gold-400/30 bg-gold-400/10 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-gold-300">
           <Sparkles size={12} />
           Consultoria online
@@ -103,17 +115,11 @@ export default function LandingPage() {
           ))}
         </section>
 
-        <div className="mt-8 flex flex-col items-center justify-center w-full max-w-sm mx-auto gap-3">
-          <Link
-            to="/aluno"
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-gold-400 px-4 py-4 text-sm font-bold uppercase tracking-wide text-ink-950 shadow-lg hover:bg-gold-300 transition-all"
-          >
-            <Lock size={16} />
-            Login do Aluno
-          </Link>
+        {/* PAINEL DO PERSONAL DISCRETO LÁ EM BAIXO */}
+        <div className="mt-12 flex flex-col items-center justify-center w-full max-w-sm mx-auto gap-3">
           <Link
             to="/personal"
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-gold-400/30 bg-ink-800 px-4 py-3 text-xs font-medium uppercase tracking-wide text-zinc-300 hover:bg-gold-500/10 transition-all"
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-gold-400/20 bg-ink-900/60 px-4 py-3 text-xs font-medium uppercase tracking-wide text-zinc-400 hover:text-zinc-200 hover:bg-gold-500/10 transition-all"
           >
             Painel do Personal
           </Link>
