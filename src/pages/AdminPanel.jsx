@@ -14,6 +14,7 @@ import {
   Play,
   CheckCircle2,
   CopyCheck,
+  Link2,
 } from 'lucide-react'
 import { useAuth } from '../auth.jsx'
 import {
@@ -49,6 +50,7 @@ const emptyExercise = () => ({
   reps: '',
   notes: '',
   video: '',
+  group: '', // Novo campo para identificar Bi-set / Trí-set / Conjugado
 })
 
 const emptyLibraryExercise = () => ({
@@ -58,6 +60,7 @@ const emptyLibraryExercise = () => ({
   reps: '10-12',
   notes: '',
   video: '',
+  group: '',
 })
 
 export default function AdminPanel() {
@@ -71,11 +74,8 @@ export default function AdminPanel() {
   const [logoError, setLogoError] = useState('')
   const [selectedStudentId, setSelectedStudentId] = useState('')
 
-  // Estado para controlar a exibição do painel/modal de copiar ficha entre alunos
   const [showCopyStudentWorkoutsModal, setShowCopyStudentWorkoutsModal] = useState(false)
   const [sourceStudentIdForCopy, setSourceStudentIdForCopy] = useState('')
-
-  // Estado para a pesquisa rápida de alunos
   const [studentSearch, setStudentSearch] = useState('')
 
   const [studentForm, setStudentForm] = useState({
@@ -109,10 +109,8 @@ export default function AdminPanel() {
     [data.students, selectedStudentId]
   )
 
-  // Filtro e ordenação alfabética de alunos baseada na pesquisa rápida
   const filteredStudents = useMemo(() => {
     const term = studentSearch.trim().toLowerCase()
-    
     const sorted = [...data.students].sort((a, b) =>
       a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' })
     )
@@ -126,7 +124,6 @@ export default function AdminPanel() {
     )
   }, [data.students, studentSearch])
 
-  // Contadores estatísticos rápidos para os alunos
   const studentStats = useMemo(() => {
     const total = data.students.length
     const active = data.students.filter((s) => s.active !== false).length
@@ -136,21 +133,15 @@ export default function AdminPanel() {
   function persist(next) {
     setData(next)
     saveData(next)
-
-    setSaved(
-      'Salvo na nuvem. Os alunos recebem a atualização automaticamente.'
-    )
-
+    setSaved('Salvo na nuvem. Os alunos recebem a atualização automaticamente.')
     setTimeout(() => setSaved(''), 2200)
   }
 
   function fileToDataUrl(file) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
-
       reader.onload = () => resolve(reader.result)
       reader.onerror = () => reject(new Error('Falha ao ler o arquivo'))
-
       reader.readAsDataURL(file)
     })
   }
@@ -158,13 +149,10 @@ export default function AdminPanel() {
   async function handleLogoFile(event) {
     const file = event.target.files?.[0]
     event.target.value = ''
-
     if (!file) return
 
     if (!file.type.startsWith('image/')) {
-      setLogoError(
-        'Envie um arquivo de imagem (PNG, JPG, WEBP ou SVG).'
-      )
+      setLogoError('Envie um arquivo de imagem (PNG, JPG, WEBP ou SVG).')
       return
     }
 
@@ -176,7 +164,6 @@ export default function AdminPanel() {
     try {
       const dataUrl = await fileToDataUrl(file)
       const result = await uploadLogo(dataUrl)
-
       persist({
         ...data,
         brand: {
@@ -184,12 +171,9 @@ export default function AdminPanel() {
           logo: result.logo,
         },
       })
-
       setLogoError('')
     } catch {
-      setLogoError(
-        'Não foi possível carregar a imagem. Tente outro arquivo.'
-      )
+      setLogoError('Não foi possível carregar a imagem. Tente outro arquivo.')
     }
   }
 
@@ -200,7 +184,6 @@ export default function AdminPanel() {
         logo: '/logo.png',
       },
     })
-
     setLogoError('')
   }
 
@@ -216,9 +199,7 @@ export default function AdminPanel() {
 
   function updateInclude(index, value) {
     const includes = [...(data.plan.includes || [])]
-
     includes[index] = value
-
     persist({
       ...data,
       plan: {
@@ -233,10 +214,7 @@ export default function AdminPanel() {
       ...data,
       plan: {
         ...data.plan,
-        includes: [
-          ...(data.plan.includes || []),
-          'Novo item',
-        ],
+        includes: [...(data.plan.includes || []), 'Novo item'],
       },
     })
   }
@@ -246,23 +224,17 @@ export default function AdminPanel() {
       ...data,
       plan: {
         ...data.plan,
-        includes: (data.plan.includes || []).filter(
-          (_, i) => i !== index
-        ),
+        includes: (data.plan.includes || []).filter((_, i) => i !== index),
       },
     })
   }
 
   function studentWorkouts() {
-    return (
-      selectedStudent?.workouts ||
-      cloneWorkouts(data.workouts)
-    )
+    return selectedStudent?.workouts || cloneWorkouts(data.workouts)
   }
 
   function persistStudentWorkouts(workouts) {
     if (!selectedStudent) return
-
     persist({
       ...data,
       students: data.students.map((item) =>
@@ -279,7 +251,6 @@ export default function AdminPanel() {
 
   function updateWorkoutMeta(field, value) {
     const workouts = studentWorkouts()
-
     persistStudentWorkouts({
       ...workouts,
       [day]: {
@@ -291,7 +262,6 @@ export default function AdminPanel() {
 
   function updateExercise(exerciseId, field, value) {
     const workouts = studentWorkouts()
-
     const exercises = workouts[day].exercises.map((item) =>
       item.id === exerciseId
         ? {
@@ -300,7 +270,6 @@ export default function AdminPanel() {
           }
         : item
     )
-
     persistStudentWorkouts({
       ...workouts,
       [day]: {
@@ -312,34 +281,26 @@ export default function AdminPanel() {
 
   function addExercise() {
     const workouts = studentWorkouts()
-
     persistStudentWorkouts({
       ...workouts,
       [day]: {
         ...workouts[day],
-        exercises: [
-          ...workouts[day].exercises,
-          emptyExercise(),
-        ],
+        exercises: [...workouts[day].exercises, emptyExercise()],
       },
     })
   }
 
   function removeExercise(exerciseId) {
     const workouts = studentWorkouts()
-
     persistStudentWorkouts({
       ...workouts,
       [day]: {
         ...workouts[day],
-        exercises: workouts[day].exercises.filter(
-          (item) => item.id !== exerciseId
-        ),
+        exercises: workouts[day].exercises.filter((item) => item.id !== exerciseId),
       },
     })
   }
 
-  // Copiar o conteúdo de um treino de outro dia para o dia atual
   function copyWorkoutFromDay(sourceDay) {
     if (sourceDay === day) return
     const workouts = studentWorkouts()
@@ -374,10 +335,9 @@ export default function AdminPanel() {
     setTimeout(() => setSaved(''), 2200)
   }
 
-  // NOVA FUNÇÃO: Copiar todas as fichas (A-E) de outro aluno para o aluno selecionado atual
   function executeCopyWorkoutsFromStudent() {
     if (!sourceStudentIdForCopy || !selectedStudent) return
-    const sourceStudent = data.students.find(s => s.id === sourceStudentIdForCopy)
+    const sourceStudent = data.students.find((s) => s.id === sourceStudentIdForCopy)
     if (!sourceStudent) return
 
     const confirmed = window.confirm(
@@ -385,20 +345,19 @@ export default function AdminPanel() {
     )
     if (!confirmed) return
 
-    // Clona os treinos gerando novos IDs para cada exercício de cada dia para evitar conflitos
     const sourceWorkouts = sourceStudent.workouts || cloneWorkouts(data.workouts)
     const clonedWorkouts = {}
 
-    DAYS.forEach(d => {
+    DAYS.forEach((d) => {
       const dayData = sourceWorkouts[d]
       if (dayData) {
         clonedWorkouts[d] = {
           title: dayData.title || '',
           focus: dayData.focus || '',
-          exercises: (dayData.exercises || []).map(ex => ({
+          exercises: (dayData.exercises || []).map((ex) => ({
             ...ex,
             id: createId(),
-          }))
+          })),
         }
       }
     })
@@ -409,12 +368,6 @@ export default function AdminPanel() {
     setSaved(`Fichas copiadas de ${sourceStudent.name} com sucesso!`)
     setTimeout(() => setSaved(''), 2200)
   }
-
-  /*
-   * ==========================================================
-   * BIBLIOTECA DE EXERCÍCIOS
-   * ==========================================================
-   */
 
   const libraryExercises = data.exercisesLibrary || []
 
@@ -430,7 +383,6 @@ export default function AdminPanel() {
 
   const filteredLibrary = useMemo(() => {
     const term = librarySearch.trim().toLowerCase()
-
     return libraryExercises.filter((exercise) => {
       const matchesSearch =
         !term ||
@@ -456,60 +408,39 @@ export default function AdminPanel() {
       reps: exercise.reps || '',
       notes: exercise.notes || '',
       video: exercise.video || '',
+      group: exercise.group || '',
     })
-
     persist(next)
   }
 
   function saveNewLibraryExercise(event) {
     event.preventDefault()
-
     if (!libraryForm.name.trim()) return
 
     const next = addExerciseToLibrary(data, {
       ...libraryForm,
       name: libraryForm.name.trim(),
     })
-
     persist(next)
-
     setLibraryForm(emptyLibraryExercise())
     setShowNewLibraryExercise(false)
   }
 
   function deleteLibraryExercise(exerciseId) {
-    const exercise = libraryExercises.find(
-      (item) => item.id === exerciseId
-    )
-
+    const exercise = libraryExercises.find((item) => item.id === exerciseId)
     if (!exercise) return
 
-    const confirmed = window.confirm(
-      `Excluir "${exercise.name}" da biblioteca?`
-    )
-
+    const confirmed = window.confirm(`Excluir "${exercise.name}" da biblioteca?`)
     if (!confirmed) return
 
-    const next = removeExerciseFromLibrary(
-      data,
-      exerciseId
-    )
-
+    const next = removeExerciseFromLibrary(data, exerciseId)
     persist(next)
   }
 
   function addFromLibrary(exerciseId) {
     if (!selectedStudent) return
-
-    const next = addLibraryExerciseToWorkout(
-      data,
-      selectedStudent.id,
-      day,
-      exerciseId
-    )
-
+    const next = addLibraryExerciseToWorkout(data, selectedStudent.id, day, exerciseId)
     persist(next)
-
     setLibraryOpen(false)
   }
 
@@ -517,9 +448,7 @@ export default function AdminPanel() {
     if (!exercise.name?.trim()) return
 
     const alreadyExists = libraryExercises.some(
-      (item) =>
-        item.name.trim().toLowerCase() ===
-        exercise.name.trim().toLowerCase()
+      (item) => item.name.trim().toLowerCase() === exercise.name.trim().toLowerCase()
     )
 
     if (alreadyExists) {
@@ -535,23 +464,12 @@ export default function AdminPanel() {
 
   function addStudent(event) {
     event.preventDefault()
-
     if (!studentForm.name) return
 
-    const code = (
-      studentForm.code || generateAccessCode()
-    ).toUpperCase()
+    const code = (studentForm.code || generateAccessCode()).toUpperCase()
+    const password = studentForm.password || generatePassword()
 
-    const password =
-      studentForm.password || generatePassword()
-
-    if (
-      data.students.some(
-        (item) => item.code === code
-      )
-    ) {
-      return
-    }
+    if (data.students.some((item) => item.code === code)) return
 
     const nextStudent = {
       id: createId(),
@@ -565,20 +483,15 @@ export default function AdminPanel() {
 
     persist({
       ...data,
-      students: [
-        nextStudent,
-        ...data.students,
-      ],
+      students: [nextStudent, ...data.students],
     })
 
     setSelectedStudentId(nextStudent.id)
-
     setStudentForm({
       name: '',
       code: generateAccessCode(),
       password: generatePassword(),
     })
-
     setTab('workouts')
   }
 
@@ -586,38 +499,24 @@ export default function AdminPanel() {
     persist({
       ...data,
       students: data.students.map((item) =>
-        item.id === id
-          ? {
-              ...item,
-              active: !item.active,
-            }
-          : item
+        item.id === id ? { ...item, active: !item.active } : item
       ),
     })
   }
 
   function removeStudent(id) {
-    const next = data.students.filter(
-      (item) => item.id !== id
-    )
-
+    const next = data.students.filter((item) => item.id !== id)
     persist({
       ...data,
       students: next,
     })
-
     if (selectedStudentId === id) {
-      setSelectedStudentId(
-        next[0]?.id || ''
-      )
+      setSelectedStudentId(next[0]?.id || '')
     }
   }
 
   function copyCredentials(student) {
-    const text = `Acesso Danilo Lopes
-Código: ${student.code}
-Senha: ${student.password}`
-
+    const text = `Acesso Danilo Lopes\nCódigo: ${student.code}\nSenha: ${student.password}`
     if (navigator.clipboard?.writeText) {
       navigator.clipboard.writeText(text)
       setSaved(`Credenciais de ${student.name} copiadas!`)
@@ -630,12 +529,11 @@ Senha: ${student.password}`
     navigate('/')
   }
 
-  const currentWorkout =
-    studentWorkouts()[day] || {
-      title: '',
-      focus: '',
-      exercises: [],
-    }
+  const currentWorkout = studentWorkouts()[day] || {
+    title: '',
+    focus: '',
+    exercises: [],
+  }
 
   return (
     <div className="min-h-dvh bg-ink-950 text-white">
@@ -644,7 +542,6 @@ Senha: ${student.password}`
           <span className="font-display text-lg tracking-wider text-gold-400">
             DANILO LOPES
           </span>
-
           <button
             onClick={exit}
             className="rounded-full border border-white/10 p-2 text-zinc-300"
@@ -678,50 +575,27 @@ Senha: ${student.password}`
           </p>
         )}
 
-        {/* =====================================================
-            MARCA
-        ====================================================== */}
-
         {tab === 'brand' && (
           <section className="space-y-4">
-            <h1 className="font-display text-2xl uppercase">
-              Logomarca
-            </h1>
-
+            <h1 className="font-display text-2xl uppercase">Logomarca</h1>
             <p className="text-sm leading-6 text-zinc-400">
-              Envie a logo oficial. Ela é salva e usada na
-              landing, nos logins e no ícone da tela inicial.
+              Envie a logo oficial. Ela é salva e usada na landing, nos logins e no ícone da tela inicial.
             </p>
-
             <div className="rounded-2xl border border-white/5 bg-ink-800 p-4">
-              <p className="text-xs uppercase tracking-[0.18em] text-gold-400">
-                Preview atual
-              </p>
-
+              <p className="text-xs uppercase tracking-[0.18em] text-gold-400">Preview atual</p>
               <div className="mt-4 flex items-center justify-center rounded-2xl border border-gold-400/20 bg-ink-950 p-6">
                 <img
-                  src={logoSrc(
-                    data.brand?.logo ||
-                      '/logo.png'
-                  )}
+                  src={logoSrc(data.brand?.logo || '/logo.png')}
                   alt="Logo atual"
                   className="h-28 w-28 rounded-2xl object-cover"
                 />
               </div>
             </div>
-
             <label className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-gold-400 px-4 py-3.5 text-sm font-semibold uppercase tracking-wide text-ink-950">
               <ImagePlus size={16} />
               Enviar logo oficial
-
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleLogoFile}
-              />
+              <input type="file" accept="image/*" className="hidden" onChange={handleLogoFile} />
             </label>
-
             <button
               type="button"
               onClick={resetLogo}
@@ -729,108 +603,58 @@ Senha: ${student.password}`
             >
               Restaurar logo padrão
             </button>
-
-            {logoError && (
-              <p className="text-sm text-red-400">
-                {logoError}
-              </p>
-            )}
+            {logoError && <p className="text-sm text-red-400">{logoError}</p>}
           </section>
         )}
 
-        {/* =====================================================
-            VENDAS
-        ====================================================== */}
-
         {tab === 'sales' && (
           <section className="space-y-4">
-            <h1 className="font-display text-2xl uppercase">
-              Gestão de Vendas
-            </h1>
-
+            <h1 className="font-display text-2xl uppercase">Gestão de Vendas</h1>
             <label className="block text-xs uppercase tracking-[0.18em] text-gold-400">
               Nome do plano
-
               <input
                 value={data.plan.name}
-                onChange={(e) =>
-                  updatePlan(
-                    'name',
-                    e.target.value
-                  )
-                }
+                onChange={(e) => updatePlan('name', e.target.value)}
                 className="mt-2 w-full rounded-xl border border-white/10 bg-ink-800 px-4 py-3 text-sm text-white"
               />
             </label>
-
             <label className="block text-xs uppercase tracking-[0.18em] text-gold-400">
               Valor (R$)
-
               <input
                 type="number"
                 value={data.plan.price}
-                onChange={(e) =>
-                  updatePlan(
-                    'price',
-                    Number(e.target.value)
-                  )
-                }
+                onChange={(e) => updatePlan('price', Number(e.target.value))}
                 className="mt-2 w-full rounded-xl border border-white/10 bg-ink-800 px-4 py-3 text-sm text-white"
               />
             </label>
-
             <label className="block text-xs uppercase tracking-[0.18em] text-gold-400">
               Descrição
-
               <textarea
                 value={data.plan.description}
-                onChange={(e) =>
-                  updatePlan(
-                    'description',
-                    e.target.value
-                  )
-                }
+                onChange={(e) => updatePlan('description', e.target.value)}
                 rows={4}
                 className="mt-2 w-full rounded-xl border border-white/10 bg-ink-800 px-4 py-3 text-sm text-white"
               />
             </label>
-
             <div>
-              <p className="text-xs uppercase tracking-[0.18em] text-gold-400">
-                Itens inclusos
-              </p>
-
+              <p className="text-xs uppercase tracking-[0.18em] text-gold-400">Itens inclusos</p>
               <div className="mt-2 space-y-2">
-                {(data.plan.includes || []).map(
-                  (item, index) => (
-                    <div
-                      key={`${index}-${item}`}
-                      className="flex gap-2"
+                {(data.plan.includes || []).map((item, index) => (
+                  <div key={`${index}-${item}`} className="flex gap-2">
+                    <input
+                      value={item}
+                      onChange={(e) => updateInclude(index, e.target.value)}
+                      className="w-full rounded-xl border border-white/10 bg-ink-800 px-4 py-3 text-sm text-white"
+                    />
+                    <button
+                      onClick={() => removeInclude(index)}
+                      className="rounded-xl border border-white/10 px-3 text-zinc-400"
                     >
-                      <input
-                        value={item}
-                        onChange={(e) =>
-                          updateInclude(
-                            index,
-                            e.target.value
-                          )
-                        }
-                        className="w-full rounded-xl border border-white/10 bg-ink-800 px-4 py-3 text-sm text-white"
-                      />
-
-                      <button
-                        onClick={() =>
-                          removeInclude(index)
-                        }
-                        className="rounded-xl border border-white/10 px-3 text-zinc-400"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  )
-                )}
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                ))}
               </div>
-
               <button
                 onClick={addInclude}
                 className="mt-3 inline-flex items-center gap-2 text-sm text-gold-300"
@@ -842,48 +666,27 @@ Senha: ${student.password}`
           </section>
         )}
 
-        {/* =====================================================
-            TREINOS
-        ====================================================== */}
-
         {tab === 'workouts' && (
           <section>
-            <h1 className="font-display text-2xl uppercase">
-              Fichas individuais
-            </h1>
-
+            <h1 className="font-display text-2xl uppercase">Fichas individuais</h1>
             <p className="mt-2 text-sm text-zinc-400">
-              Cada aluno tem as próprias planilhas A a E.
-              Alterações sincronizam no telemóvel dele.
+              Cada aluno tem as próprias planilhas A a E. Alterações sincronizam no telemóvel dele.
             </p>
-
             <label className="mt-4 block text-xs uppercase tracking-[0.18em] text-gold-400">
               Aluno
-
               <select
                 value={selectedStudent?.id || ''}
-                onChange={(e) =>
-                  setSelectedStudentId(
-                    e.target.value
-                  )
-                }
+                onChange={(e) => setSelectedStudentId(e.target.value)}
                 className="mt-2 w-full rounded-xl border border-white/10 bg-ink-800 px-4 py-3 text-sm text-white"
               >
-                {data.students.map(
-                  (student) => (
-                    <option
-                      key={student.id}
-                      value={student.id}
-                      className="bg-ink-900 text-white"
-                    >
-                      {student.name} ({student.code})
-                    </option>
-                  )
-                )}
+                {data.students.map((student) => (
+                  <option key={student.id} value={student.id} className="bg-ink-900 text-white">
+                    {student.name} ({student.code})
+                  </option>
+                ))}
               </select>
             </label>
 
-            {/* BOTÃO PARA COPIAR FICHA COMPLETA DE OUTRO ALUNO */}
             {data.students.length > 1 && (
               <button
                 type="button"
@@ -911,7 +714,6 @@ Senha: ${student.password}`
               ))}
             </div>
 
-            {/* BOTÃO DE ATALHO PARA COPIAR TREINO DE OUTRO DIA */}
             <div className="mt-3 flex items-center gap-1.5 overflow-x-auto pb-1">
               <span className="text-[10px] uppercase tracking-wider text-zinc-500 shrink-0">
                 Copiar de:
@@ -930,37 +732,21 @@ Senha: ${student.password}`
 
             <label className="mt-4 block text-xs uppercase tracking-[0.18em] text-gold-400">
               Título
-
               <input
                 value={currentWorkout.title}
-                onChange={(e) =>
-                  updateWorkoutMeta(
-                    'title',
-                    e.target.value
-                  )
-                }
+                onChange={(e) => updateWorkoutMeta('title', e.target.value)}
                 className="mt-2 w-full rounded-xl border border-white/10 bg-ink-800 px-4 py-3 text-sm text-white"
               />
             </label>
 
             <label className="mt-4 block text-xs uppercase tracking-[0.18em] text-gold-400">
               Foco
-
               <input
                 value={currentWorkout.focus}
-                onChange={(e) =>
-                  updateWorkoutMeta(
-                    'focus',
-                    e.target.value
-                  )
-                }
+                onChange={(e) => updateWorkoutMeta('focus', e.target.value)}
                 className="mt-2 w-full rounded-xl border border-white/10 bg-ink-800 px-4 py-3 text-sm text-white"
               />
             </label>
-
-            {/* =================================================
-                BIBLIOTECA
-            ================================================== */}
 
             <button
               type="button"
@@ -972,130 +758,92 @@ Senha: ${student.password}`
             </button>
 
             <div className="mt-5 space-y-4">
-              {(currentWorkout.exercises || []).map(
-                (exercise, index) => (
-                  <div
-                    key={exercise.id}
-                    className="rounded-2xl border border-white/5 bg-ink-800 p-4"
-                  >
-                    <div className="mb-3 flex items-center justify-between">
-                      <p className="text-xs uppercase tracking-[0.18em] text-gold-400">
-                        Exercício {index + 1}
-                      </p>
-
-                      <div className="flex items-center gap-3">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            saveWorkoutExerciseToLibrary(
-                              exercise
-                            )
-                          }
-                          className="text-gold-300 hover:text-white transition"
-                          title="Salvar na biblioteca"
-                        >
-                          <Library size={16} />
-                        </button>
-
-                        <button
-                          onClick={() =>
-                            removeExercise(
-                              exercise.id
-                            )
-                          }
-                          className="text-zinc-400 hover:text-red-400 transition"
-                          title="Excluir do treino"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
+              {(currentWorkout.exercises || []).map((exercise, index) => (
+                <div
+                  key={exercise.id}
+                  className="rounded-2xl border border-white/5 bg-ink-800 p-4"
+                >
+                  <div className="mb-3 flex items-center justify-between">
+                    <p className="text-xs uppercase tracking-[0.18em] text-gold-400">
+                      Exercício {index + 1}
+                    </p>
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => saveWorkoutExerciseToLibrary(exercise)}
+                        className="text-gold-300 hover:text-white transition"
+                        title="Salvar na biblioteca"
+                      >
+                        <Library size={16} />
+                      </button>
+                      <button
+                        onClick={() => removeExercise(exercise.id)}
+                        className="text-zinc-400 hover:text-red-400 transition"
+                        title="Excluir do treino"
+                      >
+                        <Trash2 size={16} />
+                      </button>
                     </div>
+                  </div>
 
-                    <input
-                      value={exercise.name}
-                      onChange={(e) =>
-                        updateExercise(
-                          exercise.id,
-                          'name',
-                          e.target.value
-                        )
-                      }
-                      placeholder="Nome do exercício"
-                      className="mb-2 w-full rounded-xl border border-white/10 bg-ink-700 px-3 py-2 text-sm text-white"
-                    />
+                  <input
+                    value={exercise.name}
+                    onChange={(e) => updateExercise(exercise.id, 'name', e.target.value)}
+                    placeholder="Nome do exercício"
+                    className="mb-2 w-full rounded-xl border border-white/10 bg-ink-700 px-3 py-2 text-sm text-white"
+                  />
 
-                    <input
-                      value={
-                        exercise.muscle || ''
-                      }
-                      onChange={(e) =>
-                        updateExercise(
-                          exercise.id,
-                          'muscle',
-                          e.target.value
-                        )
-                      }
-                      placeholder="Grupo muscular (ex: Peito)"
-                      className="mb-2 w-full rounded-xl border border-white/10 bg-ink-700 px-3 py-2 text-sm text-white"
-                    />
-
-                    <div className="mb-2 grid grid-cols-2 gap-2">
+                  {/* CAMPO DE CONJUGAÇÃO / BI-SET */}
+                  <div className="mb-2 flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <Link2 size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gold-400" />
                       <input
-                        value={exercise.sets}
-                        onChange={(e) =>
-                          updateExercise(
-                            exercise.id,
-                            'sets',
-                            e.target.value
-                          )
-                        }
-                        placeholder="Séries"
-                        className="rounded-xl border border-white/10 bg-ink-700 px-3 py-2 text-sm text-white"
-                      />
-
-                      <input
-                        value={exercise.reps}
-                        onChange={(e) =>
-                          updateExercise(
-                            exercise.id,
-                            'reps',
-                            e.target.value
-                          )
-                        }
-                        placeholder="Repetições"
-                        className="rounded-xl border border-white/10 bg-ink-700 px-3 py-2 text-sm text-white"
+                        value={exercise.group || ''}
+                        onChange={(e) => updateExercise(exercise.id, 'group', e.target.value)}
+                        placeholder="Conjugação / Grupo (Ex: Bi-set A, Trí-set)"
+                        className="w-full rounded-xl border border-gold-400/30 bg-ink-700 py-2 pl-9 pr-3 text-xs text-gold-300 placeholder:text-zinc-500 outline-none"
                       />
                     </div>
+                  </div>
 
-                    <textarea
-                      value={exercise.notes}
-                      onChange={(e) =>
-                        updateExercise(
-                          exercise.id,
-                          'notes',
-                          e.target.value
-                        )
-                      }
-                      placeholder="Observações"
-                      rows={2}
-                      className="mb-2 w-full rounded-xl border border-white/10 bg-ink-700 px-3 py-2 text-sm text-white"
-                    />
+                  <input
+                    value={exercise.muscle || ''}
+                    onChange={(e) => updateExercise(exercise.id, 'muscle', e.target.value)}
+                    placeholder="Grupo muscular (ex: Peito)"
+                    className="mb-2 w-full rounded-xl border border-white/10 bg-ink-700 px-3 py-2 text-sm text-white"
+                  />
 
+                  <div className="mb-2 grid grid-cols-2 gap-2">
                     <input
-                      value={exercise.video}
-                      onChange={(e) =>
-                        updateExercise(
-                          exercise.id,
-                          'video',
-                          e.target.value
-                        )
-                      }
-                      placeholder="Cole o link do vídeo (YouTube)"
-                      className="w-full rounded-xl border border-white/10 bg-ink-700 px-3 py-2 text-sm text-white"
+                      value={exercise.sets}
+                      onChange={(e) => updateExercise(exercise.id, 'sets', e.target.value)}
+                      placeholder="Séries"
+                      className="rounded-xl border border-white/10 bg-ink-700 px-3 py-2 text-sm text-white"
+                    />
+                    <input
+                      value={exercise.reps}
+                      onChange={(e) => updateExercise(exercise.id, 'reps', e.target.value)}
+                      placeholder="Repetições"
+                      className="rounded-xl border border-white/10 bg-ink-700 px-3 py-2 text-sm text-white"
                     />
                   </div>
-                )
-              )}
+
+                  <textarea
+                    value={exercise.notes}
+                    onChange={(e) => updateExercise(exercise.id, 'notes', e.target.value)}
+                    placeholder="Observações"
+                    rows={2}
+                    className="mb-2 w-full rounded-xl border border-white/10 bg-ink-700 px-3 py-2 text-sm text-white"
+                  />
+
+                  <input
+                    value={exercise.video}
+                    onChange={(e) => updateExercise(exercise.id, 'video', e.target.value)}
+                    placeholder="Cole o link do vídeo (YouTube)"
+                    className="w-full rounded-xl border border-white/10 bg-ink-700 px-3 py-2 text-sm text-white"
+                  />
+                </div>
+              ))}
             </div>
 
             <button
@@ -1108,17 +856,9 @@ Senha: ${student.password}`
           </section>
         )}
 
-        {/* =====================================================
-            ALUNOS
-        ====================================================== */}
-
         {tab === 'students' && (
           <section>
-            <h1 className="font-display text-2xl uppercase">
-              Alunos e acessos
-            </h1>
-
-            {/* INDICADOR NUMÉRICO RÁPIDO */}
+            <h1 className="font-display text-2xl uppercase">Alunos e acessos</h1>
             <div className="mt-3 grid grid-cols-2 gap-2">
               <div className="rounded-xl border border-white/5 bg-ink-800 p-3">
                 <p className="text-[10px] uppercase tracking-wider text-zinc-400">Total cadastrados</p>
@@ -1136,40 +876,22 @@ Senha: ${student.password}`
             >
               <input
                 value={studentForm.name}
-                onChange={(e) =>
-                  setStudentForm({
-                    ...studentForm,
-                    name: e.target.value,
-                  })
-                }
+                onChange={(e) => setStudentForm({ ...studentForm, name: e.target.value })}
                 placeholder="Nome do aluno"
                 className="w-full rounded-xl border border-white/10 bg-ink-700 px-3 py-2 text-sm text-white"
               />
-
               <input
                 value={studentForm.code}
-                onChange={(e) =>
-                  setStudentForm({
-                    ...studentForm,
-                    code: e.target.value.toUpperCase(),
-                  })
-                }
+                onChange={(e) => setStudentForm({ ...studentForm, code: e.target.value.toUpperCase() })}
                 placeholder="Código único"
                 className="w-full rounded-xl border border-white/10 bg-ink-700 px-3 py-2 text-sm text-white"
               />
-
               <input
                 value={studentForm.password}
-                onChange={(e) =>
-                  setStudentForm({
-                    ...studentForm,
-                    password: e.target.value,
-                  })
-                }
+                onChange={(e) => setStudentForm({ ...studentForm, password: e.target.value })}
                 placeholder="Senha"
                 className="w-full rounded-xl border border-white/10 bg-ink-700 px-3 py-2 text-sm text-white"
               />
-
               <button
                 type="button"
                 onClick={() =>
@@ -1183,7 +905,6 @@ Senha: ${student.password}`
               >
                 Gerar código e senha
               </button>
-
               <button
                 type="submit"
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-gold-400 py-3 text-sm font-semibold uppercase tracking-wide text-ink-950"
@@ -1193,12 +914,8 @@ Senha: ${student.password}`
               </button>
             </form>
 
-            {/* BARRA DE PESQUISA RÁPIDA DE ALUNOS */}
             <div className="mt-5 relative">
-              <Search
-                size={17}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"
-              />
+              <Search size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
               <input
                 value={studentSearch}
                 onChange={(e) => setStudentSearch(e.target.value)}
@@ -1210,79 +927,44 @@ Senha: ${student.password}`
             <div className="mt-4 space-y-3">
               {filteredStudents.length === 0 ? (
                 <div className="rounded-2xl border border-white/5 bg-ink-800 p-6 text-center">
-                  <p className="text-sm text-zinc-400">
-                    Nenhum aluno encontrado.
-                  </p>
+                  <p className="text-sm text-zinc-400">Nenhum aluno encontrado.</p>
                 </div>
               ) : (
                 filteredStudents.map((student) => (
-                  <article
-                    key={student.id}
-                    className="rounded-2xl border border-white/5 bg-ink-800 p-4"
-                  >
+                  <article key={student.id} className="rounded-2xl border border-white/5 bg-ink-800 p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <h2 className="font-display text-xl uppercase">
-                          {student.name}
-                        </h2>
-
-                        <p className="mt-1 text-sm text-zinc-400">
-                          Código: {student.code}
-                        </p>
-
-                        <p className="text-sm text-zinc-400">
-                          Senha: {student.password}
-                        </p>
+                        <h2 className="font-display text-xl uppercase">{student.name}</h2>
+                        <p className="mt-1 text-sm text-zinc-400">Código: {student.code}</p>
+                        <p className="text-sm text-zinc-400">Senha: {student.password}</p>
                       </div>
-
-                      <button
-                        onClick={() =>
-                          removeStudent(
-                            student.id
-                          )
-                        }
-                        className="text-zinc-400"
-                      >
+                      <button onClick={() => removeStudent(student.id)} className="text-zinc-400">
                         <Trash2 size={16} />
                       </button>
                     </div>
 
                     <div className="mt-3 flex flex-wrap gap-2">
                       <button
-                        onClick={() =>
-                          toggleStudent(
-                            student.id
-                          )
-                        }
+                        onClick={() => toggleStudent(student.id)}
                         className={`rounded-lg px-3 py-1 text-xs uppercase tracking-wide ${
                           student.active !== false
                             ? 'bg-gold-400/15 text-gold-300'
                             : 'bg-zinc-700 text-zinc-400'
                         }`}
                       >
-                        {student.active !== false
-                          ? 'Ativo'
-                          : 'Inativo'}
+                        {student.active !== false ? 'Ativo' : 'Inativo'}
                       </button>
-
                       <button
                         onClick={() => {
-                          setSelectedStudentId(
-                            student.id
-                          )
+                          setSelectedStudentId(student.id)
                           setTab('workouts')
                         }}
                         className="rounded-lg bg-ink-700 px-3 py-1 text-xs uppercase tracking-wide text-zinc-200"
                       >
                         Editar treinos
                       </button>
-
                       <button
-                        onClick={() =>
-                          copyCredentials(
-                            student
-                          )
-                        }
+                        onClick={() => copyCredentials(student)}
                         className="inline-flex items-center gap-1 rounded-lg bg-ink-700 px-3 py-1 text-xs uppercase tracking-wide text-zinc-200"
                       >
                         <Copy size={12} />
@@ -1297,10 +979,6 @@ Senha: ${student.password}`
         )}
       </main>
 
-      {/* =======================================================
-          MODAL DE COPIAR FICHA DE OUTRO ALUNO
-      ======================================================== */}
-
       {showCopyStudentWorkoutsModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
@@ -1313,12 +991,8 @@ Senha: ${student.password}`
           <div className="w-full max-w-sm rounded-3xl border border-white/10 bg-ink-900 p-5 shadow-2xl">
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
               <div>
-                <p className="text-[10px] uppercase tracking-[0.2em] text-gold-400">
-                  Duplicação
-                </p>
-                <h2 className="mt-0.5 font-display text-lg uppercase">
-                  Copiar Ficha de Aluno
-                </h2>
+                <p className="text-[10px] uppercase tracking-[0.2em] text-gold-400">Duplicação</p>
+                <h2 className="mt-0.5 font-display text-lg uppercase">Copiar Ficha de Aluno</h2>
               </div>
               <button
                 type="button"
@@ -1328,11 +1002,9 @@ Senha: ${student.password}`
                 <X size={16} />
               </button>
             </div>
-
             <p className="mt-3 text-xs leading-relaxed text-zinc-400">
               Selecione abaixo o aluno modelo cujas fichas (A a E) você deseja copiar para <strong className="text-white">{selectedStudent?.name}</strong>:
             </p>
-
             <div className="mt-4 space-y-3">
               <select
                 value={sourceStudentIdForCopy}
@@ -1348,7 +1020,6 @@ Senha: ${student.password}`
                     </option>
                   ))}
               </select>
-
               <div className="grid grid-cols-2 gap-2 pt-2">
                 <button
                   type="button"
@@ -1371,18 +1042,11 @@ Senha: ${student.password}`
         </div>
       )}
 
-      {/* =======================================================
-          MODAL DA BIBLIOTECA
-      ======================================================== */}
-
       {libraryOpen && (
         <div
           className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 p-3 backdrop-blur-sm"
           onMouseDown={(event) => {
-            if (
-              event.target ===
-              event.currentTarget
-            ) {
+            if (event.target === event.currentTarget) {
               setLibraryOpen(false)
             }
           }}
@@ -1390,48 +1054,28 @@ Senha: ${student.password}`
           <div className="max-h-[92dvh] w-full max-w-md overflow-hidden rounded-3xl border border-white/10 bg-ink-900 shadow-2xl">
             <div className="flex items-center justify-between border-b border-white/10 px-4 py-4">
               <div>
-                <p className="text-[10px] uppercase tracking-[0.2em] text-gold-400">
-                  Biblioteca
-                </p>
-
-                <h2 className="mt-1 font-display text-xl uppercase">
-                  Exercícios
-                </h2>
+                <p className="text-[10px] uppercase tracking-[0.2em] text-gold-400">Biblioteca</p>
+                <h2 className="mt-1 font-display text-xl uppercase">Exercícios</h2>
               </div>
-
               <button
                 type="button"
-                onClick={() =>
-                  setLibraryOpen(false)
-                }
+                onClick={() => setLibraryOpen(false)}
                 className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-zinc-300"
               >
                 <X size={18} />
               </button>
             </div>
-
             <div className="max-h-[calc(92dvh-80px)] overflow-y-auto px-4 py-4">
-              {/* BUSCA */}
-
               <div className="relative">
-                <Search
-                  size={17}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"
-                />
-
+                <Search size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
                 <input
                   value={librarySearch}
-                  onChange={(e) =>
-                    setLibrarySearch(
-                      e.target.value
-                    )
-                  }
+                  onChange={(e) => setLibrarySearch(e.target.value)}
                   placeholder="Buscar exercício..."
                   className="w-full rounded-xl border border-white/10 bg-ink-800 py-3 pl-10 pr-3 text-sm text-white outline-none focus:border-gold-400/40"
                 />
               </div>
 
-              {/* FILTROS RÁPIDOS POR MÚSCULO (TAGS) */}
               {availableMuscles.length > 1 && (
                 <div className="mt-3 flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
                   {availableMuscles.map((muscle) => (
@@ -1451,16 +1095,10 @@ Senha: ${student.password}`
                 </div>
               )}
 
-              {/* NOVO EXERCÍCIO */}
-
               {!showNewLibraryExercise ? (
                 <button
                   type="button"
-                  onClick={() =>
-                    setShowNewLibraryExercise(
-                      true
-                    )
-                  }
+                  onClick={() => setShowNewLibraryExercise(true)}
                   className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-gold-400/30 py-3 text-sm font-semibold uppercase tracking-wide text-gold-300 hover:bg-gold-400/10 transition"
                 >
                   <Plus size={16} />
@@ -1468,121 +1106,68 @@ Senha: ${student.password}`
                 </button>
               ) : (
                 <form
-                  onSubmit={
-                    saveNewLibraryExercise
-                  }
+                  onSubmit={saveNewLibraryExercise}
                   className="mt-3 rounded-2xl border border-gold-400/20 bg-ink-800 p-4"
                 >
                   <div className="mb-3 flex items-center justify-between">
-                    <p className="text-xs uppercase tracking-[0.18em] text-gold-400">
-                      Novo exercício
-                    </p>
-
+                    <p className="text-xs uppercase tracking-[0.18em] text-gold-400">Novo exercício</p>
                     <button
                       type="button"
                       onClick={() => {
-                        setShowNewLibraryExercise(
-                          false
-                        )
-                        setLibraryForm(
-                          emptyLibraryExercise()
-                        )
+                        setShowNewLibraryExercise(false)
+                        setLibraryForm(emptyLibraryExercise())
                       }}
                       className="text-zinc-500"
                     >
                       <X size={16} />
                     </button>
                   </div>
-
                   <div className="space-y-2">
                     <input
-                      value={
-                        libraryForm.name
-                      }
-                      onChange={(e) =>
-                        setLibraryForm({
-                          ...libraryForm,
-                          name: e.target.value,
-                        })
-                      }
+                      value={libraryForm.name}
+                      onChange={(e) => setLibraryForm({ ...libraryForm, name: e.target.value })}
                       placeholder="Nome do exercício"
                       className="w-full rounded-xl border border-white/10 bg-ink-700 px-3 py-2.5 text-sm text-white"
                     />
-
                     <input
-                      value={
-                        libraryForm.muscle
-                      }
-                      onChange={(e) =>
-                        setLibraryForm({
-                          ...libraryForm,
-                          muscle:
-                            e.target.value,
-                        })
-                      }
+                      value={libraryForm.group || ''}
+                      onChange={(e) => setLibraryForm({ ...libraryForm, group: e.target.value })}
+                      placeholder="Conjugação / Grupo (Ex: Bi-set A)"
+                      className="w-full rounded-xl border border-gold-400/30 bg-ink-700 px-3 py-2.5 text-xs text-gold-300 placeholder:text-zinc-500"
+                    />
+                    <input
+                      value={libraryForm.muscle}
+                      onChange={(e) => setLibraryForm({ ...libraryForm, muscle: e.target.value })}
                       placeholder="Grupo muscular (ex: Peito)"
                       className="w-full rounded-xl border border-white/10 bg-ink-700 px-3 py-2.5 text-sm text-white"
                     />
-
                     <div className="grid grid-cols-2 gap-2">
                       <input
-                        value={
-                          libraryForm.sets
-                        }
-                        onChange={(e) =>
-                          setLibraryForm({
-                            ...libraryForm,
-                            sets: e.target.value,
-                          })
-                        }
+                        value={libraryForm.sets}
+                        onChange={(e) => setLibraryForm({ ...libraryForm, sets: e.target.value })}
                         placeholder="Séries"
                         className="rounded-xl border border-white/10 bg-ink-700 px-3 py-2.5 text-sm text-white"
                       />
-
                       <input
-                        value={
-                          libraryForm.reps
-                        }
-                        onChange={(e) =>
-                          setLibraryForm({
-                            ...libraryForm,
-                            reps: e.target.value,
-                          })
-                        }
+                        value={libraryForm.reps}
+                        onChange={(e) => setLibraryForm({ ...libraryForm, reps: e.target.value })}
                         placeholder="Repetições"
                         className="rounded-xl border border-white/10 bg-ink-700 px-3 py-2.5 text-sm text-white"
                       />
                     </div>
-
                     <textarea
-                      value={
-                        libraryForm.notes
-                      }
-                      onChange={(e) =>
-                        setLibraryForm({
-                          ...libraryForm,
-                          notes: e.target.value,
-                        })
-                      }
+                      value={libraryForm.notes}
+                      onChange={(e) => setLibraryForm({ ...libraryForm, notes: e.target.value })}
                       placeholder="Observações"
                       rows={2}
                       className="w-full rounded-xl border border-white/10 bg-ink-700 px-3 py-2.5 text-sm text-white"
                     />
-
                     <input
-                      value={
-                        libraryForm.video
-                      }
-                      onChange={(e) =>
-                        setLibraryForm({
-                          ...libraryForm,
-                          video: e.target.value,
-                        })
-                      }
+                      value={libraryForm.video}
+                      onChange={(e) => setLibraryForm({ ...libraryForm, video: e.target.value })}
                       placeholder="Link do YouTube"
                       className="w-full rounded-xl border border-white/10 bg-ink-700 px-3 py-2.5 text-sm text-white"
                     />
-
                     <button
                       type="submit"
                       className="flex w-full items-center justify-center gap-2 rounded-xl bg-gold-400 py-3 text-sm font-semibold uppercase text-ink-950"
@@ -1594,114 +1179,68 @@ Senha: ${student.password}`
                 </form>
               )}
 
-              {/* LISTA */}
-
               <div className="mt-4 space-y-3">
-                {filteredLibrary.length ===
-                0 ? (
+                {filteredLibrary.length === 0 ? (
                   <div className="rounded-2xl border border-white/5 bg-ink-800 p-6 text-center">
-                    <Dumbbell
-                      size={28}
-                      className="mx-auto text-zinc-600"
-                    />
-
-                    <p className="mt-3 text-sm text-zinc-400">
-                      Nenhum exercício
-                      encontrado.
-                    </p>
+                    <Dumbbell size={28} className="mx-auto text-zinc-600" />
+                    <p className="mt-3 text-sm text-zinc-400">Nenhum exercício encontrado.</p>
                   </div>
                 ) : (
-                  filteredLibrary.map(
-                    (exercise) => (
-                      <article
-                        key={exercise.id}
-                        className="rounded-2xl border border-white/5 bg-ink-800 p-4"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <h3 className="font-display text-lg uppercase leading-tight">
-                              {exercise.name}
-                            </h3>
-
-                            {exercise.muscle && (
-                              <p className="mt-1 text-xs uppercase tracking-wider text-gold-400">
-                                {exercise.muscle}
-                              </p>
-                            )}
-                          </div>
-
-                          <button
-                            type="button"
-                            onClick={() =>
-                              deleteLibraryExercise(
-                                exercise.id
-                              )
-                            }
-                            className="shrink-0 text-zinc-500 hover:text-red-400 transition"
-                            title="Excluir da biblioteca"
-                          >
-                            <Trash2 size={16} />
-                          </button>
+                  filteredLibrary.map((exercise) => (
+                    <article key={exercise.id} className="rounded-2xl border border-white/5 bg-ink-800 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <h3 className="font-display text-lg uppercase leading-tight">{exercise.name}</h3>
+                          {exercise.group && (
+                            <span className="mt-1 inline-block rounded-md bg-gold-400/20 px-2 py-0.5 text-[10px] uppercase font-bold text-gold-300">
+                              {exercise.group}
+                            </span>
+                          )}
+                          {exercise.muscle && (
+                            <p className="mt-1 text-xs uppercase tracking-wider text-zinc-400">{exercise.muscle}</p>
+                          )}
                         </div>
-
-                        <div className="mt-3 grid grid-cols-2 gap-2">
-                          <div className="rounded-xl bg-ink-700 px-3 py-2">
-                            <p className="text-[10px] uppercase tracking-widest text-zinc-500">
-                              Séries
-                            </p>
-
-                            <p className="font-display text-lg text-gold-400">
-                              {exercise.sets ||
-                                '-'}
-                            </p>
-                          </div>
-
-                          <div className="rounded-xl bg-ink-700 px-3 py-2">
-                            <p className="text-[10px] uppercase tracking-widest text-zinc-500">
-                              Repetições
-                            </p>
-
-                            <p className="font-display text-lg text-gold-400">
-                              {exercise.reps ||
-                                '-'}
-                            </p>
-                          </div>
-                        </div>
-
-                        {exercise.notes && (
-                          <p className="mt-3 text-xs leading-5 text-zinc-400">
-                            {exercise.notes}
-                          </p>
-                        )}
-
-                        {exercise.video && (
-                          <p className="mt-2 flex items-center gap-1 text-xs text-zinc-500">
-                            <Play size={12} />
-                            Vídeo cadastrado
-                          </p>
-                        )}
-
                         <button
                           type="button"
-                          onClick={() =>
-                            addFromLibrary(
-                              exercise.id
-                            )
-                          }
-                          className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-gold-400 py-2.5 text-xs font-semibold uppercase tracking-wide text-ink-950 hover:bg-gold-300 transition"
+                          onClick={() => deleteLibraryExercise(exercise.id)}
+                          className="shrink-0 text-zinc-500 hover:text-red-400 transition"
+                          title="Excluir da biblioteca"
                         >
-                          <Plus size={15} />
-                          Adicionar ao treino {day}
+                          <Trash2 size={16} />
                         </button>
-                      </article>
-                    )
-                  )
+                      </div>
+
+                      <div className="mt-3 grid grid-cols-2 gap-2">
+                        <div className="rounded-xl bg-ink-700 px-3 py-2">
+                          <p className="text-[10px] uppercase tracking-widest text-zinc-500">Séries</p>
+                          <p className="font-display text-lg text-gold-400">{exercise.sets || '-'}</p>
+                        </div>
+                        <div className="rounded-xl bg-ink-700 px-3 py-2">
+                          <p className="text-[10px] uppercase tracking-widest text-zinc-500">Repetições</p>
+                          <p className="font-display text-lg text-gold-400">{exercise.reps || '-'}</p>
+                        </div>
+                      </div>
+
+                      {exercise.notes && (
+                        <p className="mt-3 text-xs leading-5 text-zinc-400">{exercise.notes}</p>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => addFromLibrary(exercise.id)}
+                        className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-gold-400 py-2.5 text-xs font-semibold uppercase tracking-wide text-ink-950 hover:bg-gold-300 transition"
+                      >
+                        <Plus size={15} />
+                        Adicionar ao treino {day}
+                      </button>
+                    </article>
+                  ))
                 )}
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }
