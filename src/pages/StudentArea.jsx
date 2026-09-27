@@ -129,12 +129,12 @@ export default function StudentArea() {
     const exercisesList = (sortedExercises || [])
       .map((ex, idx) => {
         const groupTag = ex.group ? ` [${ex.group}]` : ''
-        return `*${idx + 1}. ${ex.name}*${groupTag} (Séries: ${ex.sets}, Reps: ${ex.reps})\nCarga: `
+        return `*${idx + 1}. ${ex.name}*${groupTag} (Séries: ${ex.sets}, Repetições: ${ex.reps})\nCarga: `
       })
       .join('\n\n')
 
     const message = encodeURIComponent(
-      `Olá Danilo! Aqui são as cargas e feedback do *${studentName}* referentes ao *${workoutTitle}* (${day}):\n\n${exercisesList}\n\nObservações / Dúvidas:`
+      `Olá Danilo! Aqui estão as cargas e o feedback de *${studentName}* referentes ao *${workoutTitle}* (${day}):\n\n${exercisesList}\n\nObservações / Dúvidas:`
     )
 
     const phone = '5527996247906'
@@ -229,7 +229,7 @@ export default function StudentArea() {
             {workout.focus}
           </p>
           <span className="text-xs font-bold text-zinc-400">
-            {completedCount}/{totalExercises} concluídos
+            {completedCount} de {totalExercises} concluídos
           </span>
         </div>
         <h1 className="mt-1 font-display text-2xl uppercase">
@@ -316,7 +316,7 @@ export default function StudentArea() {
                     )}
                   </div>
 
-                  {/* COLUNA DIREITA: CONTEÚDO, SÉRIES, REPS, OBS E BOTÕES */}
+                  {/* COLUNA DIREITA: CONTEÚDO, SÉRIES, REPETIÇÕES, OBSERVAÇÕES E BOTÕES */}
                   <div className="flex-1 min-w-0 flex flex-col justify-between">
                     <div>
                       <div className="flex items-start justify-between gap-2">
@@ -340,11 +340,11 @@ export default function StudentArea() {
                           }`}
                         >
                           <CheckCircle2 size={13} />
-                          {isDone ? 'Feito' : 'Marcar'}
+                          {isDone ? 'Concluído' : 'Marcar'}
                         </button>
                       </div>
 
-                      {/* SÉRIES E REPETIÇÕES (NO MESMO BLOCO DO ESBOÇO) */}
+                      {/* SÉRIES E REPETIÇÕES SEM ABREVIAÇÕES */}
                       <div className="mt-2.5 grid grid-cols-2 gap-2">
                         <div className="rounded-lg bg-ink-700 px-2.5 py-1.5">
                           <p className="text-[9px] uppercase tracking-widest text-zinc-500">Séries</p>
@@ -356,7 +356,7 @@ export default function StudentArea() {
                         </div>
                       </div>
 
-                      {/* NOTAS / OBSERVAÇÕES DO TREINADOR */}
+                      {/* OBSERVAÇÕES DO TREINADOR */}
                       {exercise.notes && (
                         <div className="mt-2 flex items-start gap-1.5 rounded-lg bg-gold-400/10 border border-gold-400/20 p-2 text-[11px] leading-relaxed text-zinc-300">
                           <Lightbulb size={14} className="text-gold-400 shrink-0 mt-0.5" />
@@ -367,7 +367,7 @@ export default function StudentArea() {
                   </div>
                 </div>
 
-                {/* BOTÃO / MENU DE DESCANSO ABAIXO DA ESTRUTURA */}
+                {/* BOTÃO / MENU DE DESCANSO */}
                 <div className="mt-3 relative">
                   {!isMenuOpen ? (
                     <button
