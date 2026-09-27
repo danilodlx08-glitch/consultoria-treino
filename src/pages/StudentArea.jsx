@@ -279,45 +279,33 @@ export default function StudentArea() {
                     : 'bg-ink-800 border-white/10'
                 }`}
               >
-                {/* 1. NOME DO EXERCÍCIO EM DESTAQUE NO TOPO (FONTE MAIOR) */}
-                <div className="mb-3">
+                {/* 1. NOME DO EXERCÍCIO EM DESTAQUE MÁXIMO NO TOPO */}
+                <div className="mb-3.5 pb-2.5 border-b border-white/10">
                   {exercise.group && (
-                    <div className="mb-1.5 flex items-center gap-1.5 text-gold-400">
-                      <div className="flex items-center gap-1 rounded-md bg-gold-400/15 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider border border-gold-400/30">
-                        <Link2 size={13} />
+                    <div className="mb-2 flex items-center gap-1.5 text-gold-400">
+                      <div className="flex items-center gap-1 rounded-md bg-gold-400/15 px-2.5 py-1 text-xs font-bold uppercase tracking-wider border border-gold-400/30">
+                        <Link2 size={14} />
                         {exercise.group}
                       </div>
                     </div>
                   )}
-                  <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-400">
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-400 font-semibold">
                     Exercício {index + 1}
                   </p>
-                  <h2 className={`mt-0.5 font-display text-xl uppercase leading-snug ${isDone ? 'line-through text-zinc-400' : 'text-white font-bold'}`}>
+                  <h2 className={`mt-1 font-display text-2xl uppercase leading-tight ${isDone ? 'line-through text-zinc-400' : 'text-white font-extrabold tracking-wide'}`}>
                     {exercise.name}
                   </h2>
                 </div>
 
-                {/* 2. CAIXAS DE SÉRIES E REPETIÇÕES (FONTES MAIORES) */}
-                <div className="grid grid-cols-2 gap-2.5 mb-3.5">
-                  <div className="rounded-xl bg-ink-700 p-2.5 text-center border border-white/5">
-                    <p className="text-[10px] uppercase tracking-widest text-zinc-400 font-semibold">Séries</p>
-                    <p className="font-display text-xl text-gold-400 font-bold mt-0.5">{exercise.sets}</p>
-                  </div>
-                  <div className="rounded-xl bg-ink-700 p-2.5 text-center border border-white/5">
-                    <p className="text-[10px] uppercase tracking-widest text-zinc-400 font-semibold">Repetições</p>
-                    <p className="font-display text-xl text-gold-400 font-bold mt-0.5">{exercise.reps}</p>
-                  </div>
-                </div>
-
-                {/* 3. VÍDEO E OBSERVAÇÕES */}
-                <div className="flex items-stretch gap-3 mb-3.5">
-                  {/* VÍDEO / MINIATURA */}
-                  <div className="w-28 shrink-0 flex flex-col">
+                {/* 2. VÍDEO GRANDE NA ESQUERDA + SÉRIES E REPETIÇÕES NA DIREITA (LADO A LADO) */}
+                <div className="flex items-stretch gap-3.5 mb-3.5">
+                  {/* VÍDEO / MINIATURA MAIOR */}
+                  <div className="w-32 shrink-0 flex flex-col">
                     {exercise.video ? (
                       <button
                         type="button"
                         onClick={() => openVideo(exercise)}
-                        className="group relative h-full min-h-[95px] w-full overflow-hidden rounded-xl border border-gold-400/25 bg-ink-700 text-left transition hover:border-gold-400/50 flex items-center justify-center"
+                        className="group relative h-full min-h-[110px] w-full overflow-hidden rounded-xl border-2 border-gold-400/40 bg-ink-700 text-left transition hover:border-gold-400 flex items-center justify-center shadow-md"
                       >
                         {videoId ? (
                           <>
@@ -326,50 +314,56 @@ export default function StudentArea() {
                               alt={exercise.name}
                               className="absolute inset-0 h-full w-full object-cover transition duration-300 group-hover:scale-105"
                             />
-                            <div className="absolute inset-0 bg-black/35 transition group-hover:bg-black/50" />
-                            <div className="relative z-10 flex h-9 w-9 items-center justify-center rounded-full bg-gold-400 text-ink-950 shadow-md">
-                              <Play size={16} fill="currentColor" className="ml-0.5" />
+                            <div className="absolute inset-0 bg-black/40 transition group-hover:bg-black/50" />
+                            <div className="relative z-10 flex h-11 w-11 items-center justify-center rounded-full bg-gold-400 text-ink-950 shadow-lg">
+                              <Play size={22} fill="currentColor" className="ml-0.5" />
                             </div>
                           </>
                         ) : (
                           <div className="flex flex-col items-center justify-center p-2 text-gold-300 text-center">
-                            <ExternalLink size={18} className="mb-1" />
-                            <span className="text-[10px] uppercase font-bold">Vídeo</span>
+                            <ExternalLink size={20} className="mb-1" />
+                            <span className="text-[11px] uppercase font-bold">Vídeo</span>
                           </div>
                         )}
                       </button>
                     ) : (
-                      <div className="flex h-full min-h-[95px] w-full items-center justify-center rounded-xl border border-white/10 bg-ink-900/50 text-zinc-600">
-                        <Play size={20} className="opacity-20" />
+                      <div className="flex h-full min-h-[110px] w-full items-center justify-center rounded-xl border border-white/10 bg-ink-900/50 text-zinc-600">
+                        <Play size={24} className="opacity-20" />
                       </div>
                     )}
                   </div>
 
-                  {/* OBSERVAÇÕES DO TREINADOR */}
-                  <div className="flex-1 min-w-0 flex flex-col justify-center">
-                    {exercise.notes ? (
-                      <div className="flex items-start gap-1.5 rounded-xl bg-gold-400/10 border border-gold-400/20 p-2.5 text-xs leading-relaxed text-zinc-200">
-                        <Lightbulb size={15} className="text-gold-400 shrink-0 mt-0.5" />
-                        <span>{exercise.notes}</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-center h-full rounded-xl border border-white/5 bg-ink-900/30 p-2 text-xs text-zinc-500 italic">
-                        Sem observações
-                      </div>
-                    )}
+                  {/* SÉRIES E REPETIÇÕES */}
+                  <div className="flex-1 min-w-0 grid grid-cols-2 gap-2.5">
+                    <div className="rounded-xl bg-ink-700 p-3 text-center border border-white/5 flex flex-col justify-center">
+                      <p className="text-[11px] uppercase tracking-widest text-zinc-400 font-bold">Séries</p>
+                      <p className="font-display text-2xl text-gold-400 font-extrabold mt-1">{exercise.sets}</p>
+                    </div>
+                    <div className="rounded-xl bg-ink-700 p-3 text-center border border-white/5 flex flex-col justify-center">
+                      <p className="text-[11px] uppercase tracking-widest text-zinc-400 font-bold">Repetições</p>
+                      <p className="font-display text-2xl text-gold-400 font-extrabold mt-1">{exercise.reps}</p>
+                    </div>
                   </div>
                 </div>
 
+                {/* 3. OBSERVAÇÕES DO TREINADOR */}
+                {exercise.notes && (
+                  <div className="flex items-start gap-2 rounded-xl bg-gold-400/10 border border-gold-400/25 p-3 text-xs leading-relaxed text-zinc-200 mb-3.5">
+                    <Lightbulb size={16} className="text-gold-400 shrink-0 mt-0.5" />
+                    <span>{exercise.notes}</span>
+                  </div>
+                )}
+
                 {/* 4. BOTÕES DE DESCANSO E MARCAR LADO A LADO NA BASE */}
-                <div className="relative pt-1 border-t border-white/5">
+                <div className="relative pt-2 border-t border-white/10">
                   {!isMenuOpen ? (
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-2 gap-2.5">
                       <button
                         type="button"
                         onClick={() => setActiveRestMenu(exercise.id)}
                         className="flex items-center justify-center gap-1.5 rounded-xl border border-gold-400/30 bg-ink-700 py-3 text-xs font-bold uppercase tracking-wider text-gold-300 hover:border-gold-400/60 transition shadow-sm"
                       >
-                        <Timer size={15} />
+                        <Timer size={16} />
                         Descanso
                       </button>
 
@@ -378,11 +372,11 @@ export default function StudentArea() {
                         onClick={() => toggleCompleteExercise(exercise.id)}
                         className={`flex items-center justify-center gap-1.5 rounded-xl px-3 py-3 text-xs font-bold uppercase tracking-wider transition shadow-sm ${
                           isDone
-                            ? 'bg-emerald-500 text-ink-950 shadow-md shadow-emerald-500/20'
+                            ? 'bg-emerald-500 text-ink-950 shadow-md shadow-emerald-500/20 font-extrabold'
                             : 'border border-white/15 bg-ink-700 text-zinc-200 hover:border-gold-400/50 hover:text-gold-300'
                         }`}
                       >
-                        <CheckCircle2 size={15} />
+                        <CheckCircle2 size={16} />
                         {isDone ? 'Concluído' : 'Marcar'}
                       </button>
                     </div>
