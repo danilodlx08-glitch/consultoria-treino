@@ -262,7 +262,7 @@ export default function StudentArea() {
             return (
               <article
                 key={exercise.id || `${day}-${index}`}
-                className={`rounded-2xl border p-4 relative transition-all duration-200 ${
+                className={`rounded-2xl border p-3.5 relative transition-all duration-200 ${
                   isDone
                     ? 'bg-ink-900/40 border-emerald-500/30 opacity-60'
                     : exercise.group
@@ -280,59 +280,103 @@ export default function StudentArea() {
                   </div>
                 )}
 
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-400">
-                      Exercício {index + 1}
-                    </p>
-                    <h2 className={`mt-1 font-display text-xl uppercase leading-tight ${isDone ? 'line-through text-zinc-400' : 'text-white'}`}>
-                      {exercise.name}
-                    </h2>
+                {/* LAYOUT EM DUAS COLUNAS CONFORME O ESBOÇO */}
+                <div className="flex items-stretch gap-3">
+                  {/* COLUNA ESQUERDA: VÍDEO / MINIATURA */}
+                  <div className="w-28 shrink-0 flex flex-col">
+                    {exercise.video ? (
+                      <button
+                        type="button"
+                        onClick={() => openVideo(exercise)}
+                        className="group relative h-full min-h-[105px] w-full overflow-hidden rounded-xl border border-gold-400/25 bg-ink-700 text-left transition hover:border-gold-400/50 flex items-center justify-center"
+                      >
+                        {videoId ? (
+                          <>
+                            <img
+                              src={`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`}
+                              alt={exercise.name}
+                              className="absolute inset-0 h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                            />
+                            <div className="absolute inset-0 bg-black/35 transition group-hover:bg-black/50" />
+                            <div className="relative z-10 flex h-9 w-9 items-center justify-center rounded-full bg-gold-400 text-ink-950 shadow-md">
+                              <Play size={16} fill="currentColor" className="ml-0.5" />
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex flex-col items-center justify-center p-2 text-gold-300 text-center">
+                            <ExternalLink size={18} className="mb-1" />
+                            <span className="text-[10px] uppercase font-bold">Vídeo</span>
+                          </div>
+                        )}
+                      </button>
+                    ) : (
+                      <div className="flex h-full min-h-[105px] w-full items-center justify-center rounded-xl border border-white/10 bg-ink-900/50 text-zinc-600">
+                        <Play size={20} className="opacity-20" />
+                      </div>
+                    )}
                   </div>
 
-                  {/* BOTÃO DE CHECK / CONCLUÍDO */}
-                  <button
-                    type="button"
-                    onClick={() => toggleCompleteExercise(exercise.id)}
-                    className={`flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold uppercase tracking-wider transition shrink-0 ${
-                      isDone
-                        ? 'bg-emerald-500 text-ink-950 shadow-md shadow-emerald-500/20'
-                        : 'border border-white/15 bg-ink-700 text-zinc-300 hover:border-gold-400/50 hover:text-gold-300'
-                    }`}
-                  >
-                    <CheckCircle2 size={15} />
-                    {isDone ? 'Feito' : 'Marcar'}
-                  </button>
+                  {/* COLUNA DIREITA: CONTEÚDO, SÉRIES, REPS, OBS E BOTÕES */}
+                  <div className="flex-1 min-w-0 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-400">
+                            Exercício {index + 1}
+                          </p>
+                          <h2 className={`mt-0.5 font-display text-lg uppercase leading-tight truncate ${isDone ? 'line-through text-zinc-400' : 'text-white'}`}>
+                            {exercise.name}
+                          </h2>
+                        </div>
+
+                        {/* BOTÃO DE CHECK / CONCLUÍDO */}
+                        <button
+                          type="button"
+                          onClick={() => toggleCompleteExercise(exercise.id)}
+                          className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wider transition shrink-0 ${
+                            isDone
+                              ? 'bg-emerald-500 text-ink-950 shadow-md shadow-emerald-500/20'
+                              : 'border border-white/15 bg-ink-700 text-zinc-300 hover:border-gold-400/50 hover:text-gold-300'
+                          }`}
+                        >
+                          <CheckCircle2 size={13} />
+                          {isDone ? 'Feito' : 'Marcar'}
+                        </button>
+                      </div>
+
+                      {/* SÉRIES E REPETIÇÕES (NO MESMO BLOCO DO ESBOÇO) */}
+                      <div className="mt-2.5 grid grid-cols-2 gap-2">
+                        <div className="rounded-lg bg-ink-700 px-2.5 py-1.5">
+                          <p className="text-[9px] uppercase tracking-widest text-zinc-500">Séries</p>
+                          <p className="font-display text-base text-gold-400">{exercise.sets}</p>
+                        </div>
+                        <div className="rounded-lg bg-ink-700 px-2.5 py-1.5">
+                          <p className="text-[9px] uppercase tracking-widest text-zinc-500">Repetições</p>
+                          <p className="font-display text-base text-gold-400">{exercise.reps}</p>
+                        </div>
+                      </div>
+
+                      {/* NOTAS / OBSERVAÇÕES DO TREINADOR */}
+                      {exercise.notes && (
+                        <div className="mt-2 flex items-start gap-1.5 rounded-lg bg-gold-400/10 border border-gold-400/20 p-2 text-[11px] leading-relaxed text-zinc-300">
+                          <Lightbulb size={14} className="text-gold-400 shrink-0 mt-0.5" />
+                          <span>{exercise.notes}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <div className="rounded-xl bg-ink-700 px-3 py-2">
-                    <p className="text-[10px] uppercase tracking-widest text-zinc-500">Séries</p>
-                    <p className="font-display text-lg text-gold-400">{exercise.sets}</p>
-                  </div>
-                  <div className="rounded-xl bg-ink-700 px-3 py-2">
-                    <p className="text-[10px] uppercase tracking-widest text-zinc-500">Repetições</p>
-                    <p className="font-display text-lg text-gold-400">{exercise.reps}</p>
-                  </div>
-                </div>
-
-                {/* BLOCO DE NOTAS / INSTRUÇÃO DO TREINADOR DESTACADO */}
-                {exercise.notes && (
-                  <div className="mt-3 flex items-start gap-2.5 rounded-xl bg-gold-400/10 border border-gold-400/20 p-3 text-xs leading-relaxed text-zinc-300">
-                    <Lightbulb size={16} className="text-gold-400 shrink-0 mt-0.5" />
-                    <span>{exercise.notes}</span>
-                  </div>
-                )}
-
-                <div className="mt-4 relative">
+                {/* BOTÃO / MENU DE DESCANSO ABAIXO DA ESTRUTURA */}
+                <div className="mt-3 relative">
                   {!isMenuOpen ? (
                     <button
                       type="button"
                       onClick={() => setActiveRestMenu(exercise.id)}
-                      className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-gold-400/20 bg-ink-700 py-2.5 text-xs font-semibold uppercase tracking-wider text-gold-300 hover:border-gold-400/50 transition"
+                      className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-gold-400/20 bg-ink-700 py-2 text-xs font-semibold uppercase tracking-wider text-gold-300 hover:border-gold-400/50 transition"
                     >
                       <Timer size={14} />
-                      Escolher Descanso
+                      Descanso
                     </button>
                   ) : (
                     <div className="rounded-xl border border-gold-400/40 bg-ink-900 p-3 shadow-xl">
@@ -363,45 +407,6 @@ export default function StudentArea() {
                     </div>
                   )}
                 </div>
-
-                {exercise.video && (
-                  <button
-                    type="button"
-                    onClick={() => openVideo(exercise)}
-                    className="group mt-3 block w-full overflow-hidden rounded-xl border border-gold-400/20 bg-ink-700 text-left transition hover:border-gold-400/50"
-                  >
-                    {videoId ? (
-                      <div className="relative">
-                        <img
-                          src={`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`}
-                          alt={`Vídeo demonstrativo de ${exercise.name}`}
-                          className="h-44 w-full object-cover transition duration-300 group-hover:scale-[1.02]"
-                        />
-                        <div className="absolute inset-0 bg-black/25 transition group-hover:bg-black/40" />
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gold-400 text-ink-950 shadow-lg transition duration-200 group-hover:scale-110">
-                            <Play size={24} fill="currentColor" className="ml-1" />
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-between px-3 py-3">
-                        <span className="flex items-center gap-2 text-sm text-gold-300">
-                          <ExternalLink size={16} />
-                          Ver vídeo do movimento
-                        </span>
-                        <ExternalLink size={14} />
-                      </div>
-                    )}
-
-                    {videoId && (
-                      <div className="flex items-center justify-between px-3 py-3">
-                        <span className="text-sm font-medium text-gold-300">Assistir demonstração</span>
-                        <Play size={15} fill="currentColor" />
-                      </div>
-                    )}
-                  </button>
-                )}
               </article>
             )
           })}
@@ -412,7 +417,6 @@ export default function StudentArea() {
       <div className="fixed bottom-0 left-0 right-0 z-40 border-t-2 border-gold-400/40 bg-ink-950/95 p-5 backdrop-blur shadow-2xl">
         <div className="mx-auto max-w-md">
           {isWorkoutCompleted ? (
-            /* CONQUISTA GRANDE E IMPONENTE NO LUGAR DO CRONÔMETRO */
             <div className="flex items-center gap-4 animate-fade-in py-1">
               <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-gold-400 to-gold-600 text-ink-950 shadow-xl shadow-gold-400/30">
                 <Trophy size={32} />
@@ -423,7 +427,6 @@ export default function StudentArea() {
               </div>
             </div>
           ) : (
-            /* CRONÔMETRO NORMAL DURANTE O TREINO */
             <>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
