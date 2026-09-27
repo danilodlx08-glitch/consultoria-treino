@@ -360,7 +360,7 @@ export default function StudentArea() {
                   </div>
                 </div>
 
-                {/* BOTÕES DE DESCANSO E MARCAR LADO A LADO NA BASE */}
+                {/* BOTÕES DE DESCANSO E FEITO LADO A LADO NA BASE */}
                 <div className="relative pt-2 border-t border-white/10">
                   {!isMenuOpen ? (
                     <div className="grid grid-cols-2 gap-2.5">
