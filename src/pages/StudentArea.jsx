@@ -279,8 +279,8 @@ export default function StudentArea() {
                     : 'bg-ink-800 border-white/10'
                 }`}
               >
-                {/* 1. NOME DO EXERCÍCIO EM DESTAQUE MÁXIMO NO TOPO */}
-                <div className="mb-3.5 pb-2.5 border-b border-white/10">
+                {/* 1. NOME DO EXERCÍCIO EM DESTAQUE TOTAL NO TOPO */}
+                <div className="mb-4">
                   {exercise.group && (
                     <div className="mb-2 flex items-center gap-1.5 text-gold-400">
                       <div className="flex items-center gap-1 rounded-md bg-gold-400/15 px-2.5 py-1 text-xs font-bold uppercase tracking-wider border border-gold-400/30">
@@ -297,9 +297,9 @@ export default function StudentArea() {
                   </h2>
                 </div>
 
-                {/* 2. VÍDEO GRANDE NA ESQUERDA + SÉRIES E REPETIÇÕES NA DIREITA (LADO A LADO) */}
+                {/* 2. VÍDEO GRANDE NA ESQUERDA + SÉRIES E REPETIÇÕES À DIREITA (LADO A LADO) */}
                 <div className="flex items-stretch gap-3.5 mb-3.5">
-                  {/* VÍDEO / MINIATURA MAIOR */}
+                  {/* VÍDEO / MINIATURA BEM MAIOR */}
                   <div className="w-32 shrink-0 flex flex-col">
                     {exercise.video ? (
                       <button
@@ -315,8 +315,8 @@ export default function StudentArea() {
                               className="absolute inset-0 h-full w-full object-cover transition duration-300 group-hover:scale-105"
                             />
                             <div className="absolute inset-0 bg-black/40 transition group-hover:bg-black/50" />
-                            <div className="relative z-10 flex h-11 w-11 items-center justify-center rounded-full bg-gold-400 text-ink-950 shadow-lg">
-                              <Play size={22} fill="currentColor" className="ml-0.5" />
+                            <div className="relative z-10 flex h-12 w-12 items-center justify-center rounded-full bg-gold-400 text-ink-950 shadow-lg">
+                              <Play size={24} fill="currentColor" className="ml-0.5" />
                             </div>
                           </>
                         ) : (
@@ -333,7 +333,7 @@ export default function StudentArea() {
                     )}
                   </div>
 
-                  {/* SÉRIES E REPETIÇÕES */}
+                  {/* SÉRIES E REPETIÇÕES (LADO A LADO) */}
                   <div className="flex-1 min-w-0 grid grid-cols-2 gap-2.5">
                     <div className="rounded-xl bg-ink-700 p-3 text-center border border-white/5 flex flex-col justify-center">
                       <p className="text-[11px] uppercase tracking-widest text-zinc-400 font-bold">Séries</p>
