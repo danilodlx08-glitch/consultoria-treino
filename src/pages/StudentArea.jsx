@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ExternalLink, LogOut, RefreshCw, X, Play, Timer, RotateCcw, MessageCircle, Link2, CheckCircle2, Trophy, Lightbulb, HelpCircle } from 'lucide-react'
+import { ExternalLink, LogOut, RefreshCw, X, Play, Timer, RotateCcw, MessageCircle, Link2, CheckCircle2, Trophy, Lightbulb } from 'lucide-react'
 import Logo from '../components/Logo.jsx'
 import { useAuth } from '../auth.jsx'
 import { loadData, subscribeData } from '../storage'
@@ -234,7 +234,7 @@ export default function StudentArea() {
 
       <main className="mx-auto max-w-md px-4 py-5 safe-bottom">
         <div className="flex items-center justify-between">
-          <p className="text-[11px] uppercase tracking-[0.2em] text-gold-400">
+          <p className="text-[12px] uppercase tracking-[0.2em] text-gold-400 font-bold">
             {workout.focus}
           </p>
           <span className="text-xs font-bold text-zinc-400">
@@ -271,7 +271,7 @@ export default function StudentArea() {
             return (
               <article
                 key={exercise.id || `${day}-${index}`}
-                className={`rounded-2xl border p-3.5 relative transition-all duration-200 ${
+                className={`rounded-2xl border p-4 relative transition-all duration-200 ${
                   isDone
                     ? 'bg-ink-900/40 border-emerald-500/30 opacity-60'
                     : exercise.group
@@ -279,44 +279,39 @@ export default function StudentArea() {
                     : 'bg-ink-800 border-white/10'
                 }`}
               >
-                {/* ETIQUETA DE BI-SET / CONJUGADO */}
-                {exercise.group && (
-                  <div className="mb-2 flex items-center gap-1.5 text-gold-400">
-                    <div className="flex items-center gap-1 rounded-md bg-gold-400/15 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider border border-gold-400/30">
-                      <Link2 size={13} />
-                      {exercise.group}
+                {/* 1. NOME DO EXERCÍCIO EM DESTAQUE NO TOPO (FONTE MAIOR) */}
+                <div className="mb-3">
+                  {exercise.group && (
+                    <div className="mb-1.5 flex items-center gap-1.5 text-gold-400">
+                      <div className="flex items-center gap-1 rounded-md bg-gold-400/15 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider border border-gold-400/30">
+                        <Link2 size={13} />
+                        {exercise.group}
+                      </div>
                     </div>
-                  </div>
-                )}
-
-                {/* TOPO DO CARD: NOME COMPLETO DO EXERCÍCIO E BOTÃO DE MARCAR */}
-                <div className="flex items-start justify-between gap-3 mb-3">
-                  <div>
-                    <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-400">
-                      Exercício {index + 1}
-                    </p>
-                    <h2 className={`mt-0.5 font-display text-lg uppercase leading-snug ${isDone ? 'line-through text-zinc-400' : 'text-white'}`}>
-                      {exercise.name}
-                    </h2>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => toggleCompleteExercise(exercise.id)}
-                    className={`flex items-center gap-1 rounded-lg px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider transition shrink-0 ${
-                      isDone
-                        ? 'bg-emerald-500 text-ink-950 shadow-md shadow-emerald-500/20'
-                        : 'border border-white/15 bg-ink-700 text-zinc-300 hover:border-gold-400/50 hover:text-gold-300'
-                    }`}
-                  >
-                    <CheckCircle2 size={13} />
-                    {isDone ? 'Concluído' : 'Marcar'}
-                  </button>
+                  )}
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-400">
+                    Exercício {index + 1}
+                  </p>
+                  <h2 className={`mt-0.5 font-display text-xl uppercase leading-snug ${isDone ? 'line-through text-zinc-400' : 'text-white font-bold'}`}>
+                    {exercise.name}
+                  </h2>
                 </div>
 
-                {/* CORPO DO CARD: VÍDEO NA ESQUERDA E SÉRIES/REPETIÇÕES NA DIREITA */}
-                <div className="flex items-stretch gap-3">
-                  {/* COLUNA ESQUERDA: VÍDEO / MINIATURA */}
+                {/* 2. CAIXAS DE SÉRIES E REPETIÇÕES (FONTES MAIORES) */}
+                <div className="grid grid-cols-2 gap-2.5 mb-3.5">
+                  <div className="rounded-xl bg-ink-700 p-2.5 text-center border border-white/5">
+                    <p className="text-[10px] uppercase tracking-widest text-zinc-400 font-semibold">Séries</p>
+                    <p className="font-display text-xl text-gold-400 font-bold mt-0.5">{exercise.sets}</p>
+                  </div>
+                  <div className="rounded-xl bg-ink-700 p-2.5 text-center border border-white/5">
+                    <p className="text-[10px] uppercase tracking-widest text-zinc-400 font-semibold">Repetições</p>
+                    <p className="font-display text-xl text-gold-400 font-bold mt-0.5">{exercise.reps}</p>
+                  </div>
+                </div>
+
+                {/* 3. VÍDEO E OBSERVAÇÕES */}
+                <div className="flex items-stretch gap-3 mb-3.5">
+                  {/* VÍDEO / MINIATURA */}
                   <div className="w-28 shrink-0 flex flex-col">
                     {exercise.video ? (
                       <button
@@ -350,44 +345,51 @@ export default function StudentArea() {
                     )}
                   </div>
 
-                  {/* COLUNA DIREITA: SÉRIES, REPETIÇÕES E OBSERVAÇÕES */}
-                  <div className="flex-1 min-w-0 flex flex-col justify-between gap-2">
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="rounded-lg bg-ink-700 px-2.5 py-1.5">
-                        <p className="text-[9px] uppercase tracking-widest text-zinc-500">Séries</p>
-                        <p className="font-display text-base text-gold-400">{exercise.sets}</p>
-                      </div>
-                      <div className="rounded-lg bg-ink-700 px-2.5 py-1.5">
-                        <p className="text-[9px] uppercase tracking-widest text-zinc-500">Repetições</p>
-                        <p className="font-display text-base text-gold-400">{exercise.reps}</p>
-                      </div>
-                    </div>
-
-                    {/* OBSERVAÇÕES DO TREINADOR */}
-                    {exercise.notes && (
-                      <div className="flex items-start gap-1.5 rounded-lg bg-gold-400/10 border border-gold-400/20 p-2 text-[11px] leading-relaxed text-zinc-300">
-                        <Lightbulb size={14} className="text-gold-400 shrink-0 mt-0.5" />
+                  {/* OBSERVAÇÕES DO TREINADOR */}
+                  <div className="flex-1 min-w-0 flex flex-col justify-center">
+                    {exercise.notes ? (
+                      <div className="flex items-start gap-1.5 rounded-xl bg-gold-400/10 border border-gold-400/20 p-2.5 text-xs leading-relaxed text-zinc-200">
+                        <Lightbulb size={15} className="text-gold-400 shrink-0 mt-0.5" />
                         <span>{exercise.notes}</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center h-full rounded-xl border border-white/5 bg-ink-900/30 p-2 text-xs text-zinc-500 italic">
+                        Sem observações
                       </div>
                     )}
                   </div>
                 </div>
 
-                {/* BOTÃO / MENU DE DESCANSO */}
-                <div className="mt-3 relative">
+                {/* 4. BOTÕES DE DESCANSO E MARCAR LADO A LADO NA BASE */}
+                <div className="relative pt-1 border-t border-white/5">
                   {!isMenuOpen ? (
-                    <button
-                      type="button"
-                      onClick={() => setActiveRestMenu(exercise.id)}
-                      className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-gold-400/20 bg-ink-700 py-2 text-xs font-semibold uppercase tracking-wider text-gold-300 hover:border-gold-400/50 transition"
-                    >
-                      <Timer size={14} />
-                      Descanso
-                    </button>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setActiveRestMenu(exercise.id)}
+                        className="flex items-center justify-center gap-1.5 rounded-xl border border-gold-400/30 bg-ink-700 py-3 text-xs font-bold uppercase tracking-wider text-gold-300 hover:border-gold-400/60 transition shadow-sm"
+                      >
+                        <Timer size={15} />
+                        Descanso
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => toggleCompleteExercise(exercise.id)}
+                        className={`flex items-center justify-center gap-1.5 rounded-xl px-3 py-3 text-xs font-bold uppercase tracking-wider transition shadow-sm ${
+                          isDone
+                            ? 'bg-emerald-500 text-ink-950 shadow-md shadow-emerald-500/20'
+                            : 'border border-white/15 bg-ink-700 text-zinc-200 hover:border-gold-400/50 hover:text-gold-300'
+                        }`}
+                      >
+                        <CheckCircle2 size={15} />
+                        {isDone ? 'Concluído' : 'Marcar'}
+                      </button>
+                    </div>
                   ) : (
                     <div className="rounded-xl border border-gold-400/40 bg-ink-900 p-3 shadow-xl">
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-[11px] font-semibold uppercase tracking-wider text-gold-400">
+                        <span className="text-xs font-bold uppercase tracking-wider text-gold-400">
                           Selecione o tempo de descanso:
                         </span>
                         <button
@@ -395,7 +397,7 @@ export default function StudentArea() {
                           onClick={() => setActiveRestMenu(null)}
                           className="text-zinc-400 hover:text-white"
                         >
-                          <X size={14} />
+                          <X size={16} />
                         </button>
                       </div>
                       <div className="grid grid-cols-4 gap-1.5">
@@ -404,7 +406,7 @@ export default function StudentArea() {
                             key={sec}
                             type="button"
                             onClick={() => startTimer(sec)}
-                            className="rounded-lg border border-gold-400/30 bg-ink-800 py-2 text-xs font-bold text-gold-300 hover:bg-gold-400 hover:text-ink-950 transition"
+                            className="rounded-lg border border-gold-400/30 bg-ink-800 py-2.5 text-xs font-bold text-gold-300 hover:bg-gold-400 hover:text-ink-950 transition"
                           >
                             {sec}s
                           </button>
@@ -419,7 +421,7 @@ export default function StudentArea() {
         </div>
       </main>
 
-      {/* BOTÃO FLUTUANTE DO WHATSAPP (DEIXE SUA DÚVIDA / MUDANÇAS) */}
+      {/* BOTÃO FLUTUANTE DO WHATSAPP (DEIXE SUA DÚVIDA) */}
       <div className="fixed bottom-36 right-4 z-45 flex items-center">
         <button
           onClick={sendRealtimeDoubt}
