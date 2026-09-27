@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ExternalLink, LogOut, RefreshCw, X, Play, Timer, RotateCcw, MessageCircle, Link2, CheckCircle2, Trophy } from 'lucide-react'
+import { ExternalLink, LogOut, RefreshCw, X, Play, Timer, RotateCcw, MessageCircle, Link2, CheckCircle2, Trophy, Lightbulb } from 'lucide-react'
 import Logo from '../components/Logo.jsx'
 import { useAuth } from '../auth.jsx'
 import { loadData, subscribeData } from '../storage'
@@ -253,7 +253,7 @@ export default function StudentArea() {
           Enviar cargas e feedback no WhatsApp
         </button>
 
-        <div className="mt-5 space-y-3">
+        <div className="mt-5 space-y-4">
           {(sortedExercises || []).map((exercise, index) => {
             const videoId = youtubeId(exercise.video)
             const isMenuOpen = activeRestMenu === exercise.id
@@ -264,10 +264,10 @@ export default function StudentArea() {
                 key={exercise.id || `${day}-${index}`}
                 className={`rounded-2xl border p-4 relative transition-all duration-200 ${
                   isDone
-                    ? 'bg-ink-900/40 border-white/5 opacity-50'
+                    ? 'bg-ink-900/40 border-emerald-500/30 opacity-60'
                     : exercise.group
                     ? 'bg-ink-800 border-gold-400/50 shadow-lg shadow-gold-400/5'
-                    : 'bg-ink-800 border-white/5'
+                    : 'bg-ink-800 border-white/10'
                 }`}
               >
                 {/* ETIQUETA DE BI-SET / CONJUGADO */}
@@ -285,7 +285,7 @@ export default function StudentArea() {
                     <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-400">
                       Exercício {index + 1}
                     </p>
-                    <h2 className={`mt-1 font-display text-xl uppercase leading-tight ${isDone ? 'line-through text-zinc-400' : ''}`}>
+                    <h2 className={`mt-1 font-display text-xl uppercase leading-tight ${isDone ? 'line-through text-zinc-400' : 'text-white'}`}>
                       {exercise.name}
                     </h2>
                   </div>
@@ -294,14 +294,14 @@ export default function StudentArea() {
                   <button
                     type="button"
                     onClick={() => toggleCompleteExercise(exercise.id)}
-                    className={`flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold uppercase tracking-wider transition ${
+                    className={`flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold uppercase tracking-wider transition shrink-0 ${
                       isDone
-                        ? 'bg-emerald-500 text-ink-950 shadow-md'
+                        ? 'bg-emerald-500 text-ink-950 shadow-md shadow-emerald-500/20'
                         : 'border border-white/15 bg-ink-700 text-zinc-300 hover:border-gold-400/50 hover:text-gold-300'
                     }`}
                   >
                     <CheckCircle2 size={15} />
-                    {isDone ? 'Feito' : 'Marcar Feito'}
+                    {isDone ? 'Feito' : 'Marcar'}
                   </button>
                 </div>
 
@@ -316,8 +316,12 @@ export default function StudentArea() {
                   </div>
                 </div>
 
+                {/* BLOCO DE NOTAS / INSTRUÇÃO DO TREINADOR DESTACADO */}
                 {exercise.notes && (
-                  <p className="mt-3 text-sm leading-6 text-zinc-400">{exercise.notes}</p>
+                  <div className="mt-3 flex items-start gap-2.5 rounded-xl bg-gold-400/10 border border-gold-400/20 p-3 text-xs leading-relaxed text-zinc-300">
+                    <Lightbulb size={16} className="text-gold-400 shrink-0 mt-0.5" />
+                    <span>{exercise.notes}</span>
+                  </div>
                 )}
 
                 <div className="mt-4 relative">
