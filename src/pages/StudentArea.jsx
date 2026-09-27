@@ -245,7 +245,6 @@ export default function StudentArea() {
           {workout.title}
         </h1>
 
-        {/* BARRA DE PROGRESSO DINÂMICA */}
         <div className="mt-3.5 h-2.5 w-full overflow-hidden rounded-full bg-ink-800 border border-white/5">
           <div
             className="h-full bg-gold-400 transition-all duration-300 shadow-sm shadow-gold-400/50"
@@ -279,8 +278,8 @@ export default function StudentArea() {
                     : 'bg-ink-800 border-white/10'
                 }`}
               >
-                {/* 1. NOME DO EXERCÍCIO EM DESTAQUE TOTAL NO TOPO */}
-                <div className="mb-4">
+                {/* NOME DO EXERCÍCIO NO TOPO */}
+                <div className="mb-3.5">
                   {exercise.group && (
                     <div className="mb-2 flex items-center gap-1.5 text-gold-400">
                       <div className="flex items-center gap-1 rounded-md bg-gold-400/15 px-2.5 py-1 text-xs font-bold uppercase tracking-wider border border-gold-400/30">
@@ -297,15 +296,15 @@ export default function StudentArea() {
                   </h2>
                 </div>
 
-                {/* 2. VÍDEO GRANDE NA ESQUERDA + SÉRIES E REPETIÇÕES À DIREITA (LADO A LADO) */}
+                {/* VÍDEO ALTO À ESQUERDA + (SÉRIES/REPETIÇÕES E OBSERVAÇÕES) À DIREITA */}
                 <div className="flex items-stretch gap-3.5 mb-3.5">
-                  {/* VÍDEO / MINIATURA BEM MAIOR */}
+                  {/* VÍDEO MAIOR E MAIS RETANGULAR/VERTICAL */}
                   <div className="w-32 shrink-0 flex flex-col">
                     {exercise.video ? (
                       <button
                         type="button"
                         onClick={() => openVideo(exercise)}
-                        className="group relative h-full min-h-[110px] w-full overflow-hidden rounded-xl border-2 border-gold-400/40 bg-ink-700 text-left transition hover:border-gold-400 flex items-center justify-center shadow-md"
+                        className="group relative h-full min-h-[148px] w-full overflow-hidden rounded-xl border-2 border-gold-400/40 bg-ink-700 text-left transition hover:border-gold-400 flex items-center justify-center shadow-md"
                       >
                         {videoId ? (
                           <>
@@ -327,34 +326,41 @@ export default function StudentArea() {
                         )}
                       </button>
                     ) : (
-                      <div className="flex h-full min-h-[110px] w-full items-center justify-center rounded-xl border border-white/10 bg-ink-900/50 text-zinc-600">
+                      <div className="flex h-full min-h-[148px] w-full items-center justify-center rounded-xl border border-white/10 bg-ink-900/50 text-zinc-600">
                         <Play size={24} className="opacity-20" />
                       </div>
                     )}
                   </div>
 
-                  {/* SÉRIES E REPETIÇÕES (LADO A LADO) */}
-                  <div className="flex-1 min-w-0 grid grid-cols-2 gap-2.5">
-                    <div className="rounded-xl bg-ink-700 p-3 text-center border border-white/5 flex flex-col justify-center">
-                      <p className="text-[11px] uppercase tracking-widest text-zinc-400 font-bold">Séries</p>
-                      <p className="font-display text-2xl text-gold-400 font-extrabold mt-1">{exercise.sets}</p>
+                  {/* COLUNA DIREITA: SÉRIES/REPETIÇÕES ACIMA E OBSERVAÇÕES ABAIXO */}
+                  <div className="flex-1 min-w-0 flex flex-col gap-2.5">
+                    {/* SÉRIES E REPETIÇÕES LADO A LADO */}
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <div className="rounded-xl bg-ink-700 p-2.5 text-center border border-white/5 flex flex-col justify-center">
+                        <p className="text-[10px] uppercase tracking-widest text-zinc-400 font-bold">Séries</p>
+                        <p className="font-display text-xl text-gold-400 font-extrabold mt-0.5">{exercise.sets}</p>
+                      </div>
+                      <div className="rounded-xl bg-ink-700 p-2.5 text-center border border-white/5 flex flex-col justify-center">
+                        <p className="text-[10px] uppercase tracking-widest text-zinc-400 font-bold">Repetições</p>
+                        <p className="font-display text-xl text-gold-400 font-extrabold mt-0.5">{exercise.reps}</p>
+                      </div>
                     </div>
-                    <div className="rounded-xl bg-ink-700 p-3 text-center border border-white/5 flex flex-col justify-center">
-                      <p className="text-[11px] uppercase tracking-widest text-zinc-400 font-bold">Repetições</p>
-                      <p className="font-display text-2xl text-gold-400 font-extrabold mt-1">{exercise.reps}</p>
-                    </div>
+
+                    {/* OBSERVAÇÕES DIMINUÍDAS LOGO ABAIXO DAS SÉRIES/REPETIÇÕES */}
+                    {exercise.notes ? (
+                      <div className="flex items-start gap-1.5 rounded-xl bg-gold-400/10 border border-gold-400/25 p-2.5 text-[11px] leading-snug text-zinc-200 flex-1">
+                        <Lightbulb size={14} className="text-gold-400 shrink-0 mt-0.5" />
+                        <span className="line-clamp-3">{exercise.notes}</span>
+                      </div>
+                    ) : (
+                      <div className="flex-1 rounded-xl border border-dashed border-white/5 bg-ink-900/20 p-2 flex items-center justify-center text-[10px] text-zinc-600 uppercase tracking-wider">
+                        Sem obs.
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                {/* 3. OBSERVAÇÕES DO TREINADOR */}
-                {exercise.notes && (
-                  <div className="flex items-start gap-2 rounded-xl bg-gold-400/10 border border-gold-400/25 p-3 text-xs leading-relaxed text-zinc-200 mb-3.5">
-                    <Lightbulb size={16} className="text-gold-400 shrink-0 mt-0.5" />
-                    <span>{exercise.notes}</span>
-                  </div>
-                )}
-
-                {/* 4. BOTÕES DE DESCANSO E MARCAR LADO A LADO NA BASE */}
+                {/* BOTÕES DE DESCANSO E MARCAR LADO A LADO NA BASE */}
                 <div className="relative pt-2 border-t border-white/10">
                   {!isMenuOpen ? (
                     <div className="grid grid-cols-2 gap-2.5">
@@ -415,7 +421,7 @@ export default function StudentArea() {
         </div>
       </main>
 
-      {/* BOTÃO FLUTUANTE DO WHATSAPP (DEIXE SUA DÚVIDA) */}
+      {/* BOTÃO FLUTUANTE DO WHATSAPP */}
       <div className="fixed bottom-36 right-4 z-45 flex items-center">
         <button
           onClick={sendRealtimeDoubt}
@@ -430,7 +436,7 @@ export default function StudentArea() {
         </button>
       </div>
 
-      {/* RODAPÉ FIXO INTELIGENTE: CRONÔMETRO OU CONQUISTA GIGANTE DE CONCLUÍDO */}
+      {/* RODAPÉ FIXO INTELIGENTE */}
       <div className="fixed bottom-0 left-0 right-0 z-40 border-t-2 border-gold-400/40 bg-ink-950/95 p-5 backdrop-blur shadow-2xl">
         <div className="mx-auto max-w-md">
           {isWorkoutCompleted ? (
