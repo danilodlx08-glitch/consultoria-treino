@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ExternalLink, LogOut, RefreshCw, X, Play, Timer, RotateCcw, MessageCircle, Link2, CheckCircle2, Trophy, Lightbulb, Send } from 'lucide-react'
+import { ExternalLink, LogOut, RefreshCw, X, Play, Timer, RotateCcw, MessageCircle, Link2, CheckCircle2, Trophy, Lightbulb, HelpCircle } from 'lucide-react'
 import Logo from '../components/Logo.jsx'
 import { useAuth } from '../auth.jsx'
 import { loadData, subscribeData } from '../storage'
@@ -144,7 +144,7 @@ export default function StudentArea() {
   function sendRealtimeDoubt() {
     const studentName = current?.name || student?.name || 'Aluno'
     const message = encodeURIComponent(
-      `Olá Danilo! Estou aqui treinando agora e gostaria de tirar uma dúvida em tempo real. Está disponível? (${studentName})`
+      `Olá Danilo! Estou treinando aqui e gostaria de tirar uma dúvida ou sugerir alguma mudança. Está disponível? (${studentName})`
     )
     const phone = '5527996247906'
     window.open(`https://wa.me/${phone}?text=${message}`, '_blank', 'noopener,noreferrer')
@@ -419,17 +419,17 @@ export default function StudentArea() {
         </div>
       </main>
 
-      {/* BOTÃO FLUTUANTE DO WHATSAPP (DÚVIDA EM TEMPO REAL) */}
+      {/* BOTÃO FLUTUANTE DO WHATSAPP (DEIXE SUA DÚVIDA / MUDANÇAS) */}
       <div className="fixed bottom-36 right-4 z-45 flex items-center">
         <button
           onClick={sendRealtimeDoubt}
           className="group flex items-center gap-2.5 rounded-full bg-emerald-500 text-ink-950 p-3.5 shadow-xl shadow-emerald-500/30 border border-emerald-400 transition-all duration-300 hover:scale-105 hover:bg-emerald-400"
-          aria-label="Tirar dúvida no WhatsApp em tempo real"
-          title="Tirar dúvida em tempo real"
+          aria-label="Deixe sua dúvida ou mudanças no WhatsApp"
+          title="Deixe sua dúvida ou mudanças"
         >
           <MessageCircle size={22} fill="currentColor" className="text-ink-950 animate-pulse" />
           <span className="max-w-0 overflow-hidden whitespace-nowrap font-display text-xs font-bold uppercase tracking-wider transition-all duration-300 group-hover:max-w-xs group-hover:pr-1">
-            Dúvida ao vivo
+            Deixe sua dúvida
           </span>
         </button>
       </div>
