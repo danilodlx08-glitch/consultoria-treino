@@ -1040,15 +1040,16 @@ export default function AdminPanel() {
 
       {libraryOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 p-3 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 backdrop-blur-sm"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) {
               setLibraryOpen(false)
             }
           }}
         >
-          <div className="max-h-[92dvh] w-full max-w-md overflow-hidden rounded-3xl border border-white/15 bg-ink-900 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-white/10 px-4 py-4.5">
+          <div className="flex flex-col h-[90dvh] w-full max-w-md overflow-hidden rounded-3xl border border-white/15 bg-ink-900 shadow-2xl">
+            {/* CABEÇALHO FIXO */}
+            <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-4 py-4.5 bg-ink-900 z-10">
               <div>
                 <p className="text-xs uppercase tracking-[0.2em] text-gold-400 font-bold">Biblioteca</p>
                 <h2 className="mt-1 font-display text-2xl uppercase text-white">Exercícios</h2>
@@ -1056,12 +1057,14 @@ export default function AdminPanel() {
               <button
                 type="button"
                 onClick={() => setLibraryOpen(false)}
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/15 text-zinc-300 hover:text-white"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/15 text-zinc-300 hover:text-white transition"
               >
                 <X size={20} />
               </button>
             </div>
-            <div className="max-h-[calc(92dvh-80px)] overflow-y-auto px-4 py-4.5">
+
+            {/* CONTEÚDO COM ROLAGEM INTERNA */}
+            <div className="flex-1 overflow-y-auto px-4 py-4.5">
               <div className="relative">
                 <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
                 <input
