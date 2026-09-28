@@ -1072,10 +1072,10 @@ export default function AdminPanel() {
             }
           }}
         >
-          {/* MODAL COM ALTURA FIXA E BLOQUEADA EM RELAÇÃO À JANELA */}
+          {/* MODAL PRINCIPAL COM ALTURA E LARGURA RESTRITAS */}
           <div className="flex flex-col h-[85vh] max-h-[700px] w-full max-w-md overflow-hidden rounded-3xl border border-white/15 bg-ink-900 shadow-2xl">
             
-            {/* CABEÇALHO FIXO NO TOPO */}
+            {/* 1. CABEÇALHO DO MODAL (ESTÁTICO E FIXO NO TOPO) */}
             <div className="shrink-0 flex items-center justify-between border-b border-white/10 px-4 py-4 bg-ink-900 z-20">
               <div>
                 <p className="text-xs uppercase tracking-[0.2em] text-gold-400 font-bold">Biblioteca</p>
@@ -1090,7 +1090,7 @@ export default function AdminPanel() {
               </button>
             </div>
 
-            {/* CORPO COM ROLAGEM INTERNA EXCLUSIVA */}
+            {/* 2. CONTEÚDO ROLÁVEL ABAIXO DO CABEÇALHO */}
             <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
               <div className="relative">
                 <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
