@@ -11,10 +11,10 @@ import {
   Library,
   X,
   Dumbbell,
-  Play,
   CheckCircle2,
   CopyCheck,
   Link2,
+  Pencil,
 } from 'lucide-react'
 import { useAuth } from '../auth.jsx'
 import {
@@ -88,6 +88,7 @@ export default function AdminPanel() {
   const [librarySearch, setLibrarySearch] = useState('')
   const [selectedMuscleFilter, setSelectedMuscleFilter] = useState('TODOS')
   const [showNewLibraryExercise, setShowNewLibraryExercise] = useState(false)
+  const [editingLibraryId, setEditingLibraryId] = useState(null)
 
   const [libraryForm, setLibraryForm] = useState(emptyLibraryExercise())
 
@@ -414,13 +415,37 @@ export default function AdminPanel() {
     event.preventDefault()
     if (!libraryForm.name.trim()) return
 
-    const next = addExerciseToLibrary(data, {
-      ...libraryForm,
-      name: libraryForm.name.trim(),
-    })
-    persist(next)
+    if (editingLibraryId) {
+      const next = updateLibraryExercise(data, editingLibraryId, {
+        ...libraryForm,
+        name: libraryForm.name.trim(),
+      })
+      persist(next)
+    } else {
+      const next = addExerciseToLibrary(data, {
+        ...libraryForm,
+        name: libraryForm.name.trim(),
+      })
+      persist(next)
+    }
+
     setLibraryForm(emptyLibraryExercise())
     setShowNewLibraryExercise(false)
+    setEditingLibraryId(null)
+  }
+
+  function startEditingLibrary(exercise) {
+    setEditingLibraryId(exercise.id)
+    setLibraryForm({
+      name: exercise.name || '',
+      muscle: exercise.muscle || '',
+      sets: exercise.sets || '',
+      reps: exercise.reps || '',
+      notes: exercise.notes || '',
+      video: exercise.video || '',
+      group: exercise.group || '',
+    })
+    setShowNewLibraryExercise(true)
   }
 
   function deleteLibraryExercise(exerciseId) {
@@ -1047,12 +1072,14 @@ export default function AdminPanel() {
             }
           }}
         >
-          <div className="flex flex-col h-[90dvh] w-full max-w-md overflow-hidden rounded-3xl border border-white/15 bg-ink-900 shadow-2xl">
-            {/* CABEÇALHO FIXO */}
-            <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-4 py-4.5 bg-ink-900 z-10">
+          {/* MODAL COM ALTURA FIXA E BLOQUEADA EM RELAÇÃO À JANELA */}
+          <div className="flex flex-col h-[85vh] max-h-[700px] w-full max-w-md overflow-hidden rounded-3xl border border-white/15 bg-ink-900 shadow-2xl">
+            
+            {/* CABEÇALHO FIXO NO TOPO */}
+            <div className="shrink-0 flex items-center justify-between border-b border-white/10 px-4 py-4 bg-ink-900 z-20">
               <div>
                 <p className="text-xs uppercase tracking-[0.2em] text-gold-400 font-bold">Biblioteca</p>
-                <h2 className="mt-1 font-display text-2xl uppercase text-white">Exercícios</h2>
+                <h2 className="mt-0.5 font-display text-2xl uppercase text-white">Exercícios</h2>
               </div>
               <button
                 type="button"
@@ -1063,8 +1090,8 @@ export default function AdminPanel() {
               </button>
             </div>
 
-            {/* CONTEÚDO COM ROLAGEM INTERNA */}
-            <div className="flex-1 overflow-y-auto px-4 py-4.5">
+            {/* CORPO COM ROLAGEM INTERNA EXCLUSIVA */}
+            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
               <div className="relative">
                 <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
                 <input
@@ -1076,7 +1103,7 @@ export default function AdminPanel() {
               </div>
 
               {availableMuscles.length > 1 && (
-                <div className="mt-3.5 flex gap-2 overflow-x-auto pb-1.5 scrollbar-none">
+                <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
                   {availableMuscles.map((muscle) => (
                     <button
                       key={muscle}
@@ -1097,8 +1124,12 @@ export default function AdminPanel() {
               {!showNewLibraryExercise ? (
                 <button
                   type="button"
-                  onClick={() => setShowNewLibraryExercise(true)}
-                  className="mt-3.5 flex w-full items-center justify-center gap-2 rounded-xl border border-gold-400/40 py-3.5 text-sm font-bold uppercase tracking-wide text-gold-300 hover:bg-gold-400/10 transition"
+                  onClick={() => {
+                    setEditingLibraryId(null)
+                    setLibraryForm(emptyLibraryExercise())
+                    setShowNewLibraryExercise(true)
+                  }}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-gold-400/40 py-3.5 text-sm font-bold uppercase tracking-wide text-gold-300 hover:bg-gold-400/10 transition"
                 >
                   <Plus size={18} />
                   Novo exercício na biblioteca
@@ -1106,14 +1137,17 @@ export default function AdminPanel() {
               ) : (
                 <form
                   onSubmit={saveNewLibraryExercise}
-                  className="mt-3.5 rounded-2xl border border-gold-400/30 bg-ink-800 p-4.5"
+                  className="rounded-2xl border border-gold-400/30 bg-ink-800 p-4.5"
                 >
                   <div className="mb-3.5 flex items-center justify-between">
-                    <p className="text-xs uppercase tracking-[0.18em] text-gold-400 font-bold">Novo exercício</p>
+                    <p className="text-xs uppercase tracking-[0.18em] text-gold-400 font-bold">
+                      {editingLibraryId ? 'Editar exercício' : 'Novo exercício'}
+                    </p>
                     <button
                       type="button"
                       onClick={() => {
                         setShowNewLibraryExercise(false)
+                        setEditingLibraryId(null)
                         setLibraryForm(emptyLibraryExercise())
                       }}
                       className="text-zinc-400 hover:text-white"
@@ -1172,13 +1206,13 @@ export default function AdminPanel() {
                       className="flex w-full items-center justify-center gap-2 rounded-xl bg-gold-400 py-3.5 text-sm font-bold uppercase text-ink-950 shadow-md hover:bg-gold-300 transition"
                     >
                       <Plus size={18} />
-                      Salvar na biblioteca
+                      {editingLibraryId ? 'Salvar alterações' : 'Salvar na biblioteca'}
                     </button>
                   </div>
                 </form>
               )}
 
-              <div className="mt-4.5 space-y-3.5">
+              <div className="space-y-3.5">
                 {filteredLibrary.length === 0 ? (
                   <div className="rounded-2xl border border-white/10 bg-ink-800 p-6 text-center">
                     <Dumbbell size={32} className="mx-auto text-zinc-500" />
@@ -1199,14 +1233,24 @@ export default function AdminPanel() {
                             <p className="mt-1.5 text-xs uppercase tracking-wider text-zinc-300 font-semibold">{exercise.muscle}</p>
                           )}
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => deleteLibraryExercise(exercise.id)}
-                          className="shrink-0 text-zinc-400 hover:text-red-400 transition"
-                          title="Excluir da biblioteca"
-                        >
-                          <Trash2 size={18} />
-                        </button>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => startEditingLibrary(exercise)}
+                            className="text-zinc-400 hover:text-gold-300 transition"
+                            title="Editar exercício na biblioteca"
+                          >
+                            <Pencil size={18} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deleteLibraryExercise(exercise.id)}
+                            className="text-zinc-400 hover:text-red-400 transition"
+                            title="Excluir da biblioteca"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
                       </div>
 
                       <div className="mt-3.5 grid grid-cols-2 gap-2.5">
