@@ -689,17 +689,19 @@ export default function AdminPanel() {
         )}
 
         {tab === 'workouts' && (
-          <section>
-            <h1 className="font-display text-3xl uppercase">Fichas individuais</h1>
-            <p className="mt-2 text-sm leading-relaxed text-zinc-300">
-              Cada aluno tem as próprias planilhas A a E. Alterações sincronizam no telemóvel dele.
-            </p>
-            <label className="mt-4 block text-xs uppercase tracking-[0.18em] text-gold-400 font-bold">
-              Aluno
+          <section className="flex flex-col h-[calc(100vh-140px)] overflow-hidden">
+            
+            {/* TOPO FIXO DA ABA DE TREINOS (Nunca sai do topo) */}
+            <div className="shrink-0 bg-ink-950 pb-3 z-10 space-y-3 border-b border-white/10">
+              <div>
+                <h1 className="font-display text-2xl uppercase">Fichas individuais</h1>
+                <p className="text-xs text-zinc-300">Cada aluno tem as próprias planilhas A a E.</p>
+              </div>
+
               <select
                 value={selectedStudent?.id || ''}
                 onChange={(e) => setSelectedStudentId(e.target.value)}
-                className="mt-2 w-full rounded-xl border border-white/15 bg-ink-800 px-4 py-3.5 text-base text-white outline-none focus:border-gold-400/50"
+                className="w-full rounded-xl border border-white/15 bg-ink-800 px-4 py-3 text-sm text-white outline-none focus:border-gold-400/50"
               >
                 {data.students.map((student) => (
                   <option key={student.id} value={student.id} className="bg-ink-900 text-white">
@@ -707,79 +709,78 @@ export default function AdminPanel() {
                   </option>
                 ))}
               </select>
-            </label>
 
-            {data.students.length > 1 && (
+              {data.students.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => setShowCopyStudentWorkoutsModal(true)}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-gold-400/30 bg-ink-800 py-2.5 text-xs font-bold uppercase tracking-wide text-gold-300 hover:bg-gold-400/10 transition shadow-sm"
+                >
+                  <CopyCheck size={16} />
+                  Copiar ficha completa de outro aluno
+                </button>
+              )}
+
+              <div className="grid grid-cols-5 gap-2">
+                {DAYS.map((item) => (
+                  <button
+                    key={item}
+                    onClick={() => setDay(item)}
+                    className={`rounded-xl py-2 font-display text-lg transition ${
+                      day === item
+                        ? 'bg-gold-400 text-ink-950 font-bold shadow-md'
+                        : 'border border-white/15 bg-ink-800 text-white hover:border-gold-400/40'
+                    }`}
+                  >
+                    {item}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                <span className="text-xs uppercase tracking-wider text-zinc-400 font-semibold shrink-0">
+                  Copiar de:
+                </span>
+                {DAYS.filter((d) => d !== day).map((sourceDay) => (
+                  <button
+                    key={sourceDay}
+                    type="button"
+                    onClick={() => copyWorkoutFromDay(sourceDay)}
+                    className="rounded-lg border border-white/15 bg-ink-800 px-2.5 py-1 text-xs font-bold text-zinc-200 hover:border-gold-400/40 hover:text-gold-300 transition shrink-0"
+                  >
+                    Treino {sourceDay}
+                  </button>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  value={currentWorkout.title}
+                  onChange={(e) => updateWorkoutMeta('title', e.target.value)}
+                  placeholder="Título (Ex: Empurrar)"
+                  className="rounded-xl border border-white/15 bg-ink-800 px-3.5 py-2.5 text-sm text-white outline-none focus:border-gold-400/50"
+                />
+                <input
+                  value={currentWorkout.focus}
+                  onChange={(e) => updateWorkoutMeta('focus', e.target.value)}
+                  placeholder="Foco (Ex: Superior)"
+                  className="rounded-xl border border-white/15 bg-ink-800 px-3.5 py-2.5 text-sm text-white outline-none focus:border-gold-400/50"
+                />
+              </div>
+
+              {/* BOTÃO DA BIBLIOTECA FIXO NO TOPO */}
               <button
                 type="button"
-                onClick={() => setShowCopyStudentWorkoutsModal(true)}
-                className="mt-3.5 flex w-full items-center justify-center gap-2 rounded-xl border border-gold-400/30 bg-ink-800 py-3 text-xs font-bold uppercase tracking-wide text-gold-300 hover:bg-gold-400/10 transition shadow-sm"
+                onClick={() => setLibraryOpen(true)}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-gold-400 py-3.5 text-sm font-bold uppercase tracking-wide text-ink-950 shadow-lg hover:bg-gold-300 transition"
               >
-                <CopyCheck size={16} />
-                Copiar ficha completa de outro aluno
+                <Library size={18} />
+                Biblioteca de exercícios
               </button>
-            )}
-
-            <div className="mt-4 grid grid-cols-5 gap-2">
-              {DAYS.map((item) => (
-                <button
-                  key={item}
-                  onClick={() => setDay(item)}
-                  className={`rounded-xl py-2.5 font-display text-xl transition ${
-                    day === item
-                      ? 'bg-gold-400 text-ink-950 font-bold shadow-md'
-                      : 'border border-white/15 bg-ink-800 text-white hover:border-gold-400/40'
-                  }`}
-                >
-                  {item}
-                </button>
-              ))}
             </div>
 
-            <div className="mt-3.5 flex items-center gap-2 overflow-x-auto pb-1.5">
-              <span className="text-xs uppercase tracking-wider text-zinc-400 font-semibold shrink-0">
-                Copiar de:
-              </span>
-              {DAYS.filter((d) => d !== day).map((sourceDay) => (
-                <button
-                  key={sourceDay}
-                  type="button"
-                  onClick={() => copyWorkoutFromDay(sourceDay)}
-                  className="rounded-lg border border-white/15 bg-ink-800 px-3 py-1.5 text-xs font-bold text-zinc-200 hover:border-gold-400/40 hover:text-gold-300 transition shrink-0"
-                >
-                  Treino {sourceDay}
-                </button>
-              ))}
-            </div>
-
-            <label className="mt-4 block text-xs uppercase tracking-[0.18em] text-gold-400 font-bold">
-              Título
-              <input
-                value={currentWorkout.title}
-                onChange={(e) => updateWorkoutMeta('title', e.target.value)}
-                className="mt-2 w-full rounded-xl border border-white/15 bg-ink-800 px-4 py-3.5 text-base text-white outline-none focus:border-gold-400/50"
-              />
-            </label>
-
-            <label className="mt-4 block text-xs uppercase tracking-[0.18em] text-gold-400 font-bold">
-              Foco
-              <input
-                value={currentWorkout.focus}
-                onChange={(e) => updateWorkoutMeta('focus', e.target.value)}
-                className="mt-2 w-full rounded-xl border border-white/15 bg-ink-800 px-4 py-3.5 text-base text-white outline-none focus:border-gold-400/50"
-              />
-            </label>
-
-            <button
-              type="button"
-              onClick={() => setLibraryOpen(true)}
-              className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-gold-400 py-4 text-sm font-bold uppercase tracking-wide text-ink-950 shadow-lg hover:bg-gold-300 transition"
-            >
-              <Library size={18} />
-              Biblioteca de exercícios
-            </button>
-
-            <div className="mt-5 space-y-4">
+            {/* LISTA DE EXERCÍCIOS ROLÁVEL ABAIXO DO TOPO FIXO */}
+            <div className="flex-1 overflow-y-auto space-y-4 pt-4 pb-20">
               {(currentWorkout.exercises || []).map((exercise, index) => (
                 <div
                   key={exercise.id}
@@ -865,15 +866,16 @@ export default function AdminPanel() {
                   />
                 </div>
               ))}
+
+              <button
+                onClick={addExercise}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-gold-400/40 py-3.5 text-sm font-bold uppercase tracking-wide text-gold-300 hover:bg-gold-400/10 transition"
+              >
+                <Plus size={18} />
+                Adicionar exercício manualmente
+              </button>
             </div>
 
-            <button
-              onClick={addExercise}
-              className="mt-4.5 flex w-full items-center justify-center gap-2 rounded-xl border border-gold-400/40 py-3.5 text-sm font-bold uppercase tracking-wide text-gold-300 hover:bg-gold-400/10 transition"
-            >
-              <Plus size={18} />
-              Adicionar exercício manualmente
-            </button>
           </section>
         )}
 
@@ -1072,10 +1074,8 @@ export default function AdminPanel() {
             }
           }}
         >
-          {/* MODAL PRINCIPAL: Altura restrita e overflow hidden para isolar o scroll */}
           <div className="flex flex-col h-[85vh] max-h-[700px] w-full max-w-md overflow-hidden rounded-3xl border border-white/15 bg-ink-900 shadow-2xl">
             
-            {/* 1. CABEÇALHO FIXO: Nunca sai do lugar */}
             <div className="shrink-0 flex items-center justify-between border-b border-white/10 px-4 py-4 bg-ink-900 z-30">
               <div>
                 <p className="text-xs uppercase tracking-[0.2em] text-gold-400 font-bold">Biblioteca</p>
@@ -1090,7 +1090,6 @@ export default function AdminPanel() {
               </button>
             </div>
 
-            {/* 2. ÁREA DE FERRAMENTAS ESTÁTICA (Pesquisa, Filtros e Formulário) */}
             <div className="shrink-0 px-4 pt-4 pb-3 bg-ink-900 border-b border-white/5 z-20 space-y-3">
               <div className="relative">
                 <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
@@ -1213,7 +1212,6 @@ export default function AdminPanel() {
               )}
             </div>
 
-            {/* 3. LISTA DE EXERCÍCIOS ROLÁVEL (Única área que aceita scroll) */}
             <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3.5">
               {filteredLibrary.length === 0 ? (
                 <div className="rounded-2xl border border-white/10 bg-ink-800 p-6 text-center">
