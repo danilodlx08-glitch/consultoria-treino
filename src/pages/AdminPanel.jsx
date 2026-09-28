@@ -1072,11 +1072,11 @@ export default function AdminPanel() {
             }
           }}
         >
-          {/* MODAL PRINCIPAL COM ALTURA E LARGURA RESTRITAS */}
+          {/* MODAL PRINCIPAL: Altura restrita e overflow hidden para isolar o scroll */}
           <div className="flex flex-col h-[85vh] max-h-[700px] w-full max-w-md overflow-hidden rounded-3xl border border-white/15 bg-ink-900 shadow-2xl">
             
-            {/* 1. CABEÇALHO DO MODAL (ESTÁTICO E FIXO NO TOPO) */}
-            <div className="shrink-0 flex items-center justify-between border-b border-white/10 px-4 py-4 bg-ink-900 z-20">
+            {/* 1. CABEÇALHO FIXO: Nunca sai do lugar */}
+            <div className="shrink-0 flex items-center justify-between border-b border-white/10 px-4 py-4 bg-ink-900 z-30">
               <div>
                 <p className="text-xs uppercase tracking-[0.2em] text-gold-400 font-bold">Biblioteca</p>
                 <h2 className="mt-0.5 font-display text-2xl uppercase text-white">Exercícios</h2>
@@ -1090,8 +1090,8 @@ export default function AdminPanel() {
               </button>
             </div>
 
-            {/* 2. CONTEÚDO ROLÁVEL ABAIXO DO CABEÇALHO */}
-            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+            {/* 2. ÁREA DE FERRAMENTAS ESTÁTICA (Pesquisa, Filtros e Formulário) */}
+            <div className="shrink-0 px-4 pt-4 pb-3 bg-ink-900 border-b border-white/5 z-20 space-y-3">
               <div className="relative">
                 <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
                 <input
@@ -1211,76 +1211,78 @@ export default function AdminPanel() {
                   </div>
                 </form>
               )}
-
-              <div className="space-y-3.5">
-                {filteredLibrary.length === 0 ? (
-                  <div className="rounded-2xl border border-white/10 bg-ink-800 p-6 text-center">
-                    <Dumbbell size={32} className="mx-auto text-zinc-500" />
-                    <p className="mt-3 text-base text-zinc-300">Nenhum exercício encontrado.</p>
-                  </div>
-                ) : (
-                  filteredLibrary.map((exercise) => (
-                    <article key={exercise.id} className="rounded-2xl border border-white/10 bg-ink-800 p-4.5">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <h3 className="font-display text-xl uppercase leading-tight text-white">{exercise.name}</h3>
-                          {exercise.group && (
-                            <span className="mt-1.5 inline-block rounded-md bg-gold-400/20 px-2.5 py-1 text-xs uppercase font-bold text-gold-300 border border-gold-400/30">
-                              {exercise.group}
-                            </span>
-                          )}
-                          {exercise.muscle && (
-                            <p className="mt-1.5 text-xs uppercase tracking-wider text-zinc-300 font-semibold">{exercise.muscle}</p>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <button
-                            type="button"
-                            onClick={() => startEditingLibrary(exercise)}
-                            className="text-zinc-400 hover:text-gold-300 transition"
-                            title="Editar exercício na biblioteca"
-                          >
-                            <Pencil size={18} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => deleteLibraryExercise(exercise.id)}
-                            className="text-zinc-400 hover:text-red-400 transition"
-                            title="Excluir da biblioteca"
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="mt-3.5 grid grid-cols-2 gap-2.5">
-                        <div className="rounded-xl bg-ink-700 px-3.5 py-2.5">
-                          <p className="text-xs uppercase tracking-widest text-zinc-400 font-semibold">Séries</p>
-                          <p className="font-display text-xl text-gold-400 mt-0.5">{exercise.sets || '-'}</p>
-                        </div>
-                        <div className="rounded-xl bg-ink-700 px-3.5 py-2.5">
-                          <p className="text-xs uppercase tracking-widest text-zinc-400 font-semibold">Repetições</p>
-                          <p className="font-display text-xl text-gold-400 mt-0.5">{exercise.reps || '-'}</p>
-                        </div>
-                      </div>
-
-                      {exercise.notes && (
-                        <p className="mt-3.5 text-sm leading-relaxed text-zinc-300">{exercise.notes}</p>
-                      )}
-
-                      <button
-                        type="button"
-                        onClick={() => addFromLibrary(exercise.id)}
-                        className="mt-3.5 flex w-full items-center justify-center gap-2 rounded-xl bg-gold-400 py-3 text-xs font-bold uppercase tracking-wide text-ink-950 hover:bg-gold-300 transition shadow-sm"
-                      >
-                        <Plus size={16} />
-                        Adicionar ao treino {day}
-                      </button>
-                    </article>
-                  ))
-                )}
-              </div>
             </div>
+
+            {/* 3. LISTA DE EXERCÍCIOS ROLÁVEL (Única área que aceita scroll) */}
+            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3.5">
+              {filteredLibrary.length === 0 ? (
+                <div className="rounded-2xl border border-white/10 bg-ink-800 p-6 text-center">
+                  <Dumbbell size={32} className="mx-auto text-zinc-500" />
+                  <p className="mt-3 text-base text-zinc-300">Nenhum exercício encontrado.</p>
+                </div>
+              ) : (
+                filteredLibrary.map((exercise) => (
+                  <article key={exercise.id} className="rounded-2xl border border-white/10 bg-ink-800 p-4.5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h3 className="font-display text-xl uppercase leading-tight text-white">{exercise.name}</h3>
+                        {exercise.group && (
+                          <span className="mt-1.5 inline-block rounded-md bg-gold-400/20 px-2.5 py-1 text-xs uppercase font-bold text-gold-300 border border-gold-400/30">
+                            {exercise.group}
+                          </span>
+                        )}
+                        {exercise.muscle && (
+                          <p className="mt-1.5 text-xs uppercase tracking-wider text-zinc-300 font-semibold">{exercise.muscle}</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => startEditingLibrary(exercise)}
+                          className="text-zinc-400 hover:text-gold-300 transition"
+                          title="Editar exercício na biblioteca"
+                        >
+                          <Pencil size={18} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => deleteLibraryExercise(exercise.id)}
+                          className="text-zinc-400 hover:text-red-400 transition"
+                          title="Excluir da biblioteca"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="mt-3.5 grid grid-cols-2 gap-2.5">
+                      <div className="rounded-xl bg-ink-700 px-3.5 py-2.5">
+                        <p className="text-xs uppercase tracking-widest text-zinc-400 font-semibold">Séries</p>
+                        <p className="font-display text-xl text-gold-400 mt-0.5">{exercise.sets || '-'}</p>
+                      </div>
+                      <div className="rounded-xl bg-ink-700 px-3.5 py-2.5">
+                        <p className="text-xs uppercase tracking-widest text-zinc-400 font-semibold">Repetições</p>
+                        <p className="font-display text-xl text-gold-400 mt-0.5">{exercise.reps || '-'}</p>
+                      </div>
+                    </div>
+
+                    {exercise.notes && (
+                      <p className="mt-3.5 text-sm leading-relaxed text-zinc-300">{exercise.notes}</p>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => addFromLibrary(exercise.id)}
+                      className="mt-3.5 flex w-full items-center justify-center gap-2 rounded-xl bg-gold-400 py-3 text-xs font-bold uppercase tracking-wide text-ink-950 hover:bg-gold-300 transition shadow-sm"
+                    >
+                      <Plus size={16} />
+                      Adicionar ao treino {day}
+                    </button>
+                  </article>
+                ))
+              )}
+            </div>
+
           </div>
         </div>
       )}
