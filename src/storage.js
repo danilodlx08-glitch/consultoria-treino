@@ -432,14 +432,12 @@ export function loadData() {
 
 export async function fetchData() {
   try {
+    const current = loadData()
+
     // 1. Busca os alunos
     const { data: alunosData, error: alunosError } = await supabase
       .from('alunos')
       .select('*')
-
-    // 2. Busca configurações globais (se você tiver uma tabela de configurações, ou pode ler do localStorage se preferir)
-    // Dica: Para manter compatibilidade com sua estrutura atual, mantemos a base local e sobrescrevemos os alunos da nuvem.
-    const current = loadData()
 
     if (!alunosError && alunosData && alunosData.length > 0) {
       current.students = alunosData.map((aluno) => ({
@@ -456,6 +454,17 @@ export async function fetchData() {
             }
           : clone(current.workouts),
       }))
+    }
+
+    // 2. Busca a biblioteca de exercícios na tabela 'config' do Supabase
+    const { data: configData, error: configError } = await supabase
+      .from('config')
+      .select('*')
+      .eq('id', 'global')
+      .single()
+
+    if (!configError && configData && configData.exercisesLibrary) {
+      current.exercisesLibrary = configData.exercisesLibrary
     }
 
     return current
@@ -491,6 +500,14 @@ export async function saveData(data) {
         })
       }
     }
+
+    // Salva também a biblioteca de exercícios na tabela 'config' do Supabase
+    if (data && Array.isArray(data.exercisesLibrary)) {
+      await supabase.from('config').upsert({
+        id: 'global',
+        exercisesLibrary: data.exercisesLibrary,
+      })
+    }
   } catch {
     // mantém cópia local se Supabase falhar
   }
@@ -511,6 +528,7 @@ export function createLibraryExercise(exercise) {
     reps: exercise.reps || '10-12',
     notes: exercise.notes || '',
     video: exercise.video || '',
+    group: exercise.group || '',
   }
 }
 
@@ -555,7 +573,6 @@ export function removeLibraryExercise(data, exerciseId) {
   return next
 }
 
-// Atalho de compatibilidade para o AdminPanel
 export const removeExerciseFromLibrary = removeLibraryExercise
 
 /*
