@@ -49,7 +49,7 @@ const defaultData = {
     description:
       'Consultoria individual de treino online com periodização, ajustes mensais e acompanhamento direto com Danilo Lopes.',
     includes: [
-      'Planilhas personalizadas de A   a   E',
+      'Planilhas personalizadas de A a E',
       'Ajustes conforme evolução',
       'Videos explicativos de cada movimento',
       'Suporte direto via WhatsApp',
@@ -432,14 +432,17 @@ export function loadData() {
 
 export async function fetchData() {
   try {
-    const { data, error } = await supabase
+    // 1. Busca os alunos
+    const { data: alunosData, error: alunosError } = await supabase
       .from('alunos')
       .select('*')
 
-    if (!error && data && data.length > 0) {
-      const current = loadData()
+    // 2. Busca configurações globais (se você tiver uma tabela de configurações, ou pode ler do localStorage se preferir)
+    // Dica: Para manter compatibilidade com sua estrutura atual, mantemos a base local e sobrescrevemos os alunos da nuvem.
+    const current = loadData()
 
-      current.students = data.map((aluno) => ({
+    if (!alunosError && alunosData && alunosData.length > 0) {
+      current.students = alunosData.map((aluno) => ({
         id: aluno.id,
         name: aluno.nome,
         code: aluno.code || generateAccessCode(),
@@ -453,11 +456,11 @@ export async function fetchData() {
             }
           : clone(current.workouts),
       }))
-
-      return current
     }
+
+    return current
   } catch {
-    // fallback para localStorage
+    // fallback para localStorage caso falhe
   }
 
   return loadData()
