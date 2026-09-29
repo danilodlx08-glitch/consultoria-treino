@@ -22,6 +22,7 @@ export default function StudentArea() {
   const [day, setDay] = useState('A')
   const [syncedAt, setSyncedAt] = useState('')
   const [selectedVideo, setSelectedVideo] = useState(null)
+  const [selectedObs, setSelectedObs] = useState(null) // <--- NOVO ESTADO PARA O MODAL DE OBSERVAÇÕES
 
   const [completedExercises, setCompletedExercises] = useState([])
 
@@ -154,6 +155,7 @@ export default function StudentArea() {
     function handleKeyDown(event) {
       if (event.key === 'Escape') {
         setSelectedVideo(null)
+        setSelectedObs(null)
         setActiveRestMenu(null)
       }
     }
@@ -346,9 +348,13 @@ export default function StudentArea() {
                       </div>
                     </div>
 
-                    {/* OBSERVAÇÕES DIMINUÍDAS LOGO ABAIXO DAS SÉRIES/REPETIÇÕES */}
+                    {/* OBSERVAÇÕES CLICÁVEIS PARA ABRIR O MODAL */}
                     {exercise.notes ? (
-                      <div className="flex items-start gap-1.5 rounded-xl bg-gold-400/10 border border-gold-400/25 p-2.5 text-[11px] leading-snug text-zinc-200 flex-1">
+                      <div 
+                        onClick={() => setSelectedObs({ title: exercise.name, notes: exercise.notes })}
+                        className="flex items-start gap-1.5 rounded-xl bg-gold-400/10 border border-gold-400/25 p-2.5 text-[11px] leading-snug text-zinc-200 flex-1 cursor-pointer transition hover:bg-gold-400/20 hover:border-gold-400/50 active:scale-[0.99]"
+                        title="Toque para ler a observação completa"
+                      >
                         <Lightbulb size={14} className="text-gold-400 shrink-0 mt-0.5" />
                         <span className="line-clamp-3">{exercise.notes}</span>
                       </div>
@@ -502,6 +508,7 @@ export default function StudentArea() {
         </div>
       </div>
 
+      {/* MODAL DE VÍDEO */}
       {selectedVideo && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm"
@@ -543,6 +550,46 @@ export default function StudentArea() {
                 className="rounded-xl bg-gold-400 px-4 py-2 text-xs font-semibold uppercase text-ink-950 transition hover:bg-gold-300"
               >
                 Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE OBSERVAÇÕES (NOVO) */}
+      {selectedObs && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setSelectedObs(null)
+            }
+          }}
+        >
+          <div className="w-full max-w-md overflow-hidden rounded-2xl border border-gold-400/40 bg-ink-900 p-5 shadow-2xl animate-fade-in">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3 mb-3">
+              <div className="flex items-center gap-2">
+                <Lightbulb size={18} className="text-gold-400" />
+                <h3 className="font-display text-lg uppercase tracking-wide text-gold-400">{selectedObs.title}</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedObs(null)}
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 text-zinc-300 hover:text-gold-400 hover:border-gold-400/40 transition"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="max-h-[60vh] overflow-y-auto pr-1">
+              <p className="text-sm leading-relaxed text-zinc-200 whitespace-pre-wrap">{selectedObs.notes}</p>
+            </div>
+            <div className="mt-5 pt-3 border-t border-white/10 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setSelectedObs(null)}
+                className="w-full rounded-xl bg-gold-400 py-3 text-xs font-bold uppercase text-ink-950 transition hover:bg-gold-300 shadow-lg"
+              >
+                Entendido
               </button>
             </div>
           </div>
