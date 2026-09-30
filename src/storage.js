@@ -1,4 +1,4 @@
-Const STORAGE_KEY = 'dl_consultoria_v1'
+const STORAGE_KEY = 'dl_consultoria_v1'
 
 export const ADMIN_PASSWORD = 'admin17249'
 export const WHATSAPP_NUMBER = '5527996247906'
@@ -6,30 +6,30 @@ export const WHATSAPP_NUMBER = '5527996247906'
 import { supabase } from './services/supabase'
 
 function clone(value) {
-  Return JSON.parse(JSON.stringify(value))
+  return JSON.parse(JSON.stringify(value))
 }
 
-Const defaultExercises = (list) =>
-  List.map((item, index) => ({
-    Id: `${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}`,
+const defaultExercises = (list) =>
+  list.map((item, index) => ({
+    id: `${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}`,
     ...item,
   }))
 
 export function createId() {
-  Return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 }
 
 export function cloneWorkouts(source) {
-  Return clone(source || defaultData.workouts)
+  return clone(source || defaultData.workouts)
 }
 
 export function generateAccessCode() {
-  Const token = Math.random().toString(36).slice(2, 6).toUpperCase()
-  Return `DL${token}`
+  const token = Math.random().toString(36).slice(2, 6).toUpperCase()
+  return `DL${token}`
 }
 
 export function generatePassword() {
-  Return Math.random().toString(36).slice(2, 8)
+  return Math.random().toString(36).slice(2, 8)
 }
 
 /*
@@ -38,17 +38,17 @@ export function generatePassword() {
 |--------------------------------------------------------------------------
 */
 
-Const defaultData = {
-  Brand: {
-    Logo: '',
+const defaultData = {
+  brand: {
+    logo: '',
   },
 
-  Plan: {
-    Name: 'Plano Único',
-    Price: 200,
-    Description:
+  plan: {
+    name: 'Plano Único',
+    price: 200,
+    description:
       'Consultoria individual de treino online com periodização, ajustes mensais e acompanhamento direto com Danilo Lopes.',
-    Includes: [
+    includes: [
       'Planilhas personalizadas de A a E',
       'Ajustes conforme evolução',
       'Videos explicativos de cada movimento',
@@ -56,249 +56,249 @@ Const defaultData = {
     ],
   },
 
-  Students: [
+  students: [
     {
-      Id: 'demo-aluno',
-      Name: 'Aluno Demo',
-      Code: 'ALUNO01',
-      Password: 'treino123',
-      Active: true,
-      Evaluations: [],
+      id: 'demo-aluno',
+      name: 'Aluno Demo',
+      code: 'ALUNO01',
+      password: 'treino123',
+      active: true,
+      evaluations: [],
     },
   ],
 
-  Workouts: {
+  workouts: {
     A: {
-      Title: 'Treino A - Peito e Triceps',
-      Focus: 'Empurrar / Superior',
-      Exercises: defaultExercises([
+      title: 'Treino A - Peito e Triceps',
+      focus: 'Empurrar / Superior',
+      exercises: defaultExercises([
         {
-          Name: 'Supino reto com barra',
-          Sets: '4',
-          Reps: '8-10',
-          Notes: 'Controle a descida. Pause de 1s no peito.',
-          Video: 'https://www.youtube.com/watch?v=rT7DgCr-3pg',
-          Muscle: 'Peito',
+          name: 'Supino reto com barra',
+          sets: '4',
+          reps: '8-10',
+          notes: 'Controle a descida. Pause de 1s no peito.',
+          video: 'https://www.youtube.com/watch?v=rT7DgCr-3pg',
+          muscle: 'Peito',
         },
         {
-          Name: 'Supino inclinado com halteres',
-          Sets: '3',
-          Reps: '10-12',
-          Notes: 'Cotovelos a 45 graus. Amplitude completa.',
-          Video: 'https://www.youtube.com/watch?v=8iPEnn-ltC8',
-          Muscle: 'Peito',
+          name: 'Supino inclinado com halteres',
+          sets: '3',
+          reps: '10-12',
+          notes: 'Cotovelos a 45 graus. Amplitude completa.',
+          video: 'https://www.youtube.com/watch?v=8iPEnn-ltC8',
+          muscle: 'Peito',
         },
         {
-          Name: 'Crossover no cabo',
-          Sets: '3',
-          Reps: '12-15',
-          Notes: 'Aperte o peito no final do movimento.',
-          Video: 'https://www.youtube.com/watch?v=taNxNMFGJa4',
-          Muscle: 'Peito',
+          name: 'Crossover no cabo',
+          sets: '3',
+          reps: '12-15',
+          notes: 'Aperte o peito no final do movimento.',
+          video: 'https://www.youtube.com/watch?v=taNxNMFGJa4',
+          muscle: 'Peito',
         },
         {
-          Name: 'Triceps testa',
-          Sets: '3',
-          Reps: '10-12',
-          Notes: 'Cotovelos fixos. Nao abrir demais.',
-          Video: 'https://www.youtube.com/watch?v=IrVOh1eiyA4',
-          Muscle: 'Triceps',
+          name: 'Triceps testa',
+          sets: '3',
+          reps: '10-12',
+          notes: 'Cotovelos fixos. Nao abrir demais.',
+          video: 'https://www.youtube.com/watch?v=IrVOh1eiyA4',
+          muscle: 'Triceps',
         },
         {
-          Name: 'Triceps corda',
-          Sets: '3',
-          Reps: '12-15',
-          Notes: 'Abra a corda no final da extensao.',
-          Video: 'https://www.youtube.com/watch?v=vB5OHsJ3EME',
-          Muscle: 'Triceps',
+          name: 'Triceps corda',
+          sets: '3',
+          reps: '12-15',
+          notes: 'Abra a corda no final da extensao.',
+          video: 'https://www.youtube.com/watch?v=vB5OHsJ3EME',
+          muscle: 'Triceps',
         },
       ]),
     },
 
     B: {
-      Title: 'Treino B - Costas e Biceps',
-      Focus: 'Puxar / Superior',
-      Exercises: defaultExercises([
+      title: 'Treino B - Costas e Biceps',
+      focus: 'Puxar / Superior',
+      exercises: defaultExercises([
         {
-          Name: 'Barra fixa ou puxada frontal',
-          Sets: '4',
-          Reps: '8-10',
-          Notes: 'Peito para fora. Puxe ate o queixo.',
-          Video: 'https://www.youtube.com/watch?v=eGo4IYlbE5g',
-          Muscle: 'Costas',
+          name: 'Barra fixa ou puxada frontal',
+          sets: '4',
+          reps: '8-10',
+          notes: 'Peito para fora. Puxe ate o queixo.',
+          video: 'https://www.youtube.com/watch?v=eGo4IYlbE5g',
+          muscle: 'Costas',
         },
         {
-          Name: 'Remada curvada',
-          Sets: '4',
-          Reps: '8-10',
-          Notes: 'Coluna neutra. Puxe para o umbigo.',
-          Video: 'https://www.youtube.com/watch?v=FWJR5Ve8bnQ',
-          Muscle: 'Costas',
+          name: 'Remada curvada',
+          sets: '4',
+          reps: '8-10',
+          notes: 'Coluna neutra. Puxe para o umbigo.',
+          video: 'https://www.youtube.com/watch?v=FWJR5Ve8bnQ',
+          muscle: 'Costas',
         },
         {
-          Name: 'Remada baixa no cabo',
-          Sets: '3',
-          Reps: '10-12',
-          Notes: 'Escapulas juntas no final.',
-          Video: 'https://www.youtube.com/watch?v=GZbfZ033f74',
-          Muscle: 'Costas',
+          name: 'Remada baixa no cabo',
+          sets: '3',
+          reps: '10-12',
+          notes: 'Escapulas juntas no final.',
+          video: 'https://www.youtube.com/watch?v=GZbfZ033f74',
+          muscle: 'Costas',
         },
         {
-          Name: 'Rosca direta',
-          Sets: '3',
-          Reps: '10-12',
-          Notes: 'Sem balanco. Cotovelos colados.',
-          Video: 'https://www.youtube.com/watch?v=ykJmrN5iC10',
-          Muscle: 'Biceps',
+          name: 'Rosca direta',
+          sets: '3',
+          reps: '10-12',
+          notes: 'Sem balanco. Cotovelos colados.',
+          video: 'https://www.youtube.com/watch?v=ykJmrN5iC10',
+          muscle: 'Biceps',
         },
         {
-          Name: 'Rosca martelo',
-          Sets: '3',
-          Reps: '12',
-          Notes: 'Punho neutro o tempo todo.',
-          Video: 'https://www.youtube.com/watch?v=zC3nLlEvin4',
-          Muscle: 'Biceps',
+          name: 'Rosca martelo',
+          sets: '3',
+          reps: '12',
+          notes: 'Punho neutro o tempo todo.',
+          video: 'https://www.youtube.com/watch?v=zC3nLlEvin4',
+          muscle: 'Biceps',
         },
       ]),
     },
 
     C: {
-      Title: 'Treino C - Pernas',
-      Focus: 'Inferiores',
-      Exercises: defaultExercises([
+      title: 'Treino C - Pernas',
+      focus: 'Inferiores',
+      exercises: defaultExercises([
         {
-          Name: 'Agachamento livre',
-          Sets: '4',
-          Reps: '8-10',
-          Notes: 'Joelhos alinhados. Desca ate 90 graus.',
-          Video: 'https://www.youtube.com/watch?v=ultWZbVzH4Y',
-          Muscle: 'Quadriceps',
+          name: 'Agachamento livre',
+          sets: '4',
+          reps: '8-10',
+          notes: 'Joelhos alinhados. Desca ate 90 graus.',
+          video: 'https://www.youtube.com/watch?v=ultWZbVzH4Y',
+          muscle: 'Quadriceps',
         },
         {
-          Name: 'Leg press 45',
-          Sets: '4',
-          Reps: '10-12',
-          Notes: 'Nao trave os joelhos no topo.',
-          Video: 'https://www.youtube.com/watch?v=IZxyjW7MPJQ',
-          Muscle: 'Quadriceps',
+          name: 'Leg press 45',
+          sets: '4',
+          reps: '10-12',
+          notes: 'Nao trave os joelhos no topo.',
+          video: 'https://www.youtube.com/watch?v=IZxyjW7MPJQ',
+          muscle: 'Quadriceps',
         },
         {
-          Name: 'Cadeira extensora',
-          Sets: '3',
-          Reps: '12-15',
-          Notes: 'Pause de 1s no topo.',
-          Video: 'https://www.youtube.com/watch?v=YyvSfVjQeL0',
-          Muscle: 'Quadriceps',
+          name: 'Cadeira extensora',
+          sets: '3',
+          reps: '12-15',
+          notes: 'Pause de 1s no topo.',
+          video: 'https://www.youtube.com/watch?v=YyvSfVjQeL0',
+          muscle: 'Quadriceps',
         },
         {
-          Name: 'Mesa flexora',
-          Sets: '3',
-          Reps: '12-15',
-          Notes: 'Quadril colado no banco.',
-          Video: 'https://www.youtube.com/watch?v=1Tq3QdYUuHs',
-          Muscle: 'Posterior',
+          name: 'Mesa flexora',
+          sets: '3',
+          reps: '12-15',
+          notes: 'Quadril colado no banco.',
+          video: 'https://www.youtube.com/watch?v=1Tq3QdYUuHs',
+          muscle: 'Posterior',
         },
         {
-          Name: 'Panturrilha em pe',
-          Sets: '4',
-          Reps: '15-20',
-          Notes: 'Amplitude maxima. Alongue embaixo.',
-          Video: 'https://www.youtube.com/watch?v=-M4-G8p8fmc',
-          Muscle: 'Panturrilha',
+          name: 'Panturrilha em pe',
+          sets: '4',
+          reps: '15-20',
+          notes: 'Amplitude maxima. Alongue embaixo.',
+          video: 'https://www.youtube.com/watch?v=-M4-G8p8fmc',
+          muscle: 'Panturrilha',
         },
       ]),
     },
 
     D: {
-      Title: 'Treino D - Ombros e Core',
-      Focus: 'Deltoides / Abdome',
-      Exercises: defaultExercises([
+      title: 'Treino D - Ombros e Core',
+      focus: 'Deltoides / Abdome',
+      exercises: defaultExercises([
         {
-          Name: 'Desenvolvimento com halteres',
-          Sets: '4',
-          Reps: '8-10',
-          Notes: 'Nao arqueie a lombar.',
-          Video: 'https://www.youtube.com/watch?v=qEwKCR5JCog',
-          Muscle: 'Ombros',
+          name: 'Desenvolvimento com halteres',
+          sets: '4',
+          reps: '8-10',
+          notes: 'Nao arqueie a lombar.',
+          video: 'https://www.youtube.com/watch?v=qEwKCR5JCog',
+          muscle: 'Ombros',
         },
         {
-          Name: 'Elevacao lateral',
-          Sets: '3',
-          Reps: '12-15',
-          Notes: 'Mindinho para cima. Sem trapesio.',
-          Video: 'https://www.youtube.com/watch?v=3VcKaXpzqRo',
-          Muscle: 'Ombros',
+          name: 'Elevacao lateral',
+          sets: '3',
+          reps: '12-15',
+          notes: 'Mindinho para cima. Sem trapesio.',
+          video: 'https://www.youtube.com/watch?v=3VcKaXpzqRo',
+          muscle: 'Ombros',
         },
         {
-          Name: 'Elevacao frontal',
-          Sets: '3',
-          Reps: '12',
-          Notes: 'Ate a linha dos ombros.',
-          Video: 'https://www.youtube.com/watch?v=-t7fuZ0KhDA',
-          Muscle: 'Ombros',
+          name: 'Elevacao frontal',
+          sets: '3',
+          reps: '12',
+          notes: 'Ate a linha dos ombros.',
+          video: 'https://www.youtube.com/watch?v=-t7fuZ0KhDA',
+          muscle: 'Ombros',
         },
         {
-          Name: 'Face pull',
-          Sets: '3',
-          Reps: '15',
-          Notes: 'Puxe em direcao a face. Rotacao externa.',
-          Video: 'https://www.youtube.com/watch?v=rep-bN3h4FQ',
-          Muscle: 'Ombros',
+          name: 'Face pull',
+          sets: '3',
+          reps: '15',
+          notes: 'Puxe em direcao a face. Rotacao externa.',
+          video: 'https://www.youtube.com/watch?v=rep-bN3h4FQ',
+          muscle: 'Ombros',
         },
         {
-          Name: 'Prancha',
-          Sets: '3',
-          Reps: '40-60s',
-          Notes: 'Quadril alinhado. Respiracao constante.',
-          Video: 'https://www.youtube.com/watch?v=ASdvN_XEl_c',
-          Muscle: 'Abdomen',
+          name: 'Prancha',
+          sets: '3',
+          reps: '40-60s',
+          notes: 'Quadril alinhado. Respiracao constante.',
+          video: 'https://www.youtube.com/watch?v=ASdvN_XEl_c',
+          muscle: 'Abdomen',
         },
       ]),
     },
 
     E: {
-      Title: 'Treino E - Full Body / Condicionamento',
-      Focus: 'Forca geral',
-      Exercises: defaultExercises([
+      title: 'Treino E - Full Body / Condicionamento',
+      focus: 'Forca geral',
+      exercises: defaultExercises([
         {
-          Name: 'Levantamento terra rumeno',
-          Sets: '4',
-          Reps: '8-10',
-          Notes: 'Barra raspando as pernas. Quadril para tras.',
-          Video: 'https://www.youtube.com/watch?v=jEy_czb3RKA',
-          Muscle: 'Posterior',
+          name: 'Levantamento terra rumeno',
+          sets: '4',
+          reps: '8-10',
+          notes: 'Barra raspando as pernas. Quadril para tras.',
+          video: 'https://www.youtube.com/watch?v=jEy_czb3RKA',
+          muscle: 'Posterior',
         },
         {
-          Name: 'Afundo caminhando',
-          Sets: '3',
-          Reps: '10/lado',
-          Notes: 'Passo medio. Joelho nao ultrapassa o pe.',
-          Video: 'https://www.youtube.com/watch?v=D7KaRcUTQeE',
-          Muscle: 'Gluteos',
+          name: 'Afundo caminhando',
+          sets: '3',
+          reps: '10/lado',
+          notes: 'Passo medio. Joelho nao ultrapassa o pe.',
+          video: 'https://www.youtube.com/watch?v=D7KaRcUTQeE',
+          muscle: 'Gluteos',
         },
         {
-          Name: 'Flexao de bracos',
-          Sets: '3',
-          Reps: 'max',
-          Notes: 'Corpo alinhado. Peito proximo ao chao.',
-          Video: 'https://www.youtube.com/watch?v=IODxDxX7oi4',
-          Muscle: 'Peito',
+          name: 'Flexao de bracos',
+          sets: '3',
+          reps: 'max',
+          notes: 'Corpo alinhado. Peito proximo ao chao.',
+          video: 'https://www.youtube.com/watch?v=IODxDxX7oi4',
+          muscle: 'Peito',
         },
         {
-          Name: 'Remada unilateral',
-          Sets: '3',
-          Reps: '10/lado',
-          Notes: 'Nao gire o tronco.',
-          Video: 'https://www.youtube.com/watch?v=pYcpY20QaE8',
-          Muscle: 'Costas',
+          name: 'Remada unilateral',
+          sets: '3',
+          reps: '10/lado',
+          notes: 'Nao gire o tronco.',
+          video: 'https://www.youtube.com/watch?v=pYcpY20QaE8',
+          muscle: 'Costas',
         },
         {
-          Name: 'Abdominal infra',
-          Sets: '3',
-          Reps: '12-15',
-          Notes: 'Lombar colada. Suba controlado.',
-          Video: 'https://www.youtube.com/watch?v=5ER5Of4M69I',
-          Muscle: 'Abdomen',
+          name: 'Abdominal infra',
+          sets: '3',
+          reps: '12-15',
+          notes: 'Lombar colada. Suba controlado.',
+          video: 'https://www.youtube.com/watch?v=5ER5Of4M69I',
+          muscle: 'Abdomen',
         },
       ]),
     },
@@ -311,31 +311,31 @@ Const defaultData = {
 |--------------------------------------------------------------------------
 */
 
-Function buildInitialLibrary() {
-  Const exercises = Object.values(defaultData.workouts).flatMap(
+function buildInitialLibrary() {
+  const exercises = Object.values(defaultData.workouts).flatMap(
     (workout) => workout.exercises || []
   )
 
-  Const unique = []
-  Const names = new Set()
+  const unique = []
+  const names = new Set()
 
-  For (const exercise of exercises) {
-    Const key = String(exercise.name || '').trim().toLowerCase()
+  for (const exercise of exercises) {
+    const key = String(exercise.name || '').trim().toLowerCase()
 
-    If (!key || names.has(key)) continue
+    if (!key || names.has(key)) continue
 
-    Names.add(key)
+    names.add(key)
 
-    Unique.push({
+    unique.push({
       ...clone(exercise),
-      Id: createId(),
+      id: createId(),
     })
   }
 
-  Return unique
+  return unique
 }
 
-DefaultData.exercisesLibrary = buildInitialLibrary()
+defaultData.exercisesLibrary = buildInitialLibrary()
 
 /*
 |--------------------------------------------------------------------------
@@ -343,25 +343,25 @@ DefaultData.exercisesLibrary = buildInitialLibrary()
 |--------------------------------------------------------------------------
 */
 
-Function normalizeStudent(student, templateWorkouts) {
-  Const workouts = student?.workouts
+function normalizeStudent(student, templateWorkouts) {
+  const workouts = student?.workouts
     ? {
         ...clone(templateWorkouts),
         ...clone(student.workouts),
       }
     : clone(templateWorkouts)
 
-  Return {
-    Id: student?.id || createId(),
-    Name: student?.name || 'Aluno',
-    Code: String(
-      Student?.code || generateAccessCode()
+  return {
+    id: student?.id || createId(),
+    name: student?.name || 'Aluno',
+    code: String(
+      student?.code || generateAccessCode()
     ).toUpperCase(),
-    Password: student?.password || generatePassword(),
-    Active: student?.active !== false,
-    UpdatedAt: student?.updatedAt || null,
-    Workouts,
-    Evaluations: Array.isArray(student?.evaluations) ? student.evaluations : [],
+    password: student?.password || generatePassword(),
+    active: student?.active !== false,
+    updatedAt: student?.updatedAt || null,
+    workouts,
+    evaluations: Array.isArray(student?.evaluations) ? student.evaluations : [],
   }
 }
 
@@ -372,37 +372,37 @@ Function normalizeStudent(student, templateWorkouts) {
 */
 
 export function mergeData(parsed) {
-  Const workouts = {
+  const workouts = {
     ...clone(defaultData.workouts),
     ...(parsed?.workouts || {}),
   }
 
-  Const studentsSource = Array.isArray(parsed?.students)
-    ? Parsed.students
+  const studentsSource = Array.isArray(parsed?.students)
+    ? parsed.students
     : clone(defaultData.students)
 
-  Const exercisesLibrary = Array.isArray(parsed?.exercisesLibrary)
-    ? Parsed.exercisesLibrary
+  const exercisesLibrary = Array.isArray(parsed?.exercisesLibrary)
+    ? parsed.exercisesLibrary
     : clone(defaultData.exercisesLibrary)
 
-  Return {
-    Brand: {
+  return {
+    brand: {
       ...defaultData.brand,
       ...(parsed?.brand || {}),
     },
 
-    Plan: {
+    plan: {
       ...defaultData.plan,
       ...(parsed?.plan || {}),
     },
 
-    Students: studentsSource.map((student) =>
-      NormalizeStudent(student, workouts)
+    students: studentsSource.map((student) =>
+      normalizeStudent(student, workouts)
     ),
 
-    Workouts,
+    workouts,
 
-    ExercisesLibrary,
+    exercisesLibrary,
   }
 }
 
@@ -413,16 +413,16 @@ export function mergeData(parsed) {
 */
 
 export function loadData() {
-  Try {
-    Const raw = localStorage.getItem(STORAGE_KEY)
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
 
-    If (!raw) {
-      Return clone(defaultData)
+    if (!raw) {
+      return clone(defaultData)
     }
 
-    Return mergeData(JSON.parse(raw))
+    return mergeData(JSON.parse(raw))
   } catch {
-    Return clone(defaultData)
+    return clone(defaultData)
   }
 }
 
@@ -433,23 +433,23 @@ export function loadData() {
 */
 
 export async function fetchData() {
-  Try {
-    Const current = loadData()
+  try {
+    const current = loadData()
 
     // 1. Busca os alunos
-    Const { data: alunosData, error: alunosError } = await supabase
+    const { data: alunosData, error: alunosError } = await supabase
       .from('alunos')
       .select('*')
 
-    If (!alunosError && alunosData && alunosData.length > 0) {
-      Current.students = alunosData.map((aluno) => ({
-        Id: aluno.id,
-        Name: aluno.nome,
-        Code: aluno.code || generateAccessCode(),
-        Password: aluno.password || generatePassword(),
-        Active: aluno.active !== false,
-        Evaluations: Array.isArray(aluno.evaluations) ? aluno.evaluations : [], // <--- Garante leitura das avaliações do Supabase
-        Workouts: aluno.workouts
+    if (!alunosError && alunosData && alunosData.length > 0) {
+      current.students = alunosData.map((aluno) => ({
+        id: aluno.id,
+        name: aluno.nome,
+        code: aluno.code || generateAccessCode(),
+        password: aluno.password || generatePassword(),
+        active: aluno.active !== false,
+        evaluations: Array.isArray(aluno.evaluations) ? aluno.evaluations : [],
+        workouts: aluno.workouts
           ? {
               ...clone(current.workouts),
               ...aluno.workouts,
@@ -459,22 +459,22 @@ export async function fetchData() {
     }
 
     // 2. Busca a biblioteca de exercícios na tabela 'config' do Supabase
-    Const { data: configData, error: configError } = await supabase
+    const { data: configData, error: configError } = await supabase
       .from('config')
       .select('*')
       .eq('id', 'global')
       .single()
 
-    If (!configError && configData && configData.exercisesLibrary) {
-      Current.exercisesLibrary = configData.exercisesLibrary
+    if (!configError && configData && configData.exercisesLibrary) {
+      current.exercisesLibrary = configData.exercisesLibrary
     }
 
-    Return current
+    return current
   } catch {
     // fallback para localStorage caso falhe
   }
 
-  Return loadData()
+  return loadData()
 }
 
 /*
@@ -484,31 +484,31 @@ export async function fetchData() {
 */
 
 export async function saveData(data) {
-  LocalStorage.setItem(
+  localStorage.setItem(
     STORAGE_KEY,
     JSON.stringify(data)
   )
 
-  Try {
-    If (data && Array.isArray(data.students)) {
-      For (const aluno of data.students) {
-        Wait supabase.from('alunos').upsert({
-          Id: aluno.id,
-          Nome: aluno.name,
-          Code: aluno.code,
-          Password: aluno.password,
-          Active: aluno.active !== false,
-          Workouts: aluno.workouts,
-          Evaluations: aluno.evaluations || [], // <--- Garante gravação das avaliações no Supabase
+  try {
+    if (data && Array.isArray(data.students)) {
+      for (const aluno of data.students) {
+        await supabase.from('alunos').upsert({
+          id: aluno.id,
+          nome: aluno.name,
+          code: aluno.code,
+          password: aluno.password,
+          active: aluno.active !== false,
+          workouts: aluno.workouts,
+          evaluations: aluno.evaluations || [],
         })
       }
     }
 
     // Salva também a biblioteca de exercícios na tabela 'config' do Supabase
-    If (data && Array.isArray(data.exercisesLibrary)) {
-      Wait supabase.from('config').upsert({
-        Id: 'global',
-        ExercisesLibrary: data.exercisesLibrary,
+    if (data && Array.isArray(data.exercisesLibrary)) {
+      await supabase.from('config').upsert({
+        id: 'global',
+        exercisesLibrary: data.exercisesLibrary,
       })
     }
   } catch {
@@ -523,39 +523,39 @@ export async function saveData(data) {
 */
 
 export function createLibraryExercise(exercise) {
-  Return {
-    Id: createId(),
-    Name: exercise.name || 'Novo exercício',
-    Muscle: exercise.muscle || '',
-    Sets: exercise.sets || '3',
-    Reps: exercise.reps || '10-12',
-    Notes: exercise.notes || '',
-    Video: exercise.video || '',
-    Group: exercise.group || '',
+  return {
+    id: createId(),
+    name: exercise.name || 'Novo exercício',
+    muscle: exercise.muscle || '',
+    sets: exercise.sets || '3',
+    reps: exercise.reps || '10-12',
+    notes: exercise.notes || '',
+    video: exercise.video || '',
+    group: exercise.group || '',
   }
 }
 
 export function addExerciseToLibrary(data, exercise) {
-  Const next = clone(data)
+  const next = clone(data)
 
-  If (!Array.isArray(next.exercisesLibrary)) {
-    Next.exercisesLibrary = []
+  if (!Array.isArray(next.exercisesLibrary)) {
+    next.exercisesLibrary = []
   }
 
-  Const newExercise = createLibraryExercise(exercise)
+  const newExercise = createLibraryExercise(exercise)
 
-  Next.exercisesLibrary.push(newExercise)
+  next.exercisesLibrary.push(newExercise)
 
-  Return next
+  return next
 }
 
 export function updateLibraryExercise(data, exerciseId, changes) {
-  Const next = clone(data)
+  const next = clone(data)
 
-  Next.exercisesLibrary = (
-    Next.exercisesLibrary || []
+  next.exercisesLibrary = (
+    next.exercisesLibrary || []
   ).map((exercise) =>
-    Exercise.id === exerciseId
+    exercise.id === exerciseId
       ? {
           ...exercise,
           ...changes,
@@ -563,17 +563,17 @@ export function updateLibraryExercise(data, exerciseId, changes) {
       : exercise
   )
 
-  Return next
+  return next
 }
 
 export function removeLibraryExercise(data, exerciseId) {
-  Const next = clone(data)
+  const next = clone(data)
 
-  Next.exercisesLibrary = (
-    Next.exercisesLibrary || []
+  next.exercisesLibrary = (
+    next.exercisesLibrary || []
   ).filter((exercise) => exercise.id !== exerciseId)
 
-  Return next
+  return next
 }
 
 export const removeExerciseFromLibrary = removeLibraryExercise
@@ -585,51 +585,51 @@ export const removeExerciseFromLibrary = removeLibraryExercise
 */
 
 export function addLibraryExerciseToWorkout(
-  Data,
-  StudentId,
-  Day,
-  ExerciseId
+  data,
+  studentId,
+  day,
+  exerciseId
 ) {
-  Const next = clone(data)
+  const next = clone(data)
 
-  Const student = next.students.find(
+  const student = next.students.find(
     (item) => item.id === studentId
   )
 
-  If (!student) return next
+  if (!student) return next
 
-  Const libraryExercise = (
-    Next.exercisesLibrary || []
+  const libraryExercise = (
+    next.exercisesLibrary || []
   ).find((item) => item.id === exerciseId)
 
-  If (!libraryExercise) return next
+  if (!libraryExercise) return next
 
-  If (!student.workouts) {
-    Student.workouts = clone(next.workouts)
+  if (!student.workouts) {
+    student.workouts = clone(next.workouts)
   }
 
-  If (!student.workouts[day]) {
-    Student.workouts[day] = {
-      Title: `Treino ${day}`,
-      Focus: '',
-      Exercises: [],
+  if (!student.workouts[day]) {
+    student.workouts[day] = {
+      title: `Treino ${day}`,
+      focus: '',
+      exercises: [],
     }
   }
 
-  If (!Array.isArray(student.workouts[day].exercises)) {
-    Student.workouts[day].exercises = []
+  if (!Array.isArray(student.workouts[day].exercises)) {
+    student.workouts[day].exercises = []
   }
 
-  Const copiedExercise = {
+  const copiedExercise = {
     ...clone(libraryExercise),
-    Id: createId(),
+    id: createId(),
   }
 
-  Student.workouts[day].exercises.push(copiedExercise)
+  student.workouts[day].exercises.push(copiedExercise)
 
-  Student.updatedAt = new Date().toISOString()
+  student.updatedAt = new Date().toISOString()
 
-  Return next
+  return next
 }
 
 /*
@@ -639,59 +639,59 @@ export function addLibraryExerciseToWorkout(
 */
 
 export async function uploadLogo(dataUrl) {
-  Return {
-    Logo: dataUrl,
+  return {
+    logo: dataUrl,
   }
 }
 
 export function logoSrc(path) {
-  If (!path) return ''
+  if (!path) return ''
 
-  If (
-    Path.startsWith('http') ||
-    Path.startsWith('data:')
+  if (
+    path.startsWith('http') ||
+    path.startsWith('data:')
   ) {
-    Return path
+    return path
   }
 
-  Return path
+  return path
 }
 
 export function subscribeData(onChange) {
-  Let closed = false
+  let closed = false
 
-  Const tick = async () => {
-    If (closed) return
+  const tick = async () => {
+    if (closed) return
 
-    Const data = await fetchData()
+    const data = await fetchData()
 
-    OnChange(data)
+    onChange(data)
   }
 
-  Const interval = setInterval(tick, 3000)
+  const interval = setInterval(tick, 3000)
 
-  Tick()
+  tick()
 
-  Return () => {
-    Closed = true
+  return () => {
+    closed = true
     clearInterval(interval)
   }
 }
 
 export function formatBRL(value) {
-  Return Number(value || 0).toLocaleString(
+  return Number(value || 0).toLocaleString(
     'pt-BR',
     {
-      Style: 'currency',
-      Currency: 'BRL',
+      style: 'currency',
+      currency: 'BRL',
     }
   )
 }
 
 export function whatsappLink(plan) {
-  Const message =
+  const message =
     `Ola Danilo! Quero garantir minha vaga na consultoria de treino online ` +
     `(${plan.name} - ${formatBRL(plan.price)}).`
 
-  Return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`
+  return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`
 }
