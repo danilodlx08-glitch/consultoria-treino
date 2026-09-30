@@ -1,9 +1,9 @@
+import { supabase } from './services/supabase'
+
 const STORAGE_KEY = 'dl_consultoria_v1'
 
 export const ADMIN_PASSWORD = 'admin17249'
 export const WHATSAPP_NUMBER = '5527996247906'
-
-import { supabase } from './services/supabase'
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value))
