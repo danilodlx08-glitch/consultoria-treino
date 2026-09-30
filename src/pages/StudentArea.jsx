@@ -42,23 +42,9 @@ export default function StudentArea() {
 
   const workouts = current?.workouts || data.workouts
 
-  // Simulação ou busca de dados de avaliação física do aluno atual
-  const evaluations = current?.evaluations || [
-    {
-      date: '15/08/2026',
-      weight: 78.5,
-      height: 1.78,
-      fatPercentage: 14.2,
-      leanMass: 67.4,
-      fatMass: 11.1,
-      bmx: 24.8,
-      tmb: 1850,
-      get: 2450,
-      folds: { triceps: 10, subscapular: 12, suprailiaca: 14, abdominal: 18, coxa: 15 },
-      circumferences: { chest: 102, arm: 38, waist: 82, hips: 98, thigh: 60, calf: 39 }
-    }
-  ]
-  const latestEvaluation = evaluations[evaluations.length - 1]
+  // Avaliações reais do aluno (sem dados fictícios estáticos)
+  const evaluations = current?.evaluations || []
+  const latestEvaluation = evaluations.length > 0 ? evaluations[evaluations.length - 1] : null
 
   const currentDay = selectedWorkoutDay || 'A'
   const workout = workouts[currentDay] || {
@@ -250,7 +236,7 @@ export default function StudentArea() {
 
       <main className="mx-auto max-w-md px-4 py-5 safe-bottom">
         {!selectedWorkoutDay ? (
-          /* TELA 1: LISTA DE CARDS DE TREINOS + NOVO CARD DE AVALIAÇÃO FÍSICA */
+          /* TELA 1: LISTA DE CARDS DE TREINOS + CARD DE AVALIAÇÃO FÍSICA */
           <div className="space-y-4">
             <div className="mb-2">
               <p className="text-[12px] uppercase tracking-[0.2em] text-gold-400 font-bold">
@@ -261,7 +247,7 @@ export default function StudentArea() {
               </h1>
             </div>
 
-            {/* NOVO CARD: AVALIAÇÃO FÍSICA & COMPOSIÇÃO CORPORAL */}
+            {/* CARD DE AVALIAÇÃO FÍSICA & COMPOSIÇÃO CORPORAL */}
             <div 
               onClick={() => setIsEvaluationOpen(true)}
               className="group relative w-full overflow-hidden rounded-2xl border border-gold-400/40 bg-gradient-to-br from-ink-900 to-ink-800 p-5 text-left transition-all duration-300 hover:border-gold-400 hover:shadow-xl hover:shadow-gold-400/10 cursor-pointer shadow-lg"
@@ -281,25 +267,31 @@ export default function StudentArea() {
                   </div>
                 </div>
                 <span className="text-[11px] font-bold text-gold-400 bg-gold-400/10 px-2.5 py-1 rounded-full border border-gold-400/30 group-hover:bg-gold-400 group-hover:text-ink-950 transition">
-                  Ver Detalhes →
+                  {latestEvaluation ? 'Ver Detalhes →' : 'Aguardando →'}
                 </span>
               </div>
 
-              {/* MÉTRICAS RÁPIDAS NO CARD */}
-              <div className="grid grid-cols-3 gap-2.5 pt-2 border-t border-white/10">
-                <div className="rounded-xl bg-ink-950/60 p-2 text-center border border-white/5">
-                  <p className="text-[9px] uppercase tracking-wider text-zinc-400">Peso</p>
-                  <p className="font-display text-base text-gold-400 font-bold">{latestEvaluation.weight} kg</p>
+              {/* MÉTRICAS RÁPIDAS OU ESTADO VAZIO */}
+              {latestEvaluation ? (
+                <div className="grid grid-cols-3 gap-2.5 pt-2 border-t border-white/10">
+                  <div className="rounded-xl bg-ink-950/60 p-2 text-center border border-white/5">
+                    <p className="text-[9px] uppercase tracking-wider text-zinc-400">Peso</p>
+                    <p className="font-display text-base text-gold-400 font-bold">{latestEvaluation.weight} kg</p>
+                  </div>
+                  <div className="rounded-xl bg-ink-950/60 p-2 text-center border border-white/5">
+                    <p className="text-[9px] uppercase tracking-wider text-zinc-400">% Gordura</p>
+                    <p className="font-display text-base text-gold-400 font-bold">{latestEvaluation.fatPercentage}%</p>
+                  </div>
+                  <div className="rounded-xl bg-ink-950/60 p-2 text-center border border-white/5">
+                    <p className="text-[9px] uppercase tracking-wider text-zinc-400">Gasto Diário</p>
+                    <p className="font-display text-base text-gold-400 font-bold">{latestEvaluation.get} kcal</p>
+                  </div>
                 </div>
-                <div className="rounded-xl bg-ink-950/60 p-2 text-center border border-white/5">
-                  <p className="text-[9px] uppercase tracking-wider text-zinc-400">% Gordura</p>
-                  <p className="font-display text-base text-gold-400 font-bold">{latestEvaluation.fatPercentage}%</p>
+              ) : (
+                <div className="pt-2 border-t border-white/10 text-center py-2">
+                  <p className="text-xs text-zinc-400">Nenhuma avaliação cadastrada pelo professor ainda.</p>
                 </div>
-                <div className="rounded-xl bg-ink-950/60 p-2 text-center border border-white/5">
-                  <p className="text-[9px] uppercase tracking-wider text-zinc-400">Gasto Diário</p>
-                  <p className="font-display text-base text-gold-400 font-bold">{latestEvaluation.get} kcal</p>
-                </div>
-              </div>
+              )}
             </div>
 
             <div className="space-y-3.5 pt-2">
@@ -319,13 +311,11 @@ export default function StudentArea() {
                     }}
                     className="group relative w-full overflow-hidden rounded-2xl border border-white/10 bg-ink-800 p-4 text-left transition-all duration-300 hover:border-gold-400 hover:bg-ink-700/80 shadow-lg flex items-center gap-4"
                   >
-                    {/* LETRA GRANDE À ESQUERDA */}
                     <div className="flex shrink-0 flex-col items-center justify-center h-16 w-16 rounded-xl bg-ink-900 border-2 border-gold-400/40 text-gold-400 font-display text-2xl font-extrabold shadow-inner group-hover:bg-gold-400 group-hover:text-ink-950 transition-all duration-300">
                       <span className="text-[9px] uppercase tracking-widest font-bold opacity-80 leading-none mb-0.5">Treino</span>
                       {dayKey}
                     </div>
 
-                    {/* TÍTULO DO TREINO À DIREITA */}
                     <div className="flex-1 min-w-0">
                       <h2 className="font-display text-xl uppercase text-white tracking-wide group-hover:text-gold-300 transition-colors leading-snug">
                         {wData?.title || `Treino ${dayKey}`}
@@ -384,7 +374,6 @@ export default function StudentArea() {
                         : 'bg-ink-800 border-white/10'
                     }`}
                   >
-                    {/* NOME DO EXERCÍCIO NO TOPO */}
                     <div className="mb-3.5">
                       {exercise.group && (
                         <div className="mb-2 flex items-center gap-1.5 text-gold-400">
@@ -402,9 +391,7 @@ export default function StudentArea() {
                       </h2>
                     </div>
 
-                    {/* VÍDEO ALTO À ESQUERDA + (SÉRIES/REPETIÇÕES E OBSERVAÇÕES) À DIREITA */}
                     <div className="flex items-stretch gap-3.5 mb-3.5">
-                      {/* VÍDEO MAIOR E MAIS RETANGULAR/VERTICAL */}
                       <div className="w-32 shrink-0 flex flex-col">
                         {exercise.video ? (
                           <button
@@ -438,9 +425,7 @@ export default function StudentArea() {
                         )}
                       </div>
 
-                      {/* COLUNA DIREITA: SÉRIES/REPETIÇÕES ACIMA E OBSERVAÇÕES ABAIXO */}
                       <div className="flex-1 min-w-0 flex flex-col gap-2.5">
-                        {/* SÉRIES E REPETIÇÕES LADO A LADO */}
                         <div className="grid grid-cols-2 gap-2.5">
                           <div className="rounded-xl bg-ink-700 p-2.5 text-center border border-white/5 flex flex-col justify-center">
                             <p className="text-[10px] uppercase tracking-widest text-zinc-400 font-bold">Séries</p>
@@ -452,7 +437,6 @@ export default function StudentArea() {
                           </div>
                         </div>
 
-                        {/* OBSERVAÇÕES CLICÁVEIS PARA ABRIR O MODAL */}
                         {exercise.notes ? (
                           <div 
                             onClick={() => setSelectedObs({ title: exercise.name, notes: exercise.notes })}
@@ -470,7 +454,6 @@ export default function StudentArea() {
                       </div>
                     </div>
 
-                    {/* BOTÕES DE DESCANSO E FEITO LADO A LADO NA BASE */}
                     <div className="relative pt-2 border-t border-white/10">
                       {!isMenuOpen ? (
                         <div className="grid grid-cols-2 gap-2.5">
@@ -548,7 +531,7 @@ export default function StudentArea() {
         </button>
       </div>
 
-      {/* RODAPÉ FIXO INTELIGENTE (SÓ APARECE DENTRO DO TREINO) */}
+      {/* RODAPÉ FIXO INTELIGENTE */}
       {selectedWorkoutDay && (
         <div className="fixed bottom-0 left-0 right-0 z-40 border-t-2 border-gold-400/40 bg-ink-950/95 p-5 backdrop-blur shadow-2xl">
           <div className="mx-auto max-w-md">
@@ -646,87 +629,96 @@ export default function StudentArea() {
               </button>
             </div>
 
-            <div className="space-y-5">
-              <div className="flex items-center justify-between bg-ink-950/60 p-3 rounded-xl border border-white/5">
-                <span className="text-xs text-zinc-400 font-medium">Data da Avaliação:</span>
-                <span className="text-xs font-bold text-gold-400">{latestEvaluation.date}</span>
-              </div>
+            {latestEvaluation ? (
+              <div className="space-y-5">
+                <div className="flex items-center justify-between bg-ink-950/60 p-3 rounded-xl border border-white/5">
+                  <span className="text-xs text-zinc-400 font-medium">Data da Avaliação:</span>
+                  <span className="text-xs font-bold text-gold-400">{latestEvaluation.date}</span>
+                </div>
 
-              {/* BLOCO 1: COMPOSIÇÃO CORPORAL */}
-              <div>
-                <p className="text-xs uppercase font-bold tracking-widest text-gold-400 mb-2.5 flex items-center gap-1.5">
-                  <Scale size={14} /> Composição Corporal
-                </p>
-                <div className="grid grid-cols-2 gap-2.5">
-                  <div className="rounded-xl bg-ink-800 p-3 border border-white/5">
-                    <p className="text-[10px] uppercase tracking-wider text-zinc-400">Peso Total</p>
-                    <p className="font-display text-lg text-white font-bold">{latestEvaluation.weight} kg</p>
-                  </div>
-                  <div className="rounded-xl bg-ink-800 p-3 border border-white/5">
-                    <p className="text-[10px] uppercase tracking-wider text-zinc-400">Altura</p>
-                    <p className="font-display text-lg text-white font-bold">{latestEvaluation.height} m</p>
-                  </div>
-                  <div className="rounded-xl bg-ink-800 p-3 border border-white/5">
-                    <p className="text-[10px] uppercase tracking-wider text-zinc-400">% de Gordura (%BF)</p>
-                    <p className="font-display text-lg text-gold-400 font-bold">{latestEvaluation.fatPercentage}%</p>
-                  </div>
-                  <div className="rounded-xl bg-ink-800 p-3 border border-white/5">
-                    <p className="text-[10px] uppercase tracking-wider text-zinc-400">Massa Magra</p>
-                    <p className="font-display text-lg text-emerald-400 font-bold">{latestEvaluation.leanMass} kg</p>
+                <div>
+                  <p className="text-xs uppercase font-bold tracking-widest text-gold-400 mb-2.5 flex items-center gap-1.5">
+                    <Scale size={14} /> Composição Corporal
+                  </p>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div className="rounded-xl bg-ink-800 p-3 border border-white/5">
+                      <p className="text-[10px] uppercase tracking-wider text-zinc-400">Peso Total</p>
+                      <p className="font-display text-lg text-white font-bold">{latestEvaluation.weight} kg</p>
+                    </div>
+                    <div className="rounded-xl bg-ink-800 p-3 border border-white/5">
+                      <p className="text-[10px] uppercase tracking-wider text-zinc-400">Altura</p>
+                      <p className="font-display text-lg text-white font-bold">{latestEvaluation.height} m</p>
+                    </div>
+                    <div className="rounded-xl bg-ink-800 p-3 border border-white/5">
+                      <p className="text-[10px] uppercase tracking-wider text-zinc-400">% de Gordura (%BF)</p>
+                      <p className="font-display text-lg text-gold-400 font-bold">{latestEvaluation.fatPercentage}%</p>
+                    </div>
+                    <div className="rounded-xl bg-ink-800 p-3 border border-white/5">
+                      <p className="text-[10px] uppercase tracking-wider text-zinc-400">Massa Magra</p>
+                      <p className="font-display text-lg text-emerald-400 font-bold">{latestEvaluation.leanMass} kg</p>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* BLOCO 2: GASTO CALÓRICO */}
-              <div>
-                <p className="text-xs uppercase font-bold tracking-widest text-gold-400 mb-2.5 flex items-center gap-1.5">
-                  <Flame size={14} /> Metabolismo & Calorias
-                </p>
-                <div className="grid grid-cols-2 gap-2.5">
-                  <div className="rounded-xl bg-ink-800 p-3 border border-white/5">
-                    <p className="text-[10px] uppercase tracking-wider text-zinc-400">Taxa Metabólica Basal (TMB)</p>
-                    <p className="font-display text-base text-white font-bold">{latestEvaluation.tmb} kcal</p>
-                  </div>
-                  <div className="rounded-xl bg-ink-800 p-3 border border-white/5">
-                    <p className="text-[10px] uppercase tracking-wider text-zinc-400">Gasto Energético Total (GET)</p>
-                    <p className="font-display text-base text-gold-400 font-bold">{latestEvaluation.get} kcal</p>
+                <div>
+                  <p className="text-xs uppercase font-bold tracking-widest text-gold-400 mb-2.5 flex items-center gap-1.5">
+                    <Flame size={14} /> Metabolismo & Calorias
+                  </p>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div className="rounded-xl bg-ink-800 p-3 border border-white/5">
+                      <p className="text-[10px] uppercase tracking-wider text-zinc-400">Taxa Metabólica Basal (TMB)</p>
+                      <p className="font-display text-base text-white font-bold">{latestEvaluation.tmb} kcal</p>
+                    </div>
+                    <div className="rounded-xl bg-ink-800 p-3 border border-white/5">
+                      <p className="text-[10px] uppercase tracking-wider text-zinc-400">Gasto Energético Total (GET)</p>
+                      <p className="font-display text-base text-gold-400 font-bold">{latestEvaluation.get} kcal</p>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* BLOCO 3: CIRCUNFERÊNCIAS */}
-              <div>
-                <p className="text-xs uppercase font-bold tracking-widest text-gold-400 mb-2.5 flex items-center gap-1.5">
-                  <UserCheck size= {14} /> Circunferências (cm)
-                </p>
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  <div className="rounded-xl bg-ink-800 p-2.5 border border-white/5">
-                    <p className="text-[9px] uppercase tracking-wider text-zinc-400">Tórax</p>
-                    <p className="font-display text-sm text-white font-bold mt-0.5">{latestEvaluation.circumferences.chest} cm</p>
+                {latestEvaluation.circumferences && (
+                  <div>
+                    <p className="text-xs uppercase font-bold tracking-widest text-gold-400 mb-2.5 flex items-center gap-1.5">
+                      <UserCheck size={14} /> Circunferências (cm)
+                    </p>
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="rounded-xl bg-ink-800 p-2.5 border border-white/5">
+                        <p className="text-[9px] uppercase tracking-wider text-zinc-400">Tórax</p>
+                        <p className="font-display text-sm text-white font-bold mt-0.5">{latestEvaluation.circumferences.chest} cm</p>
+                      </div>
+                      <div className="rounded-xl bg-ink-800 p-2.5 border border-white/5">
+                        <p className="text-[9px] uppercase tracking-wider text-zinc-400">Braço</p>
+                        <p className="font-display text-sm text-white font-bold mt-0.5">{latestEvaluation.circumferences.arm} cm</p>
+                      </div>
+                      <div className="rounded-xl bg-ink-800 p-2.5 border border-white/5">
+                        <p className="text-[9px] uppercase tracking-wider text-zinc-400">Cintura</p>
+                        <p className="font-display text-sm text-white font-bold mt-0.5">{latestEvaluation.circumferences.waist} cm</p>
+                      </div>
+                      <div className="rounded-xl bg-ink-800 p-2.5 border border-white/5">
+                        <p className="text-[9px] uppercase tracking-wider text-zinc-400">Quadril</p>
+                        <p className="font-display text-sm text-white font-bold mt-0.5">{latestEvaluation.circumferences.hips} cm</p>
+                      </div>
+                      <div className="rounded-xl bg-ink-800 p-2.5 border border-white/5">
+                        <p className="text-[9px] uppercase tracking-wider text-zinc-400">Coxa</p>
+                        <p className="font-display text-sm text-white font-bold mt-0.5">{latestEvaluation.circumferences.thigh} cm</p>
+                      </div>
+                      <div className="rounded-xl bg-ink-800 p-2.5 border border-white/5">
+                        <p className="text-[9px] uppercase tracking-wider text-zinc-400">Panturrilha</p>
+                        <p className="font-display text-sm text-white font-bold mt-0.5">{latestEvaluation.circumferences.calf} cm</p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="rounded-xl bg-ink-800 p-2.5 border border-white/5">
-                    <p className="text-[9px] uppercase tracking-wider text-zinc-400">Braço</p>
-                    <p className="font-display text-sm text-white font-bold mt-0.5">{latestEvaluation.circumferences.arm} cm</p>
-                  </div>
-                  <div className="rounded-xl bg-ink-800 p-2.5 border border-white/5">
-                    <p className="text-[9px] uppercase tracking-wider text-zinc-400">Cintura</p>
-                    <p className="font-display text-sm text-white font-bold mt-0.5">{latestEvaluation.circumferences.waist} cm</p>
-                  </div>
-                  <div className="rounded-xl bg-ink-800 p-2.5 border border-white/5">
-                    <p className="text-[9px] uppercase tracking-wider text-zinc-400">Quadril</p>
-                    <p className="font-display text-sm text-white font-bold mt-0.5">{latestEvaluation.circumferences.hips} cm</p>
-                  </div>
-                  <div className="rounded-xl bg-ink-800 p-2.5 border border-white/5">
-                    <p className="text-[9px] uppercase tracking-wider text-zinc-400">Coxa</p>
-                    <p className="font-display text-sm text-white font-bold mt-0.5">{latestEvaluation.circumferences.thigh} cm</p>
-                  </div>
-                  <div className="rounded-xl bg-ink-800 p-2.5 border border-white/5">
-                    <p className="text-[9px] uppercase tracking-wider text-zinc-400">Panturrilha</p>
-                    <p className="font-display text-sm text-white font-bold mt-0.5">{latestEvaluation.circumferences.calf} cm</p>
-                  </div>
-                </div>
+                )}
               </div>
-            </div>
+            ) : (
+              <div className="py-10 text-center space-y-3">
+                <Activity size={40} className="mx-auto text-gold-400/40 animate-pulse" />
+                <p className="text-sm font-medium text-zinc-300">Nenhuma avaliação física cadastrada.</p>
+                <p className="text-xs text-zinc-500 max-w-xs mx-auto">
+                  Assim que o professor registrar sua avaliação pela área administrativa, os dados de composição corporal aparecerão aqui.
+                </p>
+              </div>
+            )}
 
             <div className="mt-6 pt-4 border-t border-white/10">
               <button
@@ -734,7 +726,7 @@ export default function StudentArea() {
                 onClick={() => setIsEvaluationOpen(false)}
                 className="w-full rounded-xl bg-gold-400 py-3 text-xs font-bold uppercase text-ink-950 transition hover:bg-gold-300 shadow-lg"
               >
-                Fechar Avaliação
+                Fechar
               </button>
             </div>
           </div>
