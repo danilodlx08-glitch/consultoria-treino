@@ -236,18 +236,10 @@ export default function StudentArea() {
 
       <main className="mx-auto max-w-md px-4 py-5 safe-bottom">
         {!selectedWorkoutDay ? (
-          /* TELA 1: LISTA DE CARDS DE TREINOS + CARD DE AVALIAÇÃO FÍSICA */
+          /* TELA 1: CARD DE AVALIAÇÃO FÍSICA NO TOPO + LISTA DE TREINOS */
           <div className="space-y-4">
-            <div className="mb-2">
-              <p className="text-[12px] uppercase tracking-[0.2em] text-gold-400 font-bold">
-                Sua Rotina
-              </p>
-              <h1 className="mt-1 font-display text-2xl uppercase">
-                Escolha o Treino
-              </h1>
-            </div>
-
-            {/* CARD DE AVALIAÇÃO FÍSICA & COMPOSIÇÃO CORPORAL */}
+            
+            {/* CARD DE AVALIAÇÃO FÍSICA & COMPOSIÇÃO CORPORAL (AGORA NO TOPO) */}
             <div 
               onClick={() => setIsEvaluationOpen(true)}
               className="group relative w-full overflow-hidden rounded-2xl border border-gold-400/40 bg-gradient-to-br from-ink-900 to-ink-800 p-5 text-left transition-all duration-300 hover:border-gold-400 hover:shadow-xl hover:shadow-gold-400/10 cursor-pointer shadow-lg"
@@ -294,11 +286,17 @@ export default function StudentArea() {
               )}
             </div>
 
-            <div className="space-y-3.5 pt-2">
+            {/* TÍTULO DA ROTINA DE TREINOS */}
+            <div className="pt-2">
               <p className="text-[12px] uppercase tracking-[0.2em] text-gold-400 font-bold">
-                Seus Treinos
+                Sua Rotina
               </p>
+              <h1 className="mt-1 font-display text-2xl uppercase">
+                Escolha o Treino
+              </h1>
+            </div>
 
+            <div className="space-y-3.5 pt-2">
               {DAYS.map((dayKey) => {
                 const wData = workouts[dayKey]
 
