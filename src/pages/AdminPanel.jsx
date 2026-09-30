@@ -428,7 +428,7 @@ export default function AdminPanel() {
     setTimeout(() => setSaved(''), 2200)
   }
 
-  // Salvar Avaliação Física do Aluno
+  // Salvar Avaliação Física do Aluno (Corrigido para forçar persistência imediata)
   function handleSaveEvaluation(e) {
     e.preventDefault()
     if (!evaluatingStudent) return
@@ -453,7 +453,7 @@ export default function AdminPanel() {
 
     const updatedStudents = data.students.map((student) => {
       if (student.id === evaluatingStudent.id) {
-        const existingEvaluations = student.evaluations || []
+        const existingEvaluations = Array.isArray(student.evaluations) ? student.evaluations : []
         return {
           ...student,
           evaluations: [...existingEvaluations, newEvaluation],
@@ -463,10 +463,13 @@ export default function AdminPanel() {
       return student
     })
 
-    persist({
+    const nextData = {
       ...data,
       students: updatedStudents,
-    })
+    }
+
+    // Persiste imediatamente os dados na nuvem e no armazenamento local
+    persist(nextData)
 
     setShowEvaluationModal(false)
     setEvaluatingStudent(null)
@@ -1611,7 +1614,7 @@ export default function AdminPanel() {
                       Adicionar ao treino {day}
                     </button>
                   </article>
-            ))
+                ))
               )}
             </div>
 
