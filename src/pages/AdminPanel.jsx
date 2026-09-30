@@ -15,6 +15,8 @@ import {
   CopyCheck,
   Link2,
   Pencil,
+  Activity,
+  Scale,
 } from 'lucide-react'
 import { useAuth } from '../auth.jsx'
 import {
@@ -63,6 +65,22 @@ const emptyLibraryExercise = () => ({
   group: '',
 })
 
+const emptyEvaluationForm = () => ({
+  date: new Date().toLocaleDateString('pt-BR'),
+  weight: '',
+  height: '',
+  fatPercentage: '',
+  leanMass: '',
+  tmb: '',
+  get: '',
+  chest: '',
+  arm: '',
+  waist: '',
+  hips: '',
+  thigh: '',
+  calf: '',
+})
+
 export default function AdminPanel() {
   const { logoutAdmin } = useAuth()
   const navigate = useNavigate()
@@ -77,6 +95,11 @@ export default function AdminPanel() {
   const [showCopyStudentWorkoutsModal, setShowCopyStudentWorkoutsModal] = useState(false)
   const [sourceStudentIdForCopy, setSourceStudentIdForCopy] = useState('')
   const [studentSearch, setStudentSearch] = useState('')
+
+  // Estados para o modal de Avaliação Física no Admin
+  const [showEvaluationModal, setShowEvaluationModal] = useState(false)
+  const [evaluatingStudent, setEvaluatingStudent] = useState(null)
+  const [evaluationForm, setEvaluationForm] = useState(emptyEvaluationForm())
 
   const [studentForm, setStudentForm] = useState({
     name: '',
@@ -367,6 +390,53 @@ export default function AdminPanel() {
     setTimeout(() => setSaved(''), 2200)
   }
 
+  // Salvar Avaliação Física do Aluno
+  function handleSaveEvaluation(e) {
+    e.preventDefault()
+    if (!evaluatingStudent) return
+
+    const newEvaluation = {
+      date: evaluationForm.date || new Date().toLocaleDateString('pt-BR'),
+      weight: Number(evaluationForm.weight) || 0,
+      height: Number(evaluationForm.height) || 0,
+      fatPercentage: Number(evaluationForm.fatPercentage) || 0,
+      leanMass: Number(evaluationForm.leanMass) || 0,
+      tmb: Number(evaluationForm.tmb) || 0,
+      get: Number(evaluationForm.get) || 0,
+      circumferences: {
+        chest: Number(evaluationForm.chest) || 0,
+        arm: Number(evaluationForm.arm) || 0,
+        waist: Number(evaluationForm.waist) || 0,
+        hips: Number(evaluationForm.hips) || 0,
+        thigh: Number(evaluationForm.thigh) || 0,
+        calf: Number(evaluationForm.calf) || 0,
+      },
+    }
+
+    const updatedStudents = data.students.map((student) => {
+      if (student.id === evaluatingStudent.id) {
+        const existingEvaluations = student.evaluations || []
+        return {
+          ...student,
+          evaluations: [...existingEvaluations, newEvaluation],
+          updatedAt: new Date().toISOString(),
+        }
+      }
+      return student
+    })
+
+    persist({
+      ...data,
+      students: updatedStudents,
+    })
+
+    setShowEvaluationModal(false)
+    setEvaluatingStudent(null)
+    setEvaluationForm(emptyEvaluationForm())
+    setSaved('Avaliação física salva e sincronizada com sucesso!')
+    setTimeout(() => setSaved(''), 2200)
+  }
+
   const libraryExercises = data.exercisesLibrary || []
 
   const availableMuscles = useMemo(() => {
@@ -501,6 +571,7 @@ export default function AdminPanel() {
       active: true,
       updatedAt: new Date().toISOString(),
       workouts: cloneWorkouts(data.workouts),
+      evaluations: [],
     }
 
     persist({
@@ -691,7 +762,6 @@ export default function AdminPanel() {
         {tab === 'workouts' && (
           <section className="flex flex-col h-[calc(100vh-140px)] overflow-hidden">
             
-            {/* TOPO FIXO DA ABA DE TREINOS (Nunca sai do topo) */}
             <div className="shrink-0 bg-ink-950 pb-3 z-10 space-y-3 border-b border-white/10">
               <div>
                 <h1 className="font-display text-2xl uppercase">Fichas individuais</h1>
@@ -768,7 +838,6 @@ export default function AdminPanel() {
                 />
               </div>
 
-              {/* BOTÃO DA BIBLIOTECA FIXO NO TOPO */}
               <button
                 type="button"
                 onClick={() => setLibraryOpen(true)}
@@ -779,7 +848,6 @@ export default function AdminPanel() {
               </button>
             </div>
 
-            {/* LISTA DE EXERCÍCIOS ROLÁVEL ABAIXO DO TOPO FIXO */}
             <div className="flex-1 overflow-y-auto space-y-4 pt-4 pb-20">
               {(currentWorkout.exercises || []).map((exercise, index) => (
                 <div
@@ -986,6 +1054,18 @@ export default function AdminPanel() {
                       >
                         Editar treinos
                       </button>
+                      {/* BOTÃO PARA ABRIR O CADASTRO DE AVALIAÇÃO FÍSICA */}
+                      <button
+                        onClick={() => {
+                          setEvaluatingStudent(student)
+                          setEvaluationForm(emptyEvaluationForm())
+                          setShowEvaluationModal(true)
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-gold-400/20 border border-gold-400/30 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-gold-300 hover:bg-gold-400/30 transition"
+                      >
+                        <Activity size={14} />
+                        Avaliação Física
+                      </button>
                       <button
                         onClick={() => copyCredentials(student)}
                         className="inline-flex items-center gap-1.5 rounded-lg bg-ink-700 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-zinc-200 hover:bg-ink-600 transition"
@@ -1001,6 +1081,188 @@ export default function AdminPanel() {
           </section>
         )}
       </main>
+
+      {/* MODAL DE CADASTRO DE AVALIAÇÃO FÍSICA NO ADMIN */}
+      {showEvaluationModal && evaluatingStudent && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setShowEvaluationModal(false)
+            }
+          }}
+        >
+          <div className="w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-3xl border border-gold-400/40 bg-ink-900 p-6 shadow-2xl text-white">
+            <div className="flex items-center justify-between border-b border-white/10 pb-4 mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gold-400/20 text-gold-400 border border-gold-400/30">
+                  <Activity size={22} />
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest text-gold-400 font-bold">Nova Avaliação</p>
+                  <h3 className="font-display text-xl uppercase tracking-wide">{evaluatingStudent.name}</h3>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowEvaluationModal(false)}
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-zinc-300 hover:text-gold-400 hover:border-gold-400/40 transition"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEvaluation} className="space-y-4">
+              <div>
+                <label className="block text-xs uppercase tracking-[0.18em] text-gold-400 font-bold mb-1">
+                  Data da Avaliação
+                </label>
+                <input
+                  type="text"
+                  value={evaluationForm.date}
+                  onChange={(e) => setEvaluationForm({ ...evaluationForm, date: e.target.value })}
+                  className="w-full rounded-xl border border-white/15 bg-ink-800 px-4 py-3 text-base text-white outline-none focus:border-gold-400/50"
+                  required
+                />
+              </div>
+
+              <div>
+                <p className="text-xs uppercase font-bold tracking-widest text-gold-400 mb-2 flex items-center gap-1.5">
+                  <Scale size={14} /> Composição Corporal
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <input
+                    type="number"
+                    step="0.1"
+                    placeholder="Peso Total (kg)"
+                    value={evaluationForm.weight}
+                    onChange={(e) => setEvaluationForm({ ...evaluationForm, weight: e.target.value })}
+                    className="rounded-xl border border-white/15 bg-ink-800 px-3.5 py-3 text-sm text-white outline-none focus:border-gold-400/50"
+                    required
+                  />
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="Altura (m, ex: 1.78)"
+                    value={evaluationForm.height}
+                    onChange={(e) => setEvaluationForm({ ...evaluationForm, height: e.target.value })}
+                    className="rounded-xl border border-white/15 bg-ink-800 px-3.5 py-3 text-sm text-white outline-none focus:border-gold-400/50"
+                    required
+                  />
+                  <input
+                    type="number"
+                    step="0.1"
+                    placeholder="% de Gordura (%BF)"
+                    value={evaluationForm.fatPercentage}
+                    onChange={(e) => setEvaluationForm({ ...evaluationForm, fatPercentage: e.target.value })}
+                    className="rounded-xl border border-white/15 bg-ink-800 px-3.5 py-3 text-sm text-white outline-none focus:border-gold-400/50"
+                    required
+                  />
+                  <input
+                    type="number"
+                    step="0.1"
+                    placeholder="Massa Magra (kg)"
+                    value={evaluationForm.leanMass}
+                    onChange={(e) => setEvaluationForm({ ...evaluationForm, leanMass: e.target.value })}
+                    className="rounded-xl border border-white/15 bg-ink-800 px-3.5 py-3 text-sm text-white outline-none focus:border-gold-400/50"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs uppercase font-bold tracking-widest text-gold-400 mb-2">Metabolismo & Calorias</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <input
+                    type="number"
+                    placeholder="TMB (kcal)"
+                    value={evaluationForm.tmb}
+                    onChange={(e) => setEvaluationForm({ ...evaluationForm, tmb: e.target.value })}
+                    className="rounded-xl border border-white/15 bg-ink-800 px-3.5 py-3 text-sm text-white outline-none focus:border-gold-400/50"
+                  />
+                  <input
+                    type="number"
+                    placeholder="GET (kcal)"
+                    value={evaluationForm.get}
+                    onChange={(e) => setEvaluationForm({ ...evaluationForm, get: e.target.value })}
+                    className="rounded-xl border border-white/15 bg-ink-800 px-3.5 py-3 text-sm text-white outline-none focus:border-gold-400/50"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs uppercase font-bold tracking-widest text-gold-400 mb-2">Circunferências (cm)</p>
+                <div className="grid grid-cols-3 gap-2">
+                  <input
+                    type="number"
+                    step="0.1"
+                    placeholder="Tórax"
+                    value={evaluationForm.chest}
+                    onChange={(e) => setEvaluationForm({ ...evaluationForm, chest: e.target.value })}
+                    className="rounded-xl border border-white/15 bg-ink-800 px-3 py-2.5 text-xs text-white outline-none"
+                  />
+                  <input
+                    type="number"
+                    step="0.1"
+                    placeholder="Braço"
+                    value={evaluationForm.arm}
+                    onChange={(e) => setEvaluationForm({ ...evaluationForm, arm: e.target.value })}
+                    className="rounded-xl border border-white/15 bg-ink-800 px-3 py-2.5 text-xs text-white outline-none"
+                  />
+                  <input
+                    type="number"
+                    step="0.1"
+                    placeholder="Cintura"
+                    value={evaluationForm.waist}
+                    onChange={(e) => setEvaluationForm({ ...evaluationForm, waist: e.target.value })}
+                    className="rounded-xl border border-white/15 bg-ink-800 px-3 py-2.5 text-xs text-white outline-none"
+                  />
+                  <input
+                    type="number"
+                    step="0.1"
+                    placeholder="Quadril"
+                    value={evaluationForm.hips}
+                    onChange={(e) => setEvaluationForm({ ...evaluationForm, hips: e.target.value })}
+                    className="rounded-xl border border-white/15 bg-ink-800 px-3 py-2.5 text-xs text-white outline-none"
+                  />
+                  <input
+                    type="number"
+                    step="0.1"
+                    placeholder="Coxa"
+                    value={evaluationForm.thigh}
+                    onChange={(e) => setEvaluationForm({ ...evaluationForm, thigh: e.target.value })}
+                    className="rounded-xl border border-white/15 bg-ink-800 px-3 py-2.5 text-xs text-white outline-none"
+                  />
+                  <input
+                    type="number"
+                    step="0.1"
+                    placeholder="Panturrilha"
+                    value={evaluationForm.calf}
+                    onChange={(e) => setEvaluationForm({ ...evaluationForm, calf: e.target.value })}
+                    className="rounded-xl border border-white/15 bg-ink-800 px-3 py-2.5 text-xs text-white outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowEvaluationModal(false)}
+                  className="w-1/2 rounded-xl border border-white/15 py-3 text-xs font-bold uppercase text-zinc-300 hover:bg-white/5"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="w-1/2 rounded-xl bg-gold-400 py-3 text-xs font-bold uppercase text-ink-950 transition hover:bg-gold-300 shadow-lg"
+                >
+                  Salvar Avaliação
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {showCopyStudentWorkoutsModal && (
         <div
