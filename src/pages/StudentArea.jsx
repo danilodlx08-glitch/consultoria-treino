@@ -230,7 +230,7 @@ export default function StudentArea() {
 
       <main className="mx-auto max-w-md px-4 py-5 safe-bottom">
         {!selectedWorkoutDay ? (
-          /* TELA 1: LISTA DE CARDS DE TREINOS (ESTILO LIMPO E MINIMALISTA) */
+          /* TELA 1: LISTA DE CARDS DE TREINOS (ESTILO LIMPO E SEM CORTES) */
           <div className="space-y-4">
             <div className="mb-2">
               <p className="text-[12px] uppercase tracking-[0.2em] text-gold-400 font-bold">
@@ -252,20 +252,20 @@ export default function StudentArea() {
                       setSelectedWorkoutDay(dayKey)
                       setActiveRestMenu(null)
                     }}
-                    className="group relative w-full overflow-hidden rounded-2xl border border-white/10 bg-ink-800 p-5 text-left transition-all duration-300 hover:border-gold-400 hover:bg-ink-700/80 shadow-lg flex items-center justify-between"
+                    className="group relative w-full overflow-hidden rounded-2xl border border-white/10 bg-ink-800 p-5 text-left transition-all duration-300 hover:border-gold-400 hover:bg-ink-700/80 shadow-lg"
                   >
-                    <div className="min-w-0 pr-4">
-                      <p className="text-[10px] uppercase font-bold tracking-widest text-gold-400/80 mb-1">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-[10px] uppercase font-bold tracking-widest text-gold-400/80">
                         Treino
                       </p>
-                      <h2 className="font-display text-2xl uppercase text-white tracking-wide truncate group-hover:text-gold-300 transition-colors">
-                        {wData?.title || `Treino ${dayKey}`}
-                      </h2>
+                      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-ink-900 border border-gold-400/40 text-gold-400 font-display text-base font-extrabold shadow-inner group-hover:bg-gold-400 group-hover:text-ink-950 transition-all duration-300">
+                        {dayKey}
+                      </div>
                     </div>
 
-                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-ink-900 border border-gold-400/40 text-gold-400 font-display text-2xl font-extrabold shadow-inner group-hover:bg-gold-400 group-hover:text-ink-950 transition-all duration-300">
-                      {dayKey}
-                    </div>
+                    <h2 className="font-display text-2xl uppercase text-white tracking-wide group-hover:text-gold-300 transition-colors leading-snug">
+                      {wData?.title || `Treino ${dayKey}`}
+                    </h2>
                   </button>
                 )
               })}
