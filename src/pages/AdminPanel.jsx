@@ -1620,7 +1620,7 @@ export default function AdminPanel() {
                     </div>
 
                     {exercise.notes && (
-                      <pclassName="mt-3.5 text-sm leading-relaxed text-zinc-300">{exercise.notes}</p>
+                      <p className="mt-3.5 text-sm leading-relaxed text-zinc-300">{exercise.notes}</p>
                     )}
 
                     <button
