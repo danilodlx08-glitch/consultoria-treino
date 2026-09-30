@@ -399,7 +399,7 @@ export default function StudentArea() {
                           </div>
                         ) : (
                           <div className="flex-1 rounded-xl border border-dashed border-white/5 bg-ink-900/20 p-2 flex items-center justify-center text-[10px] text-zinc-600 uppercase tracking-wider">
-                            Sem obs.
+                            Sem observações
                           </div>
                         )}
                       </div>
@@ -453,7 +453,7 @@ export default function StudentArea() {
                                 onClick={() => startTimer(sec)}
                                 className="rounded-lg border border-gold-400/30 bg-ink-800 py-2.5 text-xs font-bold text-gold-300 hover:bg-gold-400 hover:text-ink-950 transition"
                               >
-                                {sec}s
+                                {sec} segundos
                               </button>
                             ))}
                           </div>
@@ -507,7 +507,7 @@ export default function StudentArea() {
                     <div>
                       <p className="text-[11px] uppercase tracking-wider text-zinc-400">Descanso entre séries</p>
                       <p className="font-display text-2xl text-gold-400 font-bold tracking-wide">
-                        {timerActive ? `${timerSeconds}s` : timerSeconds === 0 && !timerActive ? 'Pronto' : `${timerSeconds}s`}
+                        {timerActive ? `${timerSeconds} segundos` : timerSeconds === 0 && !timerActive ? 'Pronto' : `${timerSeconds} segundos`}
                       </p>
                     </div>
                   </div>
@@ -524,7 +524,7 @@ export default function StudentArea() {
                         onClick={() => startTimer(initialTime)}
                         className="inline-flex items-center gap-1.5 rounded-xl bg-gold-400 px-4 py-3 text-xs font-bold uppercase text-ink-950 transition hover:bg-gold-300 shadow-lg shadow-gold-400/20"
                       >
-                        <RotateCcw size={14} /> Repetir ({initialTime}s)
+                        <RotateCcw size={14} /> Repetir ({initialTime} segundos)
                       </button>
                     )}
                   </div>
@@ -541,7 +541,7 @@ export default function StudentArea() {
                           : 'border border-white/10 bg-ink-900 text-zinc-300 hover:border-gold-400/40 hover:text-gold-400'
                       }`}
                     >
-                      {sec}s
+                      {sec} segundos
                     </button>
                   ))}
                 </div>
