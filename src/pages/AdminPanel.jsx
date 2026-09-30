@@ -19,7 +19,7 @@ import {
   Scale,
 } from 'lucide-react'
 import { useAuth } from '../auth.jsx'
-import { supabase } from '../supabaseClient' // Certifique-se de que o caminho do seu cliente supabase está correto
+import { supabase } from '../services/supabase'
 import {
   cloneWorkouts,
   loadData,
