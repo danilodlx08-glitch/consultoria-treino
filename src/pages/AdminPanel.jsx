@@ -81,6 +81,44 @@ const emptyEvaluationForm = () => ({
   calf: '',
 })
 
+// Função para cálculo automático de Composição Corporal e Metabolismo
+function calculateEvaluationMetrics({ weight, height, age = 30, gender = 'male', neck = 40, waist = 80, hips = 100 }) {
+  const w = Number(weight) || 0
+  const hCm = (Number(height) || 0) < 3 ? (Number(height) || 0) * 100 : (Number(height) || 0)
+  const a = Number(age) || 30
+  const n = Number(neck) || 40
+  const wa = Number(waist) || 80
+  const hi = Number(hips) || 100
+
+  if (!w || !hCm) return null
+
+  // 1. TMB (Mifflin-St Jeor)
+  let tmb = (10 * w) + (6.25 * hCm) - (5 * a)
+  tmb = gender === 'female' ? tmb - 161 : tmb + 5
+
+  // 2. GET (Gasto Energético Total - Fator moderado padrão 1.55)
+  const get = tmb * 1.55
+
+  // 3. % de Gordura (Método da Marinha dos EUA)
+  let bodyFat = 15
+  if (gender === 'male' && wa > n) {
+    bodyFat = 495 / (1.03324 - 0.19077 * Math.log10(wa - n) + 0.15456 * Math.log10(hCm)) - 450
+  } else if (gender === 'female' && (wa + hi) > n) {
+    bodyFat = 495 / (1.29579 - 0.35004 * Math.log10(wa + hi - n) + 0.22100 * Math.log10(hCm)) - 450
+  }
+  bodyFat = Math.max(3, Math.min(50, bodyFat))
+
+  // 4. Massa Magra
+  const leanMass = w - (w * (bodyFat / 100))
+
+  return {
+    fatPercentage: Number(bodyFat.toFixed(1)),
+    leanMass: Number(leanMass.toFixed(1)),
+    tmb: Math.round(tmb),
+    get: Math.round(get),
+  }
+}
+
 export default function AdminPanel() {
   const { logoutAdmin } = useAuth()
   const navigate = useNavigate()
@@ -1126,6 +1164,40 @@ export default function AdminPanel() {
                 />
               </div>
 
+              {/* BOTÃO DE CÁLCULO AUTOMÁTICO */}
+              <div className="rounded-2xl border border-gold-400/30 bg-gold-400/10 p-3.5 flex items-center justify-between">
+                <div>
+                  <p className="text-xs uppercase font-bold text-gold-300">Automação</p>
+                  <p className="text-[11px] text-zinc-300">Preencha peso, altura e circunferências e clique em calcular.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const metrics = calculateEvaluationMetrics({
+                      weight: evaluationForm.weight,
+                      height: evaluationForm.height,
+                      waist: evaluationForm.waist,
+                    })
+                    if (metrics) {
+                      setEvaluationForm((prev) => ({
+                        ...prev,
+                        fatPercentage: metrics.fatPercentage,
+                        leanMass: metrics.leanMass,
+                        tmb: metrics.tmb,
+                        get: metrics.get,
+                      }))
+                      setSaved('Métricas calculadas com sucesso!')
+                      setTimeout(() => setSaved(''), 2200)
+                    } else {
+                      window.alert('Informe pelo menos o Peso e a Altura para calcular.')
+                    }
+                  }}
+                  className="rounded-xl bg-gold-400 px-4 py-2.5 text-xs font-bold uppercase text-ink-950 shadow hover:bg-gold-300 transition shrink-0"
+                >
+                  ⚡ Calcular Dados
+                </button>
+              </div>
+
               <div>
                 <p className="text-xs uppercase font-bold tracking-widest text-gold-400 mb-2 flex items-center gap-1.5">
                   <Scale size={14} /> Composição Corporal
@@ -1539,7 +1611,7 @@ export default function AdminPanel() {
                       Adicionar ao treino {day}
                     </button>
                   </article>
-                ))
+            ))
               )}
             </div>
 
