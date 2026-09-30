@@ -63,6 +63,7 @@ const defaultData = {
       code: 'ALUNO01',
       password: 'treino123',
       active: true,
+      evaluations: [],
     },
   ],
 
@@ -360,6 +361,7 @@ function normalizeStudent(student, templateWorkouts) {
     active: student?.active !== false,
     updatedAt: student?.updatedAt || null,
     workouts,
+    evaluations: Array.isArray(student?.evaluations) ? student.evaluations : [],
   }
 }
 
@@ -446,7 +448,7 @@ export async function fetchData() {
         code: aluno.code || generateAccessCode(),
         password: aluno.password || generatePassword(),
         active: aluno.active !== false,
-
+        evaluations: Array.isArray(aluno.evaluations) ? aluno.evaluations : [],
         workouts: aluno.workouts
           ? {
               ...clone(current.workouts),
@@ -497,6 +499,7 @@ export async function saveData(data) {
           password: aluno.password,
           active: aluno.active !== false,
           workouts: aluno.workouts,
+          evaluations: aluno.evaluations || [],
         })
       }
     }
