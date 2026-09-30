@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ExternalLink, LogOut, RefreshCw, X, Play, Timer, RotateCcw, MessageCircle, Link2, CheckCircle2, Trophy, Lightbulb, ArrowLeft, ChevronRight } from 'lucide-react'
+import { ExternalLink, LogOut, RefreshCw, X, Play, Timer, RotateCcw, MessageCircle, Link2, CheckCircle2, Trophy, Lightbulb, ArrowLeft } from 'lucide-react'
 import Logo from '../components/Logo.jsx'
 import { useAuth } from '../auth.jsx'
 import { loadData, subscribeData } from '../storage'
@@ -19,7 +19,7 @@ export default function StudentArea() {
   const navigate = useNavigate()
 
   const [data, setData] = useState(() => loadData())
-  const [selectedWorkoutDay, setSelectedWorkoutDay] = useState(null) // null = mostra a lista de cards; 'A', 'B'... = mostra o treino
+  const [selectedWorkoutDay, setSelectedWorkoutDay] = useState(null)
   const [syncedAt, setSyncedAt] = useState('')
   const [selectedVideo, setSelectedVideo] = useState(null)
   const [selectedObs, setSelectedObs] = useState(null)
@@ -230,7 +230,7 @@ export default function StudentArea() {
 
       <main className="mx-auto max-w-md px-4 py-5 safe-bottom">
         {!selectedWorkoutDay ? (
-          /* TELA 1: LISTA DE CARDS DE TREINOS (ESTILO RASCUNHO) */
+          /* TELA 1: LISTA DE CARDS DE TREINOS (ESTILO LIMPO E MINIMALISTA) */
           <div className="space-y-4">
             <div className="mb-2">
               <p className="text-[12px] uppercase tracking-[0.2em] text-gold-400 font-bold">
@@ -244,8 +244,6 @@ export default function StudentArea() {
             <div className="space-y-3.5">
               {DAYS.map((dayKey) => {
                 const wData = workouts[dayKey]
-                // Verifica se o treino tem exercícios cadastrados
-                const hasExercises = wData && wData.exercises && wData.exercises.length > 0
 
                 return (
                   <button
@@ -254,20 +252,13 @@ export default function StudentArea() {
                       setSelectedWorkoutDay(dayKey)
                       setActiveRestMenu(null)
                     }}
-                    className="group relative w-full overflow-hidden rounded-2xl border border-white/10 bg-ink-800 p-4 text-left transition-all duration-300 hover:border-gold-400 hover:bg-ink-700/80 shadow-lg flex items-center justify-between"
+                    className="group relative w-full overflow-hidden rounded-2xl border border-white/10 bg-ink-800 p-5 text-left transition-all duration-300 hover:border-gold-400 hover:bg-ink-700/80 shadow-lg flex items-center justify-between"
                   >
-                    <div className="min-w-0 pr-3">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-[10px] uppercase font-bold tracking-widest text-zinc-400">
-                          {hasExercises ? `${wData.exercises.length} Exercícios` : 'Sem exercícios'}
-                        </span>
-                        {wData?.focus && (
-                          <span className="rounded-full bg-gold-400/10 border border-gold-400/30 px-2 py-0.5 text-[10px] font-bold uppercase text-gold-400 truncate">
-                            {wData.focus}
-                          </span>
-                        )}
-                      </div>
-                      <h2 className="font-display text-xl uppercase text-white tracking-wide truncate group-hover:text-gold-300 transition-colors">
+                    <div className="min-w-0 pr-4">
+                      <p className="text-[10px] uppercase font-bold tracking-widest text-gold-400/80 mb-1">
+                        Treino
+                      </p>
+                      <h2 className="font-display text-2xl uppercase text-white tracking-wide truncate group-hover:text-gold-300 transition-colors">
                         {wData?.title || `Treino ${dayKey}`}
                       </h2>
                     </div>
