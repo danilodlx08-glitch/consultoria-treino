@@ -230,7 +230,7 @@ export default function StudentArea() {
 
       <main className="mx-auto max-w-md px-4 py-5 safe-bottom">
         {!selectedWorkoutDay ? (
-          /* TELA 1: LISTA DE CARDS DE TREINOS (ESTILO LIMPO E SEM CORTES) */
+          /* TELA 1: LISTA DE CARDS DE TREINOS COM LETRA GRANDE À ESQUERDA (ESTILO ESBOÇO) */
           <div className="space-y-4">
             <div className="mb-2">
               <p className="text-[12px] uppercase tracking-[0.2em] text-gold-400 font-bold">
@@ -252,20 +252,20 @@ export default function StudentArea() {
                       setSelectedWorkoutDay(dayKey)
                       setActiveRestMenu(null)
                     }}
-                    className="group relative w-full overflow-hidden rounded-2xl border border-white/10 bg-ink-800 p-5 text-left transition-all duration-300 hover:border-gold-400 hover:bg-ink-700/80 shadow-lg"
+                    className="group relative w-full overflow-hidden rounded-2xl border border-white/10 bg-ink-800 p-4 text-left transition-all duration-300 hover:border-gold-400 hover:bg-ink-700/80 shadow-lg flex items-center gap-4"
                   >
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-[10px] uppercase font-bold tracking-widest text-gold-400/80">
-                        Treino
-                      </p>
-                      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-ink-900 border border-gold-400/40 text-gold-400 font-display text-base font-extrabold shadow-inner group-hover:bg-gold-400 group-hover:text-ink-950 transition-all duration-300">
-                        {dayKey}
-                      </div>
+                    {/* LETRA GRANDE À ESQUERDA (EXACTAMENTE COMO NO ESBOÇO) */}
+                    <div className="flex shrink-0 flex-col items-center justify-center h-16 w-16 rounded-xl bg-ink-900 border-2 border-gold-400/40 text-gold-400 font-display text-2xl font-extrabold shadow-inner group-hover:bg-gold-400 group-hover:text-ink-950 transition-all duration-300">
+                      <span className="text-[9px] uppercase tracking-widest font-bold opacity-80 leading-none mb-0.5">Treino</span>
+                      {dayKey}
                     </div>
 
-                    <h2 className="font-display text-2xl uppercase text-white tracking-wide group-hover:text-gold-300 transition-colors leading-snug">
-                      {wData?.title || `Treino ${dayKey}`}
-                    </h2>
+                    {/* TÍTULO DO TREINO À DIREITA COM ESPAÇO AMPLO */}
+                    <div className="flex-1 min-w-0">
+                      <h2 className="font-display text-xl uppercase text-white tracking-wide group-hover:text-gold-300 transition-colors leading-snug">
+                        {wData?.title || `Treino ${dayKey}`}
+                      </h2>
+                    </div>
                   </button>
                 )
               })}
