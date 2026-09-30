@@ -19,6 +19,7 @@ import {
   Scale,
 } from 'lucide-react'
 import { useAuth } from '../auth.jsx'
+import { supabase } from '../supabaseClient' // Certifique-se de que o caminho do seu cliente supabase está correto
 import {
   cloneWorkouts,
   loadData,
@@ -428,7 +429,7 @@ export default function AdminPanel() {
     setTimeout(() => setSaved(''), 2200)
   }
 
-  // Salvar Avaliação Física do Aluno (Corrigido para forçar persistência imediata)
+  // Salvar Avaliação Física do Aluno
   function handleSaveEvaluation(e) {
     e.preventDefault()
     if (!evaluatingStudent) return
@@ -453,10 +454,9 @@ export default function AdminPanel() {
 
     const updatedStudents = data.students.map((student) => {
       if (student.id === evaluatingStudent.id) {
-        const existingEvaluations = Array.isArray(student.evaluations) ? student.evaluations : []
         return {
           ...student,
-          evaluations: [...existingEvaluations, newEvaluation],
+          evaluations: [newEvaluation], // Substitui conforme alinhado
           updatedAt: new Date().toISOString(),
         }
       }
@@ -468,7 +468,6 @@ export default function AdminPanel() {
       students: updatedStudents,
     }
 
-    // Persiste imediatamente os dados na nuvem e no armazenamento local
     persist(nextData)
 
     setShowEvaluationModal(false)
@@ -638,15 +637,34 @@ export default function AdminPanel() {
     })
   }
 
-  function removeStudent(id) {
+  // Função CORRIGIDA para apagar diretamente no Supabase e atualizar localmente
+  async function removeStudent(id) {
+    const confirmed = window.confirm('Deseja realmente excluir este aluno?')
+    if (!confirmed) return
+
+    const { error } = await supabase
+      .from('alunos')
+      .delete()
+      .eq('id', id)
+
+    if (error) {
+      console.error('Erro ao excluir aluno no Supabase:', error)
+      alert('Erro ao excluir aluno na base de dados.')
+      return
+    }
+
     const next = data.students.filter((item) => item.id !== id)
     persist({
       ...data,
       students: next,
     })
+
     if (selectedStudentId === id) {
       setSelectedStudentId(next[0]?.id || '')
     }
+
+    setSaved('Aluno excluído com sucesso!')
+    setTimeout(() => setSaved(''), 2200)
   }
 
   function copyCredentials(student) {
@@ -1602,7 +1620,7 @@ export default function AdminPanel() {
                     </div>
 
                     {exercise.notes && (
-                      <p className="mt-3.5 text-sm leading-relaxed text-zinc-300">{exercise.notes}</p>
+                      <pclassName="mt-3.5 text-sm leading-relaxed text-zinc-300">{exercise.notes}</p>
                     )}
 
                     <button
