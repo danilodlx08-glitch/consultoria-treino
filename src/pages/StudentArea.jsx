@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ExternalLink, LogOut, RefreshCw, X, Play, Timer, RotateCcw, MessageCircle, Link2, CheckCircle2, Trophy, Lightbulb, ArrowLeft } from 'lucide-react'
+import { ExternalLink, LogOut, RefreshCw, X, Play, Timer, RotateCcw, MessageCircle, Link2, CheckCircle2, Trophy, Lightbulb, ArrowLeft, Activity, Scale, Flame, UserCheck } from 'lucide-react'
 import Logo from '../components/Logo.jsx'
 import { useAuth } from '../auth.jsx'
 import { loadData, subscribeData } from '../storage'
@@ -23,6 +23,7 @@ export default function StudentArea() {
   const [syncedAt, setSyncedAt] = useState('')
   const [selectedVideo, setSelectedVideo] = useState(null)
   const [selectedObs, setSelectedObs] = useState(null)
+  const [isEvaluationOpen, setIsEvaluationOpen] = useState(false)
 
   const [completedExercises, setCompletedExercises] = useState([])
 
@@ -40,6 +41,24 @@ export default function StudentArea() {
   }, [data, student])
 
   const workouts = current?.workouts || data.workouts
+
+  // Simulação ou busca de dados de avaliação física do aluno atual
+  const evaluations = current?.evaluations || [
+    {
+      date: '15/08/2026',
+      weight: 78.5,
+      height: 1.78,
+      fatPercentage: 14.2,
+      leanMass: 67.4,
+      fatMass: 11.1,
+      bmx: 24.8,
+      tmb: 1850,
+      get: 2450,
+      folds: { triceps: 10, subscapular: 12, suprailiaca: 14, abdominal: 18, coxa: 15 },
+      circumferences: { chest: 102, arm: 38, waist: 82, hips: 98, thigh: 60, calf: 39 }
+    }
+  ]
+  const latestEvaluation = evaluations[evaluations.length - 1]
 
   const currentDay = selectedWorkoutDay || 'A'
   const workout = workouts[currentDay] || {
@@ -158,6 +177,7 @@ export default function StudentArea() {
         setSelectedVideo(null)
         setSelectedObs(null)
         setActiveRestMenu(null)
+        setIsEvaluationOpen(false)
       }
     }
     document.addEventListener('keydown', handleKeyDown)
@@ -230,7 +250,7 @@ export default function StudentArea() {
 
       <main className="mx-auto max-w-md px-4 py-5 safe-bottom">
         {!selectedWorkoutDay ? (
-          /* TELA 1: LISTA DE CARDS DE TREINOS COM LETRA GRANDE À ESQUERDA (ESTILO ESBOÇO) */
+          /* TELA 1: LISTA DE CARDS DE TREINOS + NOVO CARD DE AVALIAÇÃO FÍSICA */
           <div className="space-y-4">
             <div className="mb-2">
               <p className="text-[12px] uppercase tracking-[0.2em] text-gold-400 font-bold">
@@ -241,7 +261,52 @@ export default function StudentArea() {
               </h1>
             </div>
 
-            <div className="space-y-3.5">
+            {/* NOVO CARD: AVALIAÇÃO FÍSICA & COMPOSIÇÃO CORPORAL */}
+            <div 
+              onClick={() => setIsEvaluationOpen(true)}
+              className="group relative w-full overflow-hidden rounded-2xl border border-gold-400/40 bg-gradient-to-br from-ink-900 to-ink-800 p-5 text-left transition-all duration-300 hover:border-gold-400 hover:shadow-xl hover:shadow-gold-400/10 cursor-pointer shadow-lg"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gold-400/20 text-gold-400 border border-gold-400/30">
+                    <Activity size={20} />
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase font-bold tracking-widest text-gold-400">
+                      Avaliação Física
+                    </p>
+                    <h2 className="font-display text-lg uppercase text-white tracking-wide">
+                      Composição Corporal
+                    </h2>
+                  </div>
+                </div>
+                <span className="text-[11px] font-bold text-gold-400 bg-gold-400/10 px-2.5 py-1 rounded-full border border-gold-400/30 group-hover:bg-gold-400 group-hover:text-ink-950 transition">
+                  Ver Detalhes →
+                </span>
+              </div>
+
+              {/* MÉTRICAS RÁPIDAS NO CARD */}
+              <div className="grid grid-cols-3 gap-2.5 pt-2 border-t border-white/10">
+                <div className="rounded-xl bg-ink-950/60 p-2 text-center border border-white/5">
+                  <p className="text-[9px] uppercase tracking-wider text-zinc-400">Peso</p>
+                  <p className="font-display text-base text-gold-400 font-bold">{latestEvaluation.weight} kg</p>
+                </div>
+                <div className="rounded-xl bg-ink-950/60 p-2 text-center border border-white/5">
+                  <p className="text-[9px] uppercase tracking-wider text-zinc-400">% Gordura</p>
+                  <p className="font-display text-base text-gold-400 font-bold">{latestEvaluation.fatPercentage}%</p>
+                </div>
+                <div className="rounded-xl bg-ink-950/60 p-2 text-center border border-white/5">
+                  <p className="text-[9px] uppercase tracking-wider text-zinc-400">Gasto Diário</p>
+                  <p className="font-display text-base text-gold-400 font-bold">{latestEvaluation.get} kcal</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3.5 pt-2">
+              <p className="text-[12px] uppercase tracking-[0.2em] text-gold-400 font-bold">
+                Seus Treinos
+              </p>
+
               {DAYS.map((dayKey) => {
                 const wData = workouts[dayKey]
 
@@ -254,13 +319,13 @@ export default function StudentArea() {
                     }}
                     className="group relative w-full overflow-hidden rounded-2xl border border-white/10 bg-ink-800 p-4 text-left transition-all duration-300 hover:border-gold-400 hover:bg-ink-700/80 shadow-lg flex items-center gap-4"
                   >
-                    {/* LETRA GRANDE À ESQUERDA (EXACTAMENTE COMO NO ESBOÇO) */}
+                    {/* LETRA GRANDE À ESQUERDA */}
                     <div className="flex shrink-0 flex-col items-center justify-center h-16 w-16 rounded-xl bg-ink-900 border-2 border-gold-400/40 text-gold-400 font-display text-2xl font-extrabold shadow-inner group-hover:bg-gold-400 group-hover:text-ink-950 transition-all duration-300">
                       <span className="text-[9px] uppercase tracking-widest font-bold opacity-80 leading-none mb-0.5">Treino</span>
                       {dayKey}
                     </div>
 
-                    {/* TÍTULO DO TREINO À DIREITA COM ESPAÇO AMPLO */}
+                    {/* TÍTULO DO TREINO À DIREITA */}
                     <div className="flex-1 min-w-0">
                       <h2 className="font-display text-xl uppercase text-white tracking-wide group-hover:text-gold-300 transition-colors leading-snug">
                         {wData?.title || `Treino ${dayKey}`}
@@ -547,6 +612,131 @@ export default function StudentArea() {
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE AVALIAÇÃO FÍSICA COMPLETA */}
+      {isEvaluationOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setIsEvaluationOpen(false)
+            }
+          }}
+        >
+          <div className="w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-3xl border border-gold-400/40 bg-ink-900 p-6 shadow-2xl animate-fade-in text-white">
+            <div className="flex items-center justify-between border-b border-white/10 pb-4 mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gold-400/20 text-gold-400 border border-gold-400/30">
+                  <Activity size={22} />
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest text-gold-400 font-bold">Danilo Lopes Consultoria</p>
+                  <h3 className="font-display text-xl uppercase tracking-wide">Avaliação Física</h3>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEvaluationOpen(false)}
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-zinc-300 hover:text-gold-400 hover:border-gold-400/40 transition"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-5">
+              <div className="flex items-center justify-between bg-ink-950/60 p-3 rounded-xl border border-white/5">
+                <span className="text-xs text-zinc-400 font-medium">Data da Avaliação:</span>
+                <span className="text-xs font-bold text-gold-400">{latestEvaluation.date}</span>
+              </div>
+
+              {/* BLOCO 1: COMPOSIÇÃO CORPORAL */}
+              <div>
+                <p className="text-xs uppercase font-bold tracking-widest text-gold-400 mb-2.5 flex items-center gap-1.5">
+                  <Scale size={14} /> Composição Corporal
+                </p>
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div className="rounded-xl bg-ink-800 p-3 border border-white/5">
+                    <p className="text-[10px] uppercase tracking-wider text-zinc-400">Peso Total</p>
+                    <p className="font-display text-lg text-white font-bold">{latestEvaluation.weight} kg</p>
+                  </div>
+                  <div className="rounded-xl bg-ink-800 p-3 border border-white/5">
+                    <p className="text-[10px] uppercase tracking-wider text-zinc-400">Altura</p>
+                    <p className="font-display text-lg text-white font-bold">{latestEvaluation.height} m</p>
+                  </div>
+                  <div className="rounded-xl bg-ink-800 p-3 border border-white/5">
+                    <p className="text-[10px] uppercase tracking-wider text-zinc-400">% de Gordura (%BF)</p>
+                    <p className="font-display text-lg text-gold-400 font-bold">{latestEvaluation.fatPercentage}%</p>
+                  </div>
+                  <div className="rounded-xl bg-ink-800 p-3 border border-white/5">
+                    <p className="text-[10px] uppercase tracking-wider text-zinc-400">Massa Magra</p>
+                    <p className="font-display text-lg text-emerald-400 font-bold">{latestEvaluation.leanMass} kg</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* BLOCO 2: GASTO CALÓRICO */}
+              <div>
+                <p className="text-xs uppercase font-bold tracking-widest text-gold-400 mb-2.5 flex items-center gap-1.5">
+                  <Flame size={14} /> Metabolismo & Calorias
+                </p>
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div className="rounded-xl bg-ink-800 p-3 border border-white/5">
+                    <p className="text-[10px] uppercase tracking-wider text-zinc-400">Taxa Metabólica Basal (TMB)</p>
+                    <p className="font-display text-base text-white font-bold">{latestEvaluation.tmb} kcal</p>
+                  </div>
+                  <div className="rounded-xl bg-ink-800 p-3 border border-white/5">
+                    <p className="text-[10px] uppercase tracking-wider text-zinc-400">Gasto Energético Total (GET)</p>
+                    <p className="font-display text-base text-gold-400 font-bold">{latestEvaluation.get} kcal</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* BLOCO 3: CIRCUNFERÊNCIAS */}
+              <div>
+                <p className="text-xs uppercase font-bold tracking-widest text-gold-400 mb-2.5 flex items-center gap-1.5">
+                  <UserCheck size= {14} /> Circunferências (cm)
+                </p>
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="rounded-xl bg-ink-800 p-2.5 border border-white/5">
+                    <p className="text-[9px] uppercase tracking-wider text-zinc-400">Tórax</p>
+                    <p className="font-display text-sm text-white font-bold mt-0.5">{latestEvaluation.circumferences.chest} cm</p>
+                  </div>
+                  <div className="rounded-xl bg-ink-800 p-2.5 border border-white/5">
+                    <p className="text-[9px] uppercase tracking-wider text-zinc-400">Braço</p>
+                    <p className="font-display text-sm text-white font-bold mt-0.5">{latestEvaluation.circumferences.arm} cm</p>
+                  </div>
+                  <div className="rounded-xl bg-ink-800 p-2.5 border border-white/5">
+                    <p className="text-[9px] uppercase tracking-wider text-zinc-400">Cintura</p>
+                    <p className="font-display text-sm text-white font-bold mt-0.5">{latestEvaluation.circumferences.waist} cm</p>
+                  </div>
+                  <div className="rounded-xl bg-ink-800 p-2.5 border border-white/5">
+                    <p className="text-[9px] uppercase tracking-wider text-zinc-400">Quadril</p>
+                    <p className="font-display text-sm text-white font-bold mt-0.5">{latestEvaluation.circumferences.hips} cm</p>
+                  </div>
+                  <div className="rounded-xl bg-ink-800 p-2.5 border border-white/5">
+                    <p className="text-[9px] uppercase tracking-wider text-zinc-400">Coxa</p>
+                    <p className="font-display text-sm text-white font-bold mt-0.5">{latestEvaluation.circumferences.thigh} cm</p>
+                  </div>
+                  <div className="rounded-xl bg-ink-800 p-2.5 border border-white/5">
+                    <p className="text-[9px] uppercase tracking-wider text-zinc-400">Panturrilha</p>
+                    <p className="font-display text-sm text-white font-bold mt-0.5">{latestEvaluation.circumferences.calf} cm</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 pt-4 border-t border-white/10">
+              <button
+                type="button"
+                onClick={() => setIsEvaluationOpen(false)}
+                className="w-full rounded-xl bg-gold-400 py-3 text-xs font-bold uppercase text-ink-950 transition hover:bg-gold-300 shadow-lg"
+              >
+                Fechar Avaliação
+              </button>
+            </div>
           </div>
         </div>
       )}
