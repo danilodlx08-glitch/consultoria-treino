@@ -1,2768 +1,1112 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import {
-  ExternalLink,
-  LogOut,
-  RefreshCw,
-  X,
-  Play,
-  Timer,
-  RotateCcw,
-  MessageCircle,
-  Link2,
-  CheckCircle2,
-  Trophy,
-  Lightbulb,
-  ArrowLeft,
-  Activity,
-  Scale,
-  Flame,
-  UserCheck,
-  FlameKindling,
-  ChevronRight,
-  ChevronLeft,
-  Pause,
-  PlayCircle,
-  Gauge,
-  Save
-} from 'lucide-react'
-
+import { ExternalLink, LogOut, RefreshCw, X, Play, Timer, RotateCcw, MessageCircle, Link2, CheckCircle2, Trophy, Lightbulb, ArrowLeft, Activity, Scale, Flame, UserCheck, FlameKindling, ChevronRight, ChevronLeft, Pause, PlayCircle } from 'lucide-react'
+import Logo from '../components/Logo.jsx'
 import { useAuth } from '../auth.jsx'
-import { supabase } from '../services/supabase'
+import { loadData, subscribeData } from '../storage'
 
 const DAYS = ['A', 'B', 'C', 'D', 'E']
 
-const SESSION_PREFIX = 'dl_consultoria_student_session_v2'
-const HISTORY_PREFIX = 'dl_consultoria_student_history_v2'
-
-const WHATSAPP_NUMBER = '5527996247906'
-
-/* =========================================================
-   HELPERS
-========================================================= */
+const COACH_TIPS = [
+  "Priorize a execução correta antes de aumentar a carga.",
+  "A consistência supera a intensidade ocasional. Faça o seu melhor hoje!",
+  "Respire fundo: a fase excêntrica (descida) é onde o músculo mais cresce.",
+  "Concentre-se no grupamento muscular que está a trabalhar, evite balançar o corpo.",
+  "Hidrate-se bem durante o treino. A performance começa na água!",
+  "Mantenha a postura firme e o abdómen contraído em todos os movimentos.",
+  "A amplitude de movimento é mais importante do que excesso de peso sem controle.",
+  "Respeite o seu tempo de descanso entre as séries para manter a intensidade alta.",
+  "Foque na contração máxima no topo de cada repetição.",
+  "O descanso faz parte do treino. Recupere-se bem para a próxima série.",
+  "Mantenha o foco e elimine as distrações enquanto estiver a treinar.",
+  "Lembre-se: cada treino é um passo a mais em direção à sua melhor versão.",
+  "Se sentir dor articular aguda, pare e ajuste a postura imediatamente.",
+  "Conecte a sua mente ao músculo que está a ser exercitado.",
+  "A persistência de hoje é a força de amanhã. Vamos com tudo!",
+  "Controle a respiração: expire no esforço e inspire na volta.",
+  "Não tenha pressa para terminar; execute cada repetição com intenção.",
+  "A disciplina é a ponte entre as suas metas e as suas conquistas.",
+  "Beba água regularmente, mesmo que não sinta tanta sede.",
+  "Aproveite o processo. Evoluir exige paciência e dedicação diária."
+]
 
 function youtubeId(url = '') {
-  if (!url) return ''
+  const match = url.match(
+    /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{6,})/
+  )
+  return match ? match[1] : null
+}
 
+function playBeep(isFinal = false) {
   try {
-    const value = String(url).trim()
-
-    if (value.includes('youtu.be/')) {
-      return value.split('youtu.be/')[1]?.split(/[?&]/)[0] || ''
-    }
-
-    if (value.includes('youtube.com/watch')) {
-      return new URL(value).searchParams.get('v') || ''
-    }
-
-    if (value.includes('youtube.com/embed/')) {
-      return value.split('youtube.com/embed/')[1]?.split(/[?&]/)[0] || ''
-    }
-
-    return ''
-  } catch {
-    return ''
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+    const osc = audioCtx.createOscillator()
+    const gain = audioCtx.createGain()
+    osc.type = isFinal ? 'square' : 'sine'
+    osc.frequency.setValueAtTime(isFinal ? 880 : 440, audioCtx.currentTime)
+    gain.gain.setValueAtTime(0.15, audioCtx.currentTime)
+    osc.connect(gain)
+    gain.connect(audioCtx.destination)
+    osc.start()
+    osc.stop(audioCtx.currentTime + (isFinal ? 0.6 : 0.2))
+  } catch (e) {}
+  if (navigator.vibrate) {
+    try {
+      navigator.vibrate(isFinal ? [300, 150, 300] : 200)
+    } catch (e) {}
   }
 }
-
-function safeStorageGet(key, fallback = null) {
-  try {
-    const value = localStorage.getItem(key)
-
-    if (!value) return fallback
-
-    return JSON.parse(value)
-  } catch {
-    return fallback
-  }
-}
-
-function safeStorageSet(key, value) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value))
-    return true
-  } catch {
-    return false
-  }
-}
-
-function safeStorageRemove(key) {
-  try {
-    localStorage.removeItem(key)
-  } catch {
-    // ignore
-  }
-}
-
-function getStudentStorageKey(prefix, studentId, day) {
-  return `${prefix}_${studentId || 'student'}_${day}`
-}
-
-function getExerciseKey(exercise, index = 0) {
-  if (exercise?.id !== undefined && exercise?.id !== null) {
-    return String(exercise.id)
-  }
-
-  const name =
-    exercise?.name ||
-    exercise?.nome ||
-    exercise?.exercise ||
-    exercise?.exercicio ||
-    `exercise-${index}`
-
-  return `${String(name)
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, '-')
-    .replace(/[^a-z0-9áéíóúãõç-]/gi, '')}-${index}`
-}
-
-function getDateKey(date = new Date()) {
-  const d = new Date(date)
-
-  return [
-    d.getFullYear(),
-    String(d.getMonth() + 1).padStart(2, '0'),
-    String(d.getDate()).padStart(2, '0')
-  ].join('-')
-}
-
-function formatDate(date) {
-  if (!date) return ''
-
-  try {
-    return new Intl.DateTimeFormat('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    }).format(new Date(date))
-  } catch {
-    return ''
-  }
-}
-
-function formatSessionTime(totalSeconds = 0) {
-  const seconds = Math.max(0, Number(totalSeconds) || 0)
-
-  const hours = Math.floor(seconds / 3600)
-  const minutes = Math.floor((seconds % 3600) / 60)
-  const secs = seconds % 60
-
-  if (hours > 0) {
-    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(
-      2,
-      '0'
-    )}:${String(secs).padStart(2, '0')}`
-  }
-
-  return `${String(minutes).padStart(2, '0')}:${String(secs).padStart(
-    2,
-    '0'
-  )}`
-}
-
-function playBeep() {
-  try {
-    const AudioContext =
-      window.AudioContext || window.webkitAudioContext
-
-    if (!AudioContext) return
-
-    const context = new AudioContext()
-    const oscillator = context.createOscillator()
-    const gain = context.createGain()
-
-    oscillator.type = 'sine'
-    oscillator.frequency.value = 880
-
-    gain.gain.setValueAtTime(0.0001, context.currentTime)
-    gain.gain.exponentialRampToValueAtTime(
-      0.18,
-      context.currentTime + 0.01
-    )
-    gain.gain.exponentialRampToValueAtTime(
-      0.0001,
-      context.currentTime + 0.35
-    )
-
-    oscillator.connect(gain)
-    gain.connect(context.destination)
-
-    oscillator.start()
-    oscillator.stop(context.currentTime + 0.35)
-
-    setTimeout(() => {
-      try {
-        context.close()
-      } catch {
-        // ignore
-      }
-    }, 500)
-  } catch {
-    // ignore
-  }
-}
-
-/* =========================================================
-   COMPONENT
-========================================================= */
 
 export default function StudentArea() {
+  const { student, logoutStudent } = useAuth()
   const navigate = useNavigate()
-  const { user, signOut } = useAuth()
 
-  /* =======================================================
-     DATA
-  ======================================================= */
+  const [data, setData] = useState(() => loadData())
+  const [selectedWorkoutDay, setSelectedWorkoutDay] = useState(null)
+  const [syncedAt, setSyncedAt] = useState('')
+  const [selectedVideo, setSelectedVideo] = useState(null)
+  const [selectedObs, setSelectedObs] = useState(null)
+  const [isEvaluationOpen, setIsEvaluationOpen] = useState(false)
 
-  const [data, setData] = useState({
-    students: [],
-    workouts: [],
-    exercises: [],
-    evaluations: []
-  })
+  const [completedExercises, setCompletedExercises] = useState([])
 
-  const [syncedAt, setSyncedAt] = useState(null)
-
-  /* =======================================================
-     WORKOUT
-  ======================================================= */
-
-  const [selectedWorkoutDay, setSelectedWorkoutDay] = useState('A')
-
-  const [currentSession, setCurrentSession] = useState(null)
+  // Estados dos cronômetros e Modo Treino
+  const [timerSeconds, setTimerSeconds] = useState(0)
+  const [timerActive, setTimerActive] = useState(false)
+  const [initialTime, setInitialTime] = useState(60)
+  const [activeRestMenu, setActiveRestMenu] = useState(false) // Controla se o menu do relógio flutuante está aberto
 
   const [inWorkoutMode, setInWorkoutMode] = useState(false)
   const [workoutActiveIndex, setWorkoutActiveIndex] = useState(0)
 
-  const [showFinishedScreen, setShowFinishedScreen] = useState(false)
-
+  // Cronômetro Geral da Sessão
+  const [sessionSeconds, setSessionSeconds] = useState(0)
   const [sessionActive, setSessionActive] = useState(false)
   const [sessionPaused, setSessionPaused] = useState(false)
+  const [showFinishedScreen, setShowFinishedScreen] = useState(false)
 
-  const [timerSeconds, setTimerSeconds] = useState(0)
-
-  const [selectedVideo, setSelectedVideo] = useState(null)
-  const [selectedObs, setSelectedObs] = useState(null)
-
-  const [isEvaluationOpen, setIsEvaluationOpen] = useState(false)
-
-  const [showHistory, setShowHistory] = useState(false)
-
-  /* =======================================================
-     REST TIMER
-  ======================================================= */
-
-  const [activeRestMenu, setActiveRestMenu] = useState(false)
-  const [initialTime, setInitialTime] = useState(60)
-
-  /* =======================================================
-     FEEDBACK / CARGA / RPE
-  ======================================================= */
-
-  const [editingFeedback, setEditingFeedback] = useState(null)
-  const [tempLoad, setTempLoad] = useState('')
-  const [tempRpe, setTempRpe] = useState('')
-
-  /* =======================================================
-     AUTHENTICATED STUDENT
-  ======================================================= */
-
-  const current = useMemo(() => {
-    if (!user?.id) return null
-
-    return (
-      data.students?.find(
-        student =>
-          String(student.id) === String(user.id) ||
-          String(student.user_id) === String(user.id)
-      ) || null
-    )
-  }, [data.students, user?.id])
-
-  /* =======================================================
-     LOAD DATA
-  ======================================================= */
-
-  useEffect(() => {
-    let mounted = true
-
-    async function loadData() {
-      try {
-        /*
-         * Mantém a estrutura compatível com o serviço já utilizado
-         * pelo projeto.
-         */
-        const { data: students } = await supabase
-          .from('students')
-          .select('*')
-
-        const { data: workouts } = await supabase
-          .from('workouts')
-          .select('*')
-
-        const { data: exercises } = await supabase
-          .from('exercises')
-          .select('*')
-
-        const { data: evaluations } = await supabase
-          .from('evaluations')
-          .select('*')
-
-        if (!mounted) return
-
-        setData({
-          students: students || [],
-          workouts: workouts || [],
-          exercises: exercises || [],
-          evaluations: evaluations || []
-        })
-
-        setSyncedAt(new Date())
-      } catch (error) {
-        console.error('Erro ao carregar dados:', error)
-      }
-    }
-
-    loadData()
-
-    return () => {
-      mounted = false
-    }
+  const dailyTip = useMemo(() => {
+    const index = Math.floor(Math.random() * COACH_TIPS.length)
+    return COACH_TIPS[index]
   }, [])
 
-  /* =======================================================
-     WORKOUT DATA
-  ======================================================= */
-
-  const workout = useMemo(() => {
-    if (!current) return null
-
-    const studentId = current.id || current.user_id
-
-    const candidates = data.workouts || []
-
+  const current = useMemo(() => {
     return (
-      candidates.find(item => {
-        const itemStudentId =
-          item.student_id ||
-          item.studentId ||
-          item.user_id
-
-        const itemDay =
-          item.day ||
-          item.workout_day ||
-          item.workoutDay
-
-        return (
-          String(itemStudentId) === String(studentId) &&
-          String(itemDay).toUpperCase() ===
-            selectedWorkoutDay
-        )
-      }) || null
+      data.students.find(
+        (item) => item.id === student?.id || item.code === student?.code
+      ) || data.students[0]
     )
-  }, [
-    current,
-    data.workouts,
-    selectedWorkoutDay
-  ])
+  }, [data, student])
 
-  /* =======================================================
-     EXERCISES
-  ======================================================= */
+  const workouts = current?.workouts || data.workouts
 
-  const workoutExercises = useMemo(() => {
-    if (!workout) return []
+  const evaluations = current?.evaluations || []
+  const latestEvaluation = evaluations.length > 0 ? evaluations[evaluations.length - 1] : null
 
-    const workoutId = workout.id
+  const currentDay = selectedWorkoutDay || 'A'
+  const workout = workouts[currentDay] || {
+    title: 'Treino',
+    focus: '',
+    exercises: [],
+  }
 
-    const exercises = (data.exercises || []).filter(
-      exercise => {
-        const exerciseWorkoutId =
-          exercise.workout_id ||
-          exercise.workoutId
-
-        return (
-          String(exerciseWorkoutId) ===
-          String(workoutId)
-        )
-      }
-    )
-
-    return exercises
-  }, [data.exercises, workout])
-
-  /*
-   * Mantém a lógica de agrupamento utilizada no projeto.
-   * Exercícios com grupo são agrupados; os demais entram
-   * posteriormente.
-   */
   const sortedExercises = useMemo(() => {
-    const exercises = [...workoutExercises]
-
-    if (!exercises.length) return []
-
-    const grouped = []
+    const original = workout.exercises || []
+    const groupedMap = new Map()
     const ungrouped = []
 
-    exercises.forEach((exercise, index) => {
-      const group =
-        exercise.group ||
-        exercise.grupo ||
-        exercise.exercise_group ||
-        exercise.exerciseGroup
-
-      if (group) {
-        grouped.push({
-          ...exercise,
-          __originalIndex: index
-        })
+    original.forEach((ex) => {
+      const groupKey = (ex.group || '').trim()
+      if (groupKey) {
+        if (!groupedMap.has(groupKey)) {
+          groupedMap.set(groupKey, [])
+        }
+        groupedMap.get(groupKey).push(ex)
       } else {
-        ungrouped.push({
-          ...exercise,
-          __originalIndex: index
-        })
+        ungrouped.push(ex)
       }
     })
 
-    grouped.sort((a, b) => {
-      const groupA = String(
-        a.group ||
-          a.grupo ||
-          a.exercise_group ||
-          a.exerciseGroup
-      )
-
-      const groupB = String(
-        b.group ||
-          b.grupo ||
-          b.exercise_group ||
-          b.exerciseGroup
-      )
-
-      return groupA.localeCompare(groupB, 'pt-BR')
+    const result = []
+    groupedMap.forEach((exercisesInGroup) => {
+      result.push(...exercisesInGroup)
     })
+    result.push(...ungrouped)
 
-    return [...grouped, ...ungrouped]
-  }, [workoutExercises])
+    return result
+  }, [workout.exercises])
 
   const totalExercises = sortedExercises.length
-
-  /* =======================================================
-     SESSION STORAGE KEY
-  ======================================================= */
-
-  const studentStorageId = current?.id || current?.user_id
-
-  const sessionStorageKey = useMemo(() => {
-    return getStudentStorageKey(
-      SESSION_PREFIX,
-      studentStorageId,
-      selectedWorkoutDay
-    )
-  }, [studentStorageId, selectedWorkoutDay])
-
-  const historyStorageKey = useMemo(() => {
-    return getStudentStorageKey(
-      HISTORY_PREFIX,
-      studentStorageId,
-      selectedWorkoutDay
-    )
-  }, [studentStorageId, selectedWorkoutDay])
-
-  /* =======================================================
-     CREATE NEW SESSION
-  ======================================================= */
-
-  function createSession() {
-    const newSession = {
-      id: `${selectedWorkoutDay}-${Date.now()}`,
-      day: selectedWorkoutDay,
-      startedAt: new Date().toISOString(),
-      elapsedSeconds: 0,
-      completed: [],
-      loads: {},
-      rpe: {},
-      activeIndex: 0,
-      status: 'active'
-    }
-
-    setCurrentSession(newSession)
-    setWorkoutActiveIndex(0)
-    setShowFinishedScreen(false)
-
-    safeStorageSet(sessionStorageKey, newSession)
-  }
-
-  /* =======================================================
-     LOAD / RESUME SESSION
-  ======================================================= */
+  const completedCount = sortedExercises.filter((ex) => completedExercises.includes(ex.id)).length
+  const progressPercent = totalExercises > 0 ? Math.round((completedCount / totalExercises) * 100) : 0
+  const isWorkoutCompleted = totalExercises > 0 && completedCount === totalExercises
 
   useEffect(() => {
-    if (!studentStorageId) return
-
-    if (!sortedExercises.length) {
-      setCurrentSession(null)
-      return
-    }
-
-    const savedSession = safeStorageGet(
-      sessionStorageKey,
-      null
-    )
-
-    if (
-      savedSession &&
-      savedSession.status === 'active'
-    ) {
-      /*
-       * Garante que exercícios removidos do treino não
-       * permaneçam marcados como concluídos.
-       */
-      const validKeys = new Set(
-        sortedExercises.map((exercise, index) =>
-          getExerciseKey(exercise, index)
-        )
+    const stop = subscribeData((next) => {
+      setData(next)
+      setSyncedAt(
+        new Date().toLocaleTimeString('pt-BR', {
+          hour: '2-digit',
+          minute: '2-digit',
+        })
       )
+    })
+    return stop
+  }, [])
 
-      const completed = Array.isArray(
-        savedSession.completed
-      )
-        ? savedSession.completed.filter(key =>
-            validKeys.has(String(key))
-          )
-        : []
-
-      const activeIndex = Math.min(
-        Math.max(
-          Number(savedSession.activeIndex) || 0,
-          0
-        ),
-        Math.max(sortedExercises.length - 1, 0)
-      )
-
-      const normalizedSession = {
-        ...savedSession,
-        day: selectedWorkoutDay,
-        completed,
-        loads: savedSession.loads || {},
-        rpe: savedSession.rpe || {},
-        elapsedSeconds:
-          Number(savedSession.elapsedSeconds) || 0,
-        activeIndex,
-        status: 'active'
-      }
-
-      setCurrentSession(normalizedSession)
-      setWorkoutActiveIndex(activeIndex)
-      setShowFinishedScreen(false)
-    } else {
-      createSession()
-    }
-  }, [
-    studentStorageId,
-    selectedWorkoutDay,
-    sessionStorageKey,
-    sortedExercises.length
-  ])
-
-  /* =======================================================
-     SESSION PERSISTENCE
-  ======================================================= */
-
+  // Temporizador de Descanso com sumiço automático ao zerar
   useEffect(() => {
-    if (!currentSession) return
-
-    safeStorageSet(
-      sessionStorageKey,
-      currentSession
-    )
-  }, [
-    currentSession,
-    sessionStorageKey
-  ])
-
-  /* =======================================================
-     SESSION TIMER
-  ======================================================= */
-
-  useEffect(() => {
-    if (!sessionActive || sessionPaused) return
-
-    const interval = setInterval(() => {
-      setCurrentSession(prev => {
-        if (!prev) return prev
-
-        return {
-          ...prev,
-          elapsedSeconds:
-            (Number(prev.elapsedSeconds) || 0) + 1
-        }
-      })
-    }, 1000)
-
+    let interval = null
+    if (timerActive && timerSeconds > 0) {
+      interval = setInterval(() => {
+        setTimerSeconds((sec) => {
+          if (sec === 10) {
+            playBeep(false)
+          }
+          if (sec <= 1) {
+            playBeep(true)
+            setTimerActive(false)
+            setActiveRestMenu(false) // Retrai o menu automaticamente ao zerar
+            return 0
+          }
+          return sec - 1
+        })
+      }, 1000)
+    }
     return () => clearInterval(interval)
-  }, [sessionActive, sessionPaused])
+  }, [timerActive, timerSeconds])
 
-  /* =======================================================
-     REST TIMER
-  ======================================================= */
-
+  // Cronômetro Geral da Sessão
   useEffect(() => {
-    if (timerSeconds <= 0) return
-
-    const interval = setInterval(() => {
-      setTimerSeconds(prev => {
-        if (prev <= 1) {
-          clearInterval(interval)
-          playBeep()
-          return 0
-        }
-
-        return prev - 1
-      })
-    }, 1000)
-
+    let interval = null
+    if (sessionActive && !sessionPaused && !showFinishedScreen) {
+      interval = setInterval(() => {
+        setSessionSeconds((sec) => sec + 1)
+      }, 1000)
+    }
     return () => clearInterval(interval)
-  }, [timerSeconds])
+  }, [sessionActive, sessionPaused, showFinishedScreen])
 
-  /* =======================================================
-     CURRENT EXERCISE
-  ======================================================= */
-
-  const activeExercise =
-    sortedExercises[workoutActiveIndex] || null
-
-  const sessionSeconds =
-    Number(currentSession?.elapsedSeconds) || 0
-
-  const completedCount =
-    currentSession?.completed?.length || 0
-
-  const progressPercentage =
-    totalExercises > 0
-      ? Math.round(
-          (completedCount / totalExercises) * 100
-        )
-      : 0
-
-  /* =======================================================
-     EXERCISE COMPLETION
-  ======================================================= */
-
-  function isExerciseCompleted(exercise, index) {
-    if (!currentSession) return false
-
-    const key = getExerciseKey(exercise, index)
-
-    return currentSession.completed?.includes(key)
+  function startTimer(seconds) {
+    setInitialTime(seconds)
+    setTimerSeconds(seconds)
+    setTimerActive(true)
+    setActiveRestMenu(false) // Recolhe o menu para mostrar apenas o relógio a contar
   }
 
-  function toggleCompleteExercise(exercise, index) {
-    if (!currentSession) return
-
-    const key = getExerciseKey(exercise, index)
-
-    setCurrentSession(prev => {
-      if (!prev) return prev
-
-      const completed = Array.isArray(prev.completed)
-        ? [...prev.completed]
-        : []
-
-      const position = completed.indexOf(key)
-
-      if (position >= 0) {
-        completed.splice(position, 1)
-      } else {
-        completed.push(key)
-      }
-
-      return {
-        ...prev,
-        completed
-      }
-    })
-  }
-
-  /* =======================================================
-     FEEDBACK EDITOR
-  ======================================================= */
-
-  function openFeedbackEditor(exercise, index) {
-    if (!currentSession) return
-
-    const key = getExerciseKey(exercise, index)
-
-    setEditingFeedback({
-      exercise,
-      index,
-      key
-    })
-
-    setTempLoad(
-      currentSession.loads?.[key] ?? ''
-    )
-
-    setTempRpe(
-      currentSession.rpe?.[key] ?? ''
-    )
-  }
-
-  function saveFeedbackEditor() {
-    if (!editingFeedback) return
-
-    const { key } = editingFeedback
-
-    setCurrentSession(prev => {
-      if (!prev) return prev
-
-      return {
-        ...prev,
-        loads: {
-          ...(prev.loads || {}),
-          [key]: tempLoad
-        },
-        rpe: {
-          ...(prev.rpe || {}),
-          [key]: tempRpe
-        }
-      }
-    })
-
-    setEditingFeedback(null)
-    setTempLoad('')
-    setTempRpe('')
-  }
-
-  /* =======================================================
-     REST TIMER
-  ======================================================= */
-
-  function startRest(seconds) {
-    const value = Number(seconds) || 60
-
-    setInitialTime(value)
-    setTimerSeconds(value)
+  function stopTimer() {
+    setTimerActive(false)
+    setTimerSeconds(0)
     setActiveRestMenu(false)
   }
 
-  function stopRest() {
-    setTimerSeconds(0)
+  function toggleCompleteExercise(exerciseId) {
+    setCompletedExercises((prev) =>
+      prev.includes(exerciseId)
+        ? prev.filter((id) => id !== exerciseId)
+        : [...prev, exerciseId]
+    )
   }
 
-  /* =======================================================
-     WORKOUT MODE
-  ======================================================= */
-
-  function enterWorkoutMode() {
-    if (!sortedExercises.length) return
-
-    const safeIndex = Math.min(
-      Math.max(workoutActiveIndex, 0),
-      sortedExercises.length - 1
-    )
-
-    setWorkoutActiveIndex(safeIndex)
+  function startWorkoutSession() {
+    setInWorkoutMode(true)
+    setWorkoutActiveIndex(0)
+    setSessionSeconds(0)
     setSessionActive(true)
     setSessionPaused(false)
-    setInWorkoutMode(true)
     setShowFinishedScreen(false)
+    setActiveRestMenu(false)
   }
 
-  function exitWorkoutMode() {
-    setSessionActive(false)
-    setSessionPaused(false)
-    setInWorkoutMode(false)
+  function formatSessionTime(totalSecs) {
+    const mins = Math.floor(totalSecs / 60)
+    const secs = totalSecs % 60
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
   }
-
-  function togglePauseSession() {
-    setSessionPaused(prev => !prev)
-  }
-
-  /* =======================================================
-     NAVIGATION
-  ======================================================= */
-
-  function goToPreviousExercise() {
-    setWorkoutActiveIndex(prev =>
-      Math.max(0, prev - 1)
-    )
-  }
-
-  function goToNextExercise() {
-    setWorkoutActiveIndex(prev =>
-      Math.min(
-        Math.max(sortedExercises.length - 1, 0),
-        prev + 1
-      )
-    )
-  }
-
-  function selectExercise(index) {
-    if (
-      index < 0 ||
-      index >= sortedExercises.length
-    ) {
-      return
-    }
-
-    setWorkoutActiveIndex(index)
-  }
-
-  /* =======================================================
-     FINISH VALIDATION
-  ======================================================= */
-
-  function canFinishWorkout() {
-    if (!totalExercises) return false
-
-    return completedCount === totalExercises
-  }
-
-  /* =======================================================
-     HISTORY
-  ======================================================= */
-
-  const history = useMemo(() => {
-    if (!studentStorageId) return []
-
-    return safeStorageGet(
-      historyStorageKey,
-      []
-    )
-  }, [
-    studentStorageId,
-    historyStorageKey,
-    showHistory,
-    showFinishedScreen
-  ])
-
-  function saveSessionToHistory() {
-    if (!currentSession) return
-
-    const entry = {
-      id: `history-${Date.now()}`,
-      sessionId: currentSession.id,
-      day: selectedWorkoutDay,
-      workoutTitle:
-        workout?.title ||
-        workout?.name ||
-        `Treino ${selectedWorkoutDay}`,
-      date: new Date().toISOString(),
-      startedAt: currentSession.startedAt,
-      duration:
-        Number(currentSession.elapsedSeconds) || 0,
-      completedCount: totalExercises,
-      totalExercises,
-      loads: currentSession.loads || {},
-      rpe: currentSession.rpe || {}
-    }
-
-    const previousHistory = safeStorageGet(
-      historyStorageKey,
-      []
-    )
-
-    const nextHistory = [
-      entry,
-      ...(Array.isArray(previousHistory)
-        ? previousHistory
-        : [])
-    ].slice(0, 50)
-
-    safeStorageSet(
-      historyStorageKey,
-      nextHistory
-    )
-
-    return entry
-  }
-
-  /* =======================================================
-     FINISH WORKOUT
-  ======================================================= */
-
-  function finishWorkout() {
-    if (!canFinishWorkout()) return
-    if (!currentSession) return
-
-    saveSessionToHistory()
-
-    const finishedSession = {
-      ...currentSession,
-      status: 'completed'
-    }
-
-    setCurrentSession(finishedSession)
-
-    /*
-     * A sessão ativa é removida.
-     *
-     * Isso é o que faz o próximo treino A, por exemplo,
-     * começar novamente em 0/N.
-     */
-    safeStorageRemove(sessionStorageKey)
-
-    setSessionActive(false)
-    setSessionPaused(false)
-    setInWorkoutMode(false)
-    setShowFinishedScreen(true)
-  }
-
-  /* =======================================================
-     NEW SESSION
-  ======================================================= */
-
-  function startNewSession() {
-    const hasProgress =
-      currentSession &&
-      (
-        (currentSession.completed?.length || 0) > 0 ||
-        (Number(currentSession.elapsedSeconds) || 0) > 0
-      )
-
-    if (
-      hasProgress &&
-      !window.confirm(
-        'Deseja realmente iniciar uma nova sessão? O progresso atual deste treino será perdido.'
-      )
-    ) {
-      return
-    }
-
-    safeStorageRemove(sessionStorageKey)
-
-    createSession()
-
-    setWorkoutActiveIndex(0)
-    setInWorkoutMode(false)
-    setShowFinishedScreen(false)
-    setSessionActive(false)
-    setSessionPaused(false)
-  }
-
-  /* =======================================================
-     BACK TO WORKOUTS
-  ======================================================= */
-
-  function backToWorkouts() {
-    setSessionActive(false)
-    setSessionPaused(false)
-    setInWorkoutMode(false)
-    setShowFinishedScreen(false)
-
-    setSelectedWorkoutDay(null)
-  }
-
-  /* =======================================================
-     SELECT WORKOUT DAY
-  ======================================================= */
-
-  function selectWorkoutDay(day) {
-    if (!DAYS.includes(day)) return
-
-    setShowFinishedScreen(false)
-    setInWorkoutMode(false)
-    setSessionActive(false)
-    setSessionPaused(false)
-    setSelectedWorkoutDay(day)
-  }
-
-  /* =======================================================
-     WHATSAPP FEEDBACK
-  ======================================================= */
 
   function sendWhatsAppFeedback() {
-    if (!currentSession) return
-
-    const exerciseLines = sortedExercises
-      .map((exercise, index) => {
-        const key = getExerciseKey(exercise, index)
-
-        const name =
-          exercise?.name ||
-          exercise?.nome ||
-          exercise?.exercise ||
-          exercise?.exercicio ||
-          `Exercício ${index + 1}`
-
-        const load =
-          currentSession.loads?.[key] || 'Não informado'
-
-        const rpe =
-          currentSession.rpe?.[key] || 'Não informado'
-
-        const completed =
-          currentSession.completed?.includes(key)
-
-        return [
-          `${index + 1}. ${name}`,
-          `Carga: ${load}`,
-          `RPE: ${rpe}`,
-          `Status: ${
-            completed ? 'Concluído' : 'Não concluído'
-          }`
-        ].join('\n')
+    const studentName = current?.name || student?.name || 'Aluno'
+    const workoutTitle = workout.title || `Treino ${currentDay}`
+    
+    const exercisesList = (sortedExercises || [])
+      .map((ex, idx) => {
+        const groupTag = ex.group ? ` [${ex.group}]` : ''
+        return `*${idx + 1}. ${ex.name}*${groupTag} (Séries: ${ex.sets}, Repetições: ${ex.reps})\nCarga: `
       })
       .join('\n\n')
 
-    const message = [
-      `Olá, Danilo! 👋`,
-      ``,
-      `Envio meu feedback do Treino ${selectedWorkoutDay}.`,
-      ``,
-      `Tempo de treino: ${formatSessionTime(
-        sessionSeconds
-      )}`,
-      `Progresso: ${completedCount}/${totalExercises}`,
-      ``,
-      exerciseLines
-    ].join('\n')
+    const message = encodeURIComponent(
+      `Olá Danilo! Aqui estão las cargas e o feedback de *${studentName}* referentes ao *${workoutTitle}* (${currentDay}):\n\n${exercisesList}\n\nObservações / Dúvidas:`
+    )
 
-    const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(
-      message
-    )}`
-
-    window.open(url, '_blank', 'noopener,noreferrer')
+    const phone = '5527996247906'
+    window.open(`https://wa.me/${phone}?text=${message}`, '_blank', 'noopener,noreferrer')
   }
 
-  /* =======================================================
-     DAILY TIP
-  ======================================================= */
+  function sendRealtimeDoubt() {
+    const studentName = current?.name || student?.name || 'Aluno'
+    const message = encodeURIComponent(
+      `Olá Danilo! Estou treinando aqui e gostaria de tirar uma dúvida ou sugerir alguma mudança. Está disponível? (${studentName})`
+    )
+    const phone = '5527996247906'
+    window.open(`https://wa.me/${phone}?text=${message}`, '_blank', 'noopener,noreferrer')
+  }
 
-  const dailyTip = useMemo(() => {
-    const tips = [
-      'Controle o movimento e priorize a execução antes de aumentar a carga.',
-      'A última repetição deve ser difícil, mas sem comprometer a técnica.',
-      'Mantenha constância: bons resultados vêm da soma dos treinos.',
-      'Respeite o intervalo de descanso para conseguir entregar qualidade nas séries.',
-      'Registre suas cargas. Acompanhar a evolução ajuda a orientar a progressão.',
-      'Respire de forma controlada durante todo o movimento.',
-      'Não tenha pressa para aumentar a carga. Primeiro domine a execução.'
-    ]
-
-    const date = getDateKey()
-    let hash = 0
-
-    for (let i = 0; i < date.length; i++) {
-      hash =
-        (hash << 5) - hash + date.charCodeAt(i)
-      hash |= 0
+  useEffect(() => {
+    function handleKeyDown(event) {
+      if (event.key === 'Escape') {
+        setSelectedVideo(null)
+        setSelectedObs(null)
+        setActiveRestMenu(false)
+        setIsEvaluationOpen(false)
+      }
     }
-
-    return tips[Math.abs(hash) % tips.length]
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+    }
   }, [])
 
-  /* =======================================================
-     LATEST EVALUATION
-  ======================================================= */
+  function exit() {
+    logoutStudent()
+    navigate('/')
+  }
 
-  const latestEvaluation = useMemo(() => {
-    if (!current) return null
-
-    const studentId = current.id || current.user_id
-
-    const evaluations = (data.evaluations || [])
-      .filter(item => {
-        const itemStudentId =
-          item.student_id ||
-          item.studentId ||
-          item.user_id
-
-        return (
-          String(itemStudentId) ===
-          String(studentId)
-        )
-      })
-      .sort((a, b) => {
-        const dateA = new Date(
-          a.date ||
-            a.evaluation_date ||
-            a.created_at ||
-            0
-        )
-
-        const dateB = new Date(
-          b.date ||
-            b.evaluation_date ||
-            b.created_at ||
-            0
-        )
-
-        return dateB - dateA
-      })
-
-    return evaluations[0] || null
-  }, [current, data.evaluations])
-
-  /* =======================================================
-     LOGOUT
-  ======================================================= */
-
-  async function handleLogout() {
-    try {
-      await signOut()
-    } catch (error) {
-      console.error('Erro ao sair:', error)
+  function openVideo(exercise) {
+    const videoId = youtubeId(exercise.video)
+    if (!videoId) {
+      window.open(exercise.video, '_blank', 'noopener,noreferrer')
+      return
     }
-
-    navigate('/login')
+    setSelectedVideo({
+      id: videoId,
+      name: exercise.name,
+    })
   }
 
-  /* =======================================================
-     CURRENT LOAD / RPE
-  ======================================================= */
-
-  const activeExerciseKey = activeExercise
-    ? getExerciseKey(
-        activeExercise,
-        workoutActiveIndex
-      )
-    : null
-
-  const activeLoad =
-    activeExerciseKey &&
-    currentSession?.loads?.[activeExerciseKey]
-
-  const activeRpe =
-    activeExerciseKey &&
-    currentSession?.rpe?.[activeExerciseKey]
-
-  const activeIsDone =
-    activeExercise
-      ? isExerciseCompleted(
-          activeExercise,
-          workoutActiveIndex
-        )
-      : false
-
-  /* =======================================================
-     SAFETY
-  ======================================================= */
-
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-ink-950 text-white flex items-center justify-center">
-        <div className="text-center">
-          <RefreshCw className="mx-auto mb-3 animate-spin" />
-          <p>Carregando...</p>
-        </div>
-      </div>
-    )
+  function closeVideo() {
+    setSelectedVideo(null)
   }
 
-  const studentName =
-    current?.name ||
-    current?.nome ||
-    user?.user_metadata?.name ||
-    user?.user_metadata?.full_name ||
-    'Aluno'
-
-  const firstName = studentName
-    .split(' ')[0]
-    .trim()
-
-  const workoutTitle =
-    workout?.title ||
-    workout?.name ||
-    `Treino ${selectedWorkoutDay}`
-
-  /*
-   * A Parte 2 começa aqui:
-   *
-   * - JSX principal
-   * - cabeçalho
-   * - avaliação
-   * - cards A/B/C/D/E
-   * - progresso
-   * - exercícios
-   * - CARGA / RPE
-   * - OBS
-   * - CONCLUIR
-   * - navegação
-   * - modo imersivo
-   * - cronômetro
-   * - histórico
-   * - modal CARGA/RPE
-   * - modal avaliação
-   * - modal vídeo
-   * - modal observação
-   */return (
-    <div className="min-h-screen bg-ink-950 text-white">
-      {/* =====================================================
-          HEADER
-      ====================================================== */}
-      <header className="sticky top-0 z-30 border-b border-white/10 bg-ink-950/95 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-amber-400/30 bg-black">
-              {current?.logo ? (
-                <img
-                  src={current.logo}
-                  alt="Logo"
-                  className="h-full w-full object-contain"
-                />
-              ) : (
-                <FlameKindling className="h-6 w-6 text-amber-400" />
-              )}
-            </div>
-
-            <div className="min-w-0">
-              <p className="truncate text-xs text-white/50">
-                Danilo Lopes
-              </p>
-
-              <h1 className="truncate font-display text-base font-semibold sm:text-lg">
-                Consultoria de Treino
-              </h1>
-            </div>
-          </div>
-
+  return (
+    <div className="min-h-dvh bg-ink-950 pb-48 text-white relative">
+      <header className="sticky top-0 z-30 border-b border-white/5 bg-ink-950/95 backdrop-blur">
+        <div className="mx-auto flex max-w-md items-center justify-between px-4 py-3">
+          <Logo className="h-10 w-10" showText />
           <div className="flex items-center gap-2">
-            {syncedAt && (
-              <div className="hidden text-right sm:block">
-                <p className="text-[10px] uppercase tracking-wider text-white/40">
-                  Sincronizado
-                </p>
-                <p className="text-xs text-white/60">
-                  {syncedAt.toLocaleTimeString('pt-BR', {
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })}
-                </p>
-              </div>
+            {selectedWorkoutDay && !inWorkoutMode && (
+              <button
+                onClick={() => {
+                  setSelectedWorkoutDay(null)
+                  setActiveRestMenu(false)
+                }}
+                className="flex items-center gap-1.5 rounded-full border border-gold-400/30 bg-gold-400/10 px-3 py-1.5 text-xs font-bold text-gold-400 transition hover:bg-gold-400/20"
+              >
+                <ArrowLeft size={14} />
+                <span>Treinos</span>
+              </button>
             )}
-
             <button
-              type="button"
-              onClick={handleLogout}
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/60 transition hover:border-red-400/30 hover:bg-red-400/10 hover:text-red-300"
-              title="Sair"
+              onClick={exit}
+              className="rounded-full border border-white/10 p-2 text-zinc-300 transition hover:border-gold-400/30 hover:text-gold-400"
+              aria-label="Sair"
             >
-              <LogOut className="h-4 w-4" />
+              <LogOut size={16} />
             </button>
+          </div>
+        </div>
+
+        <div className="mx-auto max-w-md px-4 pb-3 flex items-center justify-between">
+          <div>
+            <p className="text-xs text-zinc-500">
+              Olá, {current?.name || student?.name || 'aluno'}
+            </p>
+            {syncedAt && (
+              <p className="mt-1 flex items-center gap-1 text-[11px] text-gold-400/80">
+                <RefreshCw size={10} />
+                Atualizado às {syncedAt}
+              </p>
+            )}
           </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-4 pb-28 pt-6 sm:px-6 lg:pb-10">
-        {/* ===================================================
-            GREETING
-        ==================================================== */}
-        <section className="mb-6">
-          <div className="relative overflow-hidden rounded-3xl border border-amber-400/15 bg-gradient-to-br from-amber-400/10 via-white/[0.03] to-transparent p-5 sm:p-7">
-            <div className="pointer-events-none absolute -right-20 -top-20 h-48 w-48 rounded-full bg-amber-400/10 blur-3xl" />
-
-            <div className="relative">
-              <div className="mb-2 flex items-center gap-2 text-amber-400">
-                <Flame className="h-4 w-4" />
-                <span className="text-xs font-semibold uppercase tracking-[0.18em]">
-                  Seu treino
+      <main className="mx-auto max-w-md px-4 py-5 safe-bottom">
+        {!selectedWorkoutDay ? (
+          <div className="space-y-4">
+            <div 
+              onClick={() => setIsEvaluationOpen(true)}
+              className="group relative w-full overflow-hidden rounded-2xl border border-gold-400/40 bg-gradient-to-br from-ink-900 to-ink-800 p-5 text-left transition-all duration-300 hover:border-gold-400 hover:shadow-xl hover:shadow-gold-400/10 cursor-pointer shadow-lg"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gold-400/20 text-gold-400 border border-gold-400/30">
+                    <Activity size={20} />
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase font-bold tracking-widest text-gold-400">
+                      Avaliação Física
+                    </p>
+                    <h2 className="font-display text-lg uppercase text-white tracking-wide">
+                      Composição Corporal
+                    </h2>
+                  </div>
+                </div>
+                <span className="text-[11px] font-bold text-gold-400 bg-gold-400/10 px-2.5 py-1 rounded-full border border-gold-400/30 group-hover:bg-gold-400 group-hover:text-ink-950 transition">
+                  {latestEvaluation ? 'Ver Detalhes →' : 'Aguardando →'}
                 </span>
               </div>
 
-              <h2 className="font-display text-2xl font-bold sm:text-3xl">
-                Olá, {firstName}! 👋
-              </h2>
-
-              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-white/55">
-                Bora manter a consistência e evoluir um pouco mais hoje.
-                Execute com qualidade, registre suas cargas e acompanhe
-                sua evolução.
-              </p>
-
-              <div className="mt-5 flex flex-wrap gap-2">
-                <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2">
-                  <span className="block text-[10px] uppercase tracking-wider text-white/40">
-                    Treino atual
-                  </span>
-                  <span className="text-sm font-semibold">
-                    {workoutTitle}
-                  </span>
+              {latestEvaluation ? (
+                <div className="grid grid-cols-3 gap-2.5 pt-2 border-t border-white/10">
+                  <div className="rounded-xl bg-ink-950/60 p-2 text-center border border-white/5">
+                    <p className="text-[9px] uppercase tracking-wider text-zinc-400">Peso</p>
+                    <p className="font-display text-base text-gold-400 font-bold">{latestEvaluation.weight} kg</p>
+                  </div>
+                  <div className="rounded-xl bg-ink-950/60 p-2 text-center border border-white/5">
+                    <p className="text-[9px] uppercase tracking-wider text-zinc-400">% Gordura</p>
+                    <p className="font-display text-base text-gold-400 font-bold">{latestEvaluation.fatPercentage}%</p>
+                  </div>
+                  <div className="rounded-xl bg-ink-950/60 p-2 text-center border border-white/5">
+                    <p className="text-[9px] uppercase tracking-wider text-zinc-400">Gasto Diário</p>
+                    <p className="font-display text-base text-gold-400 font-bold">{latestEvaluation.get} kcal</p>
+                  </div>
                 </div>
-
-                <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2">
-                  <span className="block text-[10px] uppercase tracking-wider text-white/40">
-                    Progresso
-                  </span>
-                  <span className="text-sm font-semibold text-amber-400">
-                    {completedCount}/{totalExercises}
-                  </span>
+              ) : (
+                <div className="pt-2 border-t border-white/10 text-center py-2">
+                  <p className="text-xs text-zinc-400">Nenhuma avaliação cadastrada pelo professor ainda.</p>
                 </div>
+              )}
+            </div>
 
-                <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2">
-                  <span className="block text-[10px] uppercase tracking-wider text-white/40">
-                    Tempo
-                  </span>
-                  <span className="text-sm font-semibold">
-                    {formatSessionTime(sessionSeconds)}
-                  </span>
-                </div>
+            <div className="rounded-2xl border border-gold-400/30 bg-ink-900/80 p-4 shadow-md flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold-400/20 text-gold-400 border border-gold-400/30 mt-0.5">
+                <Lightbulb size={20} />
+              </div>
+              <div>
+                <p className="text-[10px] uppercase font-bold tracking-widest text-gold-400">Dica do Professor</p>
+                <p className="text-xs text-zinc-300 mt-1 leading-relaxed italic">"{dailyTip}"</p>
               </div>
             </div>
+
+            <div className="pt-2">
+              <p className="text-[12px] uppercase tracking-[0.2em] text-gold-400 font-bold">
+                Sua Rotina
+              </p>
+              <h1 className="mt-1 font-display text-2xl uppercase">
+                Escolha o Treino
+              </h1>
+            </div>
+
+            <div className="space-y-3.5 pt-2">
+              {DAYS.map((dayKey) => {
+                const wData = workouts[dayKey]
+
+                return (
+                  <button
+                    key={dayKey}
+                    onClick={() => {
+                      setSelectedWorkoutDay(dayKey)
+                      setActiveRestMenu(false)
+                    }}
+                    className="group relative w-full overflow-hidden rounded-2xl border border-white/10 bg-ink-800 p-4 text-left transition-all duration-300 hover:border-gold-400 hover:bg-ink-700/80 shadow-lg flex items-center gap-4"
+                  >
+                    <div className="flex shrink-0 flex-col items-center justify-center h-16 w-16 rounded-xl bg-ink-900 border-2 border-gold-400/40 text-gold-400 font-display text-2xl font-extrabold shadow-inner group-hover:bg-gold-400 group-hover:text-ink-950 transition-all duration-300">
+                      <span className="text-[9px] uppercase tracking-widest font-bold opacity-80 leading-none mb-0.5">Treino</span>
+                      {dayKey}
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <h2 className="font-display text-xl uppercase text-white tracking-wide group-hover:text-gold-300 transition-colors leading-snug">
+                        {wData?.title || `Treino ${dayKey}`}
+                      </h2>
+                      <p className="text-xs text-zinc-400 mt-0.5">
+                        {wData?.exercises?.length || 0} exercícios • Foco principal
+                      </p>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
           </div>
-        </section>
-
-        {/* ===================================================
-            DAILY TIP
-        ==================================================== */}
-        <section className="mb-6">
-          <div className="flex items-start gap-3 rounded-2xl border border-amber-400/15 bg-amber-400/[0.06] p-4">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-400/10">
-              <Lightbulb className="h-4 w-4 text-amber-400" />
-            </div>
-
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-amber-400">
-                Dica do dia
+        ) : !inWorkoutMode ? (
+          <div>
+            <div className="flex items-center justify-between">
+              <p className="text-[12px] uppercase tracking-[0.2em] text-gold-400 font-bold">
+                {workout.focus || `Treino ${currentDay}`}
               </p>
-
-              <p className="mt-1 text-sm leading-relaxed text-white/65">
-                {dailyTip}
-              </p>
+              <span className="text-xs font-bold text-zinc-400">
+                {completedCount} de {totalExercises} concluídos
+              </span>
             </div>
-          </div>
-        </section>
+            <h1 className="mt-1 font-display text-2xl uppercase">
+              {workout.title} ({currentDay})
+            </h1>
 
-        {/* ===================================================
-            PHYSICAL EVALUATION
-        ==================================================== */}
-        <section className="mb-6">
-          <button
-            type="button"
-            onClick={() => setIsEvaluationOpen(true)}
-            className="group w-full overflow-hidden rounded-2xl border border-white/10 bg-white/[0.035] p-4 text-left transition hover:border-amber-400/20 hover:bg-white/[0.05]"
-          >
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-400/10">
-                  <Activity className="h-5 w-5 text-amber-400" />
-                </div>
-
-                <div>
-                  <p className="text-xs uppercase tracking-wider text-white/40">
-                    Acompanhamento
-                  </p>
-
-                  <h3 className="font-semibold">
-                    Avaliação física
-                  </h3>
-
-                  <p className="mt-0.5 text-xs text-white/45">
-                    {latestEvaluation
-                      ? `Última avaliação: ${formatDate(
-                          latestEvaluation.date ||
-                            latestEvaluation.evaluation_date ||
-                            latestEvaluation.created_at
-                        )}`
-                      : 'Confira seus dados de avaliação'}
-                  </p>
-                </div>
-              </div>
-
-              <ChevronRight className="h-5 w-5 text-white/30 transition group-hover:translate-x-1 group-hover:text-amber-400" />
-            </div>
-          </button>
-        </section>
-
-        {/* ===================================================
-            WORKOUT DAY SELECTOR
-        ==================================================== */}
-        <section className="mb-6">
-          <div className="mb-3 flex items-center justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-wider text-white/40">
-                Programação
-              </p>
-
-              <h2 className="font-display text-xl font-bold">
-                Escolha seu treino
-              </h2>
+            <div className="mt-3.5 h-2.5 w-full overflow-hidden rounded-full bg-ink-800 border border-white/5">
+              <div
+                className="h-full bg-gold-400 transition-all duration-300 shadow-sm shadow-gold-400/50"
+                style={{ width: `${progressPercent}%` }}
+              />
             </div>
 
             <button
               type="button"
-              onClick={() => setShowHistory(true)}
-              className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-white/65 transition hover:border-amber-400/20 hover:text-amber-400"
+              onClick={startWorkoutSession}
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-gold-500 to-gold-400 py-4 text-sm font-extrabold uppercase tracking-wider text-ink-950 transition hover:from-gold-400 hover:to-gold-300 shadow-xl shadow-gold-400/20 active:scale-[0.99]"
             >
-              <RotateCcw className="h-3.5 w-3.5" />
-              Histórico
+              <FlameKindling size={20} />
+              🔥 Iniciar Modo Treino Imersivo
             </button>
-          </div>
 
-          <div className="grid grid-cols-5 gap-2">
-            {DAYS.map(day => {
-              const active = selectedWorkoutDay === day
+            <button
+              type="button"
+              onClick={sendWhatsAppFeedback}
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600/20 border border-emerald-500/40 py-3.5 text-xs font-bold uppercase tracking-wider text-emerald-400 transition hover:bg-emerald-600/30 shadow-lg"
+            >
+              <MessageCircle size={18} />
+              Enviar cargas e feedback no WhatsApp
+            </button>
 
-              return (
-                <button
-                  key={day}
-                  type="button"
-                  onClick={() => selectWorkoutDay(day)}
-                  className={`relative overflow-hidden rounded-2xl border px-2 py-4 transition ${
-                    active
-                      ? 'border-amber-400/40 bg-amber-400/10 text-amber-400 shadow-[0_0_25px_rgba(251,191,36,0.08)]'
-                      : 'border-white/10 bg-white/[0.03] text-white/50 hover:border-white/20 hover:bg-white/[0.05]'
-                  }`}
-                >
-                  <span className="block text-[10px] uppercase tracking-widest opacity-60">
-                    Treino
-                  </span>
-
-                  <span className="mt-1 block text-2xl font-bold">
-                    {day}
-                  </span>
-
-                  {active && (
-                    <span className="absolute inset-x-0 bottom-0 h-0.5 bg-amber-400" />
-                  )}
-                </button>
-              )
-            })}
-          </div>
-        </section>
-
-        {/* ===================================================
-            WORKOUT SUMMARY
-        ==================================================== */}
-        <section className="mb-6">
-          <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.035]">
-            <div className="p-5 sm:p-6">
-              <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="rounded-lg bg-amber-400/10 px-2 py-1 text-xs font-bold text-amber-400">
-                      TREINO {selectedWorkoutDay}
-                    </span>
-
-                    {currentSession?.completed?.length > 0 && (
-                      <span className="rounded-lg bg-emerald-400/10 px-2 py-1 text-xs font-medium text-emerald-300">
-                        Em andamento
-                      </span>
-                    )}
-                  </div>
-
-                  <h2 className="mt-3 font-display text-2xl font-bold">
-                    {workoutTitle}
-                  </h2>
-
-                  <p className="mt-1 text-sm text-white/45">
-                    {totalExercises}{' '}
-                    {totalExercises === 1
-                      ? 'exercício'
-                      : 'exercícios'}{' '}
-                    programados
-                  </p>
-                </div>
-
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={enterWorkoutMode}
-                    disabled={!totalExercises}
-                    className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-amber-400 px-4 py-3 text-sm font-bold text-black transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-40 sm:flex-none"
-                  >
-                    <PlayCircle className="h-4 w-4" />
-                    {completedCount > 0
-                      ? 'Continuar treino'
-                      : 'Iniciar treino'}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={startNewSession}
-                    className="flex items-center justify-center rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white/65 transition hover:border-white/20 hover:text-white"
-                    title="Nova sessão"
-                  >
-                    <RotateCcw className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Progress */}
-              <div className="mt-6">
-                <div className="mb-2 flex items-center justify-between text-xs">
-                  <span className="text-white/40">
-                    Progresso do treino
-                  </span>
-
-                  <span className="font-semibold text-amber-400">
-                    {progressPercentage}%
-                  </span>
-                </div>
-
-                <div className="h-2 overflow-hidden rounded-full bg-white/10">
-                  <div
-                    className="h-full rounded-full bg-amber-400 transition-all duration-500"
-                    style={{
-                      width: `${progressPercentage}%`
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ===================================================
-            EXERCISE LIST
-        ==================================================== */}
-        <section>
-          <div className="mb-4 flex items-end justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-wider text-white/40">
-                Exercícios
-              </p>
-
-              <h2 className="font-display text-xl font-bold">
-                Seu treino de hoje
-              </h2>
-            </div>
-
-            <span className="text-xs text-white/35">
-              {completedCount}/{totalExercises}
-            </span>
-          </div>
-
-          {!totalExercises ? (
-            <div className="rounded-2xl border border-dashed border-white/10 p-8 text-center">
-              <Activity className="mx-auto mb-3 h-8 w-8 text-white/20" />
-
-              <p className="font-medium text-white/60">
-                Nenhum exercício encontrado.
-              </p>
-
-              <p className="mt-1 text-xs text-white/35">
-                Seu treino ainda não foi configurado.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {sortedExercises.map((exercise, index) => {
-                const key = getExerciseKey(
-                  exercise,
-                  index
-                )
-
-                const done =
-                  currentSession?.completed?.includes(
-                    key
-                  )
-
-                const load =
-                  currentSession?.loads?.[key]
-
-                const rpe =
-                  currentSession?.rpe?.[key]
-
-                const videoUrl =
-                  exercise.video_url ||
-                  exercise.videoUrl ||
-                  exercise.youtube ||
-                  exercise.youtube_url ||
-                  exercise.video
-
-                const videoId = youtubeId(videoUrl)
-
-                const name =
-                  exercise.name ||
-                  exercise.nome ||
-                  exercise.exercise ||
-                  exercise.exercicio ||
-                  `Exercício ${index + 1}`
-
-                const sets =
-                  exercise.sets ||
-                  exercise.series ||
-                  exercise.serie ||
-                  '-'
-
-                const reps =
-                  exercise.reps ||
-                  exercise.repetitions ||
-                  exercise.repeticoes ||
-                  '-'
-
-                const obs =
-                  exercise.obs ||
-                  exercise.observation ||
-                  exercise.observacao ||
-                  exercise.notes ||
-                  exercise.notas ||
-                  ''
+            <div className="mt-5 space-y-4">
+              {(sortedExercises || []).map((exercise, index) => {
+                const videoId = youtubeId(exercise.video)
+                const isMenuOpen = activeRestMenu === exercise.id
+                const isDone = completedExercises.includes(exercise.id)
 
                 return (
                   <article
-                    key={key}
-                    className={`overflow-hidden rounded-2xl border transition ${
-                      done
-                        ? 'border-emerald-400/20 bg-emerald-400/[0.04]'
-                        : 'border-white/10 bg-white/[0.03] hover:border-white/15'
+                    key={exercise.id || `${currentDay}-${index}`}
+                    className={`rounded-2xl border p-4 relative transition-all duration-200 ${
+                      isDone
+                        ? 'bg-ink-900/40 border-emerald-500/30 opacity-60'
+                        : exercise.group
+                        ? 'bg-ink-800 border-gold-400/50 shadow-lg shadow-gold-400/5'
+                        : 'bg-ink-800 border-white/10'
                     }`}
                   >
-                    <div className="p-4">
-                      <div className="flex gap-4">
-                        {/* Number */}
-                        <div
-                          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-sm font-bold ${
-                            done
-                              ? 'bg-emerald-400/10 text-emerald-300'
-                              : 'bg-white/5 text-white/45'
-                          }`}
-                        >
-                          {done ? (
-                            <CheckCircle2 className="h-5 w-5" />
-                          ) : (
-                            index + 1
-                          )}
+                    <div className="mb-3.5">
+                      {exercise.group && (
+                        <div className="mb-2 flex items-center gap-1.5 text-gold-400">
+                          <div className="flex items-center gap-1 rounded-md bg-gold-400/15 px-2.5 py-1 text-xs font-bold uppercase tracking-wider border border-gold-400/30">
+                            <Link2 size={14} />
+                            {exercise.group}
+                          </div>
                         </div>
+                      )}
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-400 font-semibold">
+                        Exercício {index + 1}
+                      </p>
+                      <h2 className={`mt-1 font-display text-2xl uppercase leading-tight ${isDone ? 'line-through text-zinc-400' : 'text-white font-extrabold tracking-wide'}`}>
+                        {exercise.name}
+                      </h2>
+                    </div>
 
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                            <div className="min-w-0">
-                              <h3 className="font-semibold leading-tight">
-                                {name}
-                              </h3>
-
-                              <div className="mt-2 flex flex-wrap gap-2">
-                                <span className="rounded-lg bg-white/5 px-2 py-1 text-[11px] text-white/55">
-                                  {sets} séries
-                                </span>
-
-                                <span className="rounded-lg bg-white/5 px-2 py-1 text-[11px] text-white/55">
-                                  {reps} repetições
-                                </span>
-
-                                {load && (
-                                  <span className="rounded-lg bg-amber-400/10 px-2 py-1 text-[11px] text-amber-300">
-                                    {load}
-                                  </span>
-                                )}
-
-                                {rpe && (
-                                  <span className="rounded-lg bg-purple-400/10 px-2 py-1 text-[11px] text-purple-300">
-                                    RPE {rpe}
-                                  </span>
-                                )}
+                    <div className="flex items-stretch gap-3.5 mb-3.5">
+                      <div className="w-32 shrink-0 flex flex-col">
+                        {exercise.video ? (
+                          <button
+                            type="button"
+                            onClick={() => openVideo(exercise)}
+                            className="group relative h-full min-h-[148px] w-full overflow-hidden rounded-xl border-2 border-gold-400/40 bg-ink-700 text-left transition hover:border-gold-400 flex items-center justify-center shadow-md"
+                          >
+                            {videoId ? (
+                              <>
+                                <img
+                                  src={`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`}
+                                  alt={exercise.name}
+                                  className="absolute inset-0 h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                                />
+                                <div className="absolute inset-0 bg-black/40 transition group-hover:bg-black/50" />
+                                <div className="relative z-10 flex h-12 w-12 items-center justify-center rounded-full bg-gold-400 text-ink-950 shadow-lg">
+                                  <Play size={24} fill="currentColor" className="ml-0.5" />
+                                </div>
+                              </>
+                            ) : (
+                              <div className="flex flex-col items-center justify-center p-2 text-gold-300 text-center">
+                                <ExternalLink size={20} className="mb-1" />
+                                <span className="text-[11px] uppercase font-bold">Vídeo</span>
                               </div>
-                            </div>
-
-                            {videoId && (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setSelectedVideo({
-                                    id: videoId,
-                                    name
-                                  })
-                                }
-                                className="flex shrink-0 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-white/65 transition hover:border-amber-400/20 hover:text-amber-400"
-                              >
-                                <Play className="h-3.5 w-3.5" />
-                                Vídeo
-                              </button>
                             )}
+                          </button>
+                        ) : (
+                          <div className="flex h-full min-h-[148px] w-full items-center justify-center rounded-xl border border-white/10 bg-ink-900/50 text-zinc-600">
+                            <Play size={24} className="opacity-20" />
                           </div>
+                        )}
+                      </div>
 
-                          {/* Exercise details */}
-                          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                openFeedbackEditor(
-                                  exercise,
-                                  index
-                                )
-                              }
-                              className="rounded-xl border border-white/10 bg-black/20 p-3 text-left transition hover:border-amber-400/20"
-                            >
-                              <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-white/35">
-                                <Gauge className="h-3 w-3" />
-                                Carga
-                              </span>
-
-                              <span className="mt-1 block truncate text-xs font-semibold text-white/70">
-                                {load ||
-                                  'Adicionar carga'}
-                              </span>
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() =>
-                                openFeedbackEditor(
-                                  exercise,
-                                  index
-                                )
-                              }
-                              className="rounded-xl border border-white/10 bg-black/20 p-3 text-left transition hover:border-purple-400/20"
-                            >
-                              <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-white/35">
-                                <Activity className="h-3 w-3" />
-                                RPE
-                              </span>
-
-                              <span className="mt-1 block text-xs font-semibold text-white/70">
-                                {rpe ||
-                                  'Adicionar RPE'}
-                              </span>
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setSelectedObs({
-                                  title: name,
-                                  text:
-                                    obs ||
-                                    'Nenhuma observação cadastrada para este exercício.'
-                                })
-                              }
-                              className="rounded-xl border border-white/10 bg-black/20 p-3 text-left transition hover:border-white/20"
-                            >
-                              <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-white/35">
-                                <Lightbulb className="h-3 w-3" />
-                                Obs
-                              </span>
-
-                              <span className="mt-1 block text-xs font-semibold text-white/70">
-                                Ver orientação
-                              </span>
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() =>
-                                toggleCompleteExercise(
-                                  exercise,
-                                  index
-                                )
-                              }
-                              className={`rounded-xl border p-3 text-left transition ${
-                                done
-                                  ? 'border-emerald-400/20 bg-emerald-400/10'
-                                  : 'border-white/10 bg-black/20 hover:border-emerald-400/20'
-                              }`}
-                            >
-                              <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-white/35">
-                                <CheckCircle2 className="h-3 w-3" />
-                                Status
-                              </span>
-
-                              <span
-                                className={`mt-1 block text-xs font-semibold ${
-                                  done
-                                    ? 'text-emerald-300'
-                                    : 'text-white/70'
-                                }`}
-                              >
-                                {done
-                                  ? 'Concluído'
-                                  : 'Concluir'}
-                              </span>
-                            </button>
+                      <div className="flex-1 min-w-0 flex flex-col gap-2.5">
+                        <div className="grid grid-cols-2 gap-2.5">
+                          <div className="rounded-xl bg-ink-700 p-2.5 text-center border border-white/5 flex flex-col justify-center">
+                            <p className="text-[10px] uppercase tracking-widest text-zinc-400 font-bold">Séries</p>
+                            <p className="font-display text-xl text-gold-400 font-extrabold mt-0.5">{exercise.sets}</p>
+                          </div>
+                          <div className="rounded-xl bg-ink-700 p-2.5 text-center border border-white/5 flex flex-col justify-center">
+                            <p className="text-[10px] uppercase tracking-widest text-zinc-400 font-bold">Repetições</p>
+                            <p className="font-display text-xl text-gold-400 font-extrabold mt-0.5">{exercise.reps}</p>
                           </div>
                         </div>
+
+                        {exercise.notes ? (
+                          <div 
+                            onClick={() => setSelectedObs({ title: exercise.name, notes: exercise.notes })}
+                            className="flex items-start gap-1.5 rounded-xl bg-gold-400/10 border border-gold-400/25 p-2.5 text-[11px] leading-snug text-zinc-200 flex-1 cursor-pointer transition hover:bg-gold-400/20 hover:border-gold-400/50 active:scale-[0.99]"
+                            title="Toque para ler a observação completa"
+                          >
+                            <Lightbulb size={14} className="text-gold-400 shrink-0 mt-0.5" />
+                            <span className="line-clamp-3">{exercise.notes}</span>
+                          </div>
+                        ) : (
+                          <div className="flex-1 rounded-xl border border-dashed border-white/5 bg-ink-900/20 p-2 flex items-center justify-center text-[10px] text-zinc-600 uppercase tracking-wider">
+                            Sem observações
+                          </div>
+                        )}
                       </div>
+                    </div>
+
+                    <div className="relative pt-2 border-t border-white/10">
+                      {!isMenuOpen ? (
+                        <div className="grid grid-cols-2 gap-2.5">
+                          <button
+                            type="button"
+                            onClick={() => setActiveRestMenu(exercise.id)}
+                            className="flex items-center justify-center gap-1.5 rounded-xl border border-gold-400/30 bg-ink-700 py-3 text-xs font-bold uppercase tracking-wider text-gold-300 hover:border-gold-400/60 transition shadow-sm"
+                          >
+                            <Timer size={16} />
+                            Descanso
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => toggleCompleteExercise(exercise.id)}
+                            className={`flex items-center justify-center gap-1.5 rounded-xl px-3 py-3 text-xs font-bold uppercase tracking-wider transition shadow-sm ${
+                              isDone
+                                ? 'bg-emerald-500 text-ink-950 shadow-md shadow-emerald-500/20 font-extrabold'
+                                : 'border border-white/15 bg-ink-700 text-zinc-200 hover:border-gold-400/50 hover:text-gold-300'
+                            }`}
+                          >
+                            <CheckCircle2 size={16} />
+                            {isDone ? 'Concluído' : 'Marcar'}
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="rounded-xl border border-gold-400/40 bg-ink-900 p-3 shadow-xl">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs font-bold uppercase tracking-wider text-gold-400">
+                              Selecione o tempo de descanso:
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setActiveRestMenu(false)}
+                              className="text-zinc-400 hover:text-white"
+                            >
+                              <X size={16} />
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-4 gap-1.5">
+                            {[30, 45, 60, 90].map((sec) => (
+                              <button
+                                key={sec}
+                                type="button"
+                                onClick={() => startTimer(sec)}
+                                className="rounded-lg border border-gold-400/30 bg-ink-800 py-2.5 text-xs font-bold text-gold-300 hover:bg-gold-400 hover:text-ink-950 transition"
+                              >
+                                {sec}s
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </article>
                 )
               })}
             </div>
-          )}
-        </section>
+          </div>
+        ) : showFinishedScreen ? (
+          <div className="py-8 text-center space-y-6 animate-fade-in">
+            <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-gold-400 to-gold-600 text-ink-950 shadow-2xl shadow-gold-400/30">
+              <Trophy size={48} />
+            </div>
 
-        {/* ===================================================
-            HISTORY BUTTON / WHATSAPP
-        ==================================================== */}
-        <section className="mt-6 grid gap-3 sm:grid-cols-2">
-          <button
-            type="button"
-            onClick={() => setShowHistory(true)}
-            className="flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4 text-sm font-semibold text-white/70 transition hover:border-amber-400/20 hover:text-amber-400"
-          >
-            <Trophy className="h-4 w-4" />
-            Ver histórico do Treino {selectedWorkoutDay}
-          </button>
+            <div>
+              <p className="text-xs uppercase font-bold tracking-widest text-gold-400">Missão Cumprida</p>
+              <h2 className="font-display text-3xl uppercase tracking-wide mt-1">Treino Concluído!</h2>
+              <p className="text-sm text-zinc-300 mt-2">Você completou {completedCount} de {totalExercises} exercícios com sucesso.</p>
+            </div>
 
-          <button
-            type="button"
-            onClick={sendWhatsAppFeedback}
-            className="flex items-center justify-center gap-2 rounded-2xl bg-emerald-500/10 px-4 py-4 text-sm font-semibold text-emerald-300 transition hover:bg-emerald-500/15"
-          >
-            <MessageCircle className="h-4 w-4" />
-            Enviar feedback ao professor
-          </button>
-        </section>
+            <div className="rounded-2xl border border-white/10 bg-ink-900 p-5 max-w-xs mx-auto space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-zinc-400 uppercase tracking-wider">Tempo Total:</span>
+                <span className="font-display text-xl text-gold-400 font-bold">{formatSessionTime(sessionSeconds)}</span>
+              </div>
+              <div className="flex items-center justify-between border-t border-white/5 pt-3">
+                <span className="text-xs text-zinc-400 uppercase tracking-wider">Aproveitamento:</span>
+                <span className="font-display text-xl text-emerald-400 font-bold">{progressPercent}%</span>
+              </div>
+            </div>
+
+            <div className="space-y-3 pt-2">
+              <button
+                type="button"
+                onClick={sendWhatsAppFeedback}
+                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 py-4 text-xs font-bold uppercase tracking-wider text-ink-950 transition hover:bg-emerald-500 shadow-xl"
+              >
+                <MessageCircle size={18} fill="currentColor" />
+                Enviar Feedback e Cargas ao Professor
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setInWorkoutMode(false)
+                  setShowFinishedScreen(false)
+                }}
+                className="w-full rounded-2xl border border-white/20 bg-ink-800 py-3.5 text-xs font-bold uppercase tracking-wider text-zinc-300 transition hover:bg-ink-700"
+              >
+                Voltar aos Treinos
+              </button>
+            </div>
+          </div>
+        ) : (
+          /* MODO TREINO IMERSIVO COM OS BOTÕES FLUTUANTES EMPILHADOS NO CANTO */
+          <div className="space-y-4 animate-fade-in">
+            <div className="flex items-center justify-between rounded-2xl bg-ink-900 border border-gold-400/40 p-3.5">
+              <div className="flex items-center gap-2">
+                <Timer size={18} className="text-gold-400 animate-pulse" />
+                <span className="text-xs font-bold uppercase tracking-wider text-zinc-300">Tempo:</span>
+                <span className="font-display text-lg text-gold-400 font-bold">{formatSessionTime(sessionSeconds)}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSessionPaused(!sessionPaused)}
+                  className="rounded-lg border border-white/10 bg-ink-800 px-2.5 py-1.5 text-[11px] font-bold text-zinc-300 hover:text-white"
+                >
+                  {sessionPaused ? 'Continuar' : 'Pausar'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setInWorkoutMode(false)
+                    stopTimer()
+                  }}
+                  className="rounded-lg border border-red-500/30 bg-red-500/20 px-2.5 py-1.5 text-[11px] font-bold text-red-300"
+                >
+                  Sair
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between text-xs font-bold text-zinc-400 px-1">
+              <span>Exercício {workoutActiveIndex + 1} de {totalExercises}</span>
+              <span className="text-gold-400">{Math.round(((workoutActiveIndex + 1) / totalExercises) * 100)}%</span>
+            </div>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-ink-800 border border-white/5">
+              <div
+                className="h-full bg-gold-400 transition-all duration-300"
+                style={{ width: `${((workoutActiveIndex + 1) / totalExercises) * 100}%` }}
+              />
+            </div>
+
+            {(() => {
+              const exercise = sortedExercises[workoutActiveIndex]
+              if (!exercise) return null
+              const videoId = youtubeId(exercise.video)
+              const isDone = completedExercises.includes(exercise.id)
+
+              return (
+                <div className="rounded-2xl border border-gold-400/50 bg-ink-900 p-5 shadow-2xl space-y-4">
+                  <div>
+                    {exercise.group && (
+                      <div className="mb-2 inline-flex items-center gap-1 rounded-md bg-gold-400/15 px-2.5 py-1 text-xs font-bold uppercase tracking-wider text-gold-400 border border-gold-400/30">
+                        <Link2 size={13} />
+                        {exercise.group}
+                      </div>
+                    )}
+                    <h2 className="font-display text-2xl uppercase tracking-wide text-white">
+                      {exercise.name}
+                    </h2>
+                  </div>
+
+                  {exercise.video && (
+                    <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-gold-400/30 bg-black">
+                      {videoId ? (
+                        <button
+                          type="button"
+                          onClick={() => openVideo(exercise)}
+                          className="group relative h-full w-full flex items-center justify-center"
+                        >
+                          <img
+                            src={`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`}
+                            alt={exercise.name}
+                            className="absolute inset-0 h-full w-full object-cover opacity-80 group-hover:scale-105 transition"
+                          />
+                          <div className="absolute inset-0 bg-black/40" />
+                          <div className="relative z-10 flex h-14 w-14 items-center justify-center rounded-full bg-gold-400 text-ink-950 shadow-xl">
+                            <Play size={28} fill="currentColor" className="ml-1" />
+                          </div>
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => openVideo(exercise)}
+                          className="h-full w-full flex items-center justify-center text-gold-400 text-xs uppercase font-bold"
+                        >
+                          <ExternalLink size={20} className="mr-2" /> Assistir Vídeo
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-xl bg-ink-800 p-3 text-center border border-white/5">
+                      <p className="text-[10px] uppercase tracking-wider text-zinc-400 font-bold">Séries</p>
+                      <p className="font-display text-2xl text-gold-400 font-extrabold mt-0.5">{exercise.sets}</p>
+                    </div>
+                    <div className="rounded-xl bg-ink-800 p-3 text-center border border-white/5">
+                      <p className="text-[10px] uppercase tracking-wider text-zinc-400 font-bold">Repetições</p>
+                      <p className="font-display text-2xl text-gold-400 font-extrabold mt-0.5">{exercise.reps}</p>
+                    </div>
+                  </div>
+
+                  {exercise.notes && (
+                    <div className="rounded-xl bg-gold-400/10 border border-gold-400/25 p-3 text-xs leading-relaxed text-zinc-200">
+                      <div className="flex items-center gap-1.5 text-gold-400 font-bold uppercase text-[10px] tracking-wider mb-1">
+                        <Lightbulb size={14} /> Foco / Execução
+                      </div>
+                      <p>{exercise.notes}</p>
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => toggleCompleteExercise(exercise.id)}
+                    className={`flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-xs font-extrabold uppercase tracking-wider transition ${
+                      isDone
+                        ? 'bg-emerald-500 text-ink-950 shadow-lg shadow-emerald-500/20'
+                        : 'border border-gold-400/40 bg-ink-800 text-gold-300 hover:bg-gold-400 hover:text-ink-950'
+                    }`}
+                  >
+                    <CheckCircle2 size={18} />
+                    {isDone ? 'Exercício Concluído ✓' : 'Marcar como Concluído'}
+                  </button>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-white/10">
+                    <button
+                      type="button"
+                      disabled={workoutActiveIndex === 0}
+                      onClick={() => {
+                        setWorkoutActiveIndex((prev) => Math.max(0, prev - 1))
+                        setActiveRestMenu(false)
+                      }}
+                      className="flex items-center gap-1 rounded-xl border border-white/10 bg-ink-800 px-4 py-2.5 text-xs font-bold text-zinc-300 disabled:opacity-30 hover:border-gold-400/40 transition"
+                    >
+                      <ChevronLeft size={16} /> Anterior
+                    </button>
+
+                    {workoutActiveIndex < totalExercises - 1 ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setWorkoutActiveIndex((prev) => Math.min(totalExercises - 1, prev + 1))
+                          setActiveRestMenu(false)
+                        }}
+                        className="flex items-center gap-1 rounded-xl bg-gold-400 px-5 py-2.5 text-xs font-bold uppercase text-ink-950 hover:bg-gold-300 transition shadow-md"
+                      >
+                        Próximo Exercício <ChevronRight size={16} />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setShowFinishedScreen(true)}
+                        className="flex items-center gap-1 rounded-xl bg-emerald-500 px-5 py-2.5 text-xs font-extrabold uppercase text-ink-950 hover:bg-emerald-400 transition shadow-md animate-pulse"
+                      >
+                        Finalizar Treino <Trophy size={16} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )
+            })()}
+          </div>
+        )}
       </main>
 
-      {/* =====================================================
-          FLOATING WHATSAPP
-      ====================================================== */}
-      <a
-        href={`https://wa.me/${WHATSAPP_NUMBER}`}
-        target="_blank"
-        rel="noreferrer"
-        className="fixed bottom-5 right-5 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500 text-white shadow-2xl shadow-emerald-950/40 transition hover:scale-105 sm:bottom-6 sm:right-6"
-        title="Falar com Danilo"
-      >
-        <MessageCircle className="h-6 w-6" />
-      </a>
-
-      {/* =====================================================
-          REST TIMER
-      ====================================================== */}
-      {timerSeconds > 0 && (
-        <div className="fixed bottom-5 left-5 z-40 w-64 overflow-hidden rounded-2xl border border-white/10 bg-ink-900/95 p-4 shadow-2xl backdrop-blur-xl sm:bottom-6 sm:left-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Timer className="h-4 w-4 text-amber-400" />
-              <span className="text-xs font-semibold uppercase tracking-wider text-white/50">
-                Descanso
-              </span>
+      {/* BLOCOS FLUTUANTES EMPILHADOS NO CANTO INFERIOR DIREITO (DESCANSO EXPANSÍVEL + WHATSAPP) */}
+      <div className="fixed bottom-6 right-4 z-45 flex flex-col items-end gap-3">
+        {/* 1. Botão Flutuante de Descanso (Expansível / Recolhível) */}
+        <div className="flex flex-col items-end gap-2">
+          {activeRestMenu && !timerActive && (
+            <div className="flex items-center gap-1.5 rounded-2xl border border-gold-400/50 bg-ink-900/95 p-2 shadow-2xl backdrop-blur animate-fade-in">
+              {[30, 45, 60, 90].map((sec) => (
+                <button
+                  key={sec}
+                  onClick={() => startTimer(sec)}
+                  className="rounded-xl border border-gold-400/30 bg-ink-800 px-3 py-2 text-xs font-bold text-gold-300 hover:bg-gold-400 hover:text-ink-950 transition"
+                >
+                  {sec}s
+                </button>
+              ))}
+              <button
+                onClick={() => setActiveRestMenu(false)}
+                className="rounded-xl bg-white/10 p-2 text-zinc-300 hover:text-white transition"
+              >
+                <X size={14} />
+              </button>
             </div>
+          )}
 
-            <button
-              type="button"
-              onClick={stopRest}
-              className="text-white/35 transition hover:text-white"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-
-          <div className="mt-3 text-center font-display text-3xl font-bold text-amber-400">
-            {formatSessionTime(timerSeconds)}
-          </div>
-
-          <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
-            <div
-              className="h-full rounded-full bg-amber-400 transition-all duration-1000"
-              style={{
-                width: `${Math.min(
-                  100,
-                  Math.max(
-                    0,
-                    (timerSeconds / initialTime) * 100
-                  )
-                )}%`
-              }}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* =====================================================
-          REST MENU
-      ====================================================== */}
-      {inWorkoutMode && (
-        <div className="fixed bottom-5 left-1/2 z-40 -translate-x-1/2">
-          <div className="relative">
-            {activeRestMenu && (
-              <div className="absolute bottom-14 left-1/2 w-44 -translate-x-1/2 overflow-hidden rounded-2xl border border-white/10 bg-ink-900 p-2 shadow-2xl">
-                {[30, 45, 60, 90].map(seconds => (
-                  <button
-                    key={seconds}
-                    type="button"
-                    onClick={() => startRest(seconds)}
-                    className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm text-white/65 transition hover:bg-white/5 hover:text-white"
-                  >
-                    <span>{seconds}s</span>
-                    <Timer className="h-3.5 w-3.5" />
-                  </button>
-                ))}
-              </div>
-            )}
-
-            <button
-              type="button"
-              onClick={() =>
-                setActiveRestMenu(prev => !prev)
+          <button
+            onClick={() => {
+              if (timerActive) {
+                stopTimer()
+              } else {
+                setActiveRestMenu(!activeRestMenu)
               }
-              className="flex h-12 items-center gap-2 rounded-2xl border border-white/10 bg-ink-900 px-4 text-sm font-semibold shadow-2xl"
-            >
-              <Timer className="h-4 w-4 text-amber-400" />
-              Descanso
-            </button>
-          </div>
+            }}
+            className={`group flex items-center gap-2.5 rounded-full p-3.5 shadow-xl transition-all duration-300 border ${
+              timerActive
+                ? 'bg-gold-400 text-ink-950 border-gold-300 animate-pulse font-extrabold'
+                : 'bg-ink-900 text-gold-400 border-gold-400/40 hover:border-gold-400 hover:bg-ink-800'
+            }`}
+            aria-label="Cronómetro de descanso"
+            title={timerActive ? 'Parar descanso' : 'Iniciar descanso'}
+          >
+            <Timer size={22} className="shrink-0" />
+            <span className="font-display text-xs font-bold uppercase tracking-wider">
+              {timerActive ? `${timerSeconds}s (Parar)` : 'Descanso'}
+            </span>
+          </button>
         </div>
-      )}
 
-      {/* =====================================================
-          IMMERSIVE WORKOUT MODE
-      ====================================================== */}
-      {inWorkoutMode && activeExercise && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-ink-950">
-          {/* Header */}
-          <div className="flex items-center justify-between border-b border-white/10 px-4 py-4">
-            <button
-              type="button"
-              onClick={exitWorkoutMode}
-              className="flex items-center gap-2 text-sm text-white/55 transition hover:text-white"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Sair
-            </button>
+        {/* 2. Botão Flutuante de Mensagem / Dúvida (Verde) */}
+        <button
+          onClick={sendRealtimeDoubt}
+          className="group flex items-center gap-2.5 rounded-full bg-emerald-500 text-ink-950 p-3.5 shadow-xl shadow-emerald-500/30 border border-emerald-400 transition-all duration-300 hover:scale-105 hover:bg-emerald-400"
+          aria-label="Deixe sua dúvida ou mudanças no WhatsApp"
+          title="Deixe sua dúvida ou mudanças"
+        >
+          <MessageCircle size={22} fill="currentColor" className="text-ink-950 animate-pulse shrink-0" />
+          <span className="max-w-0 overflow-hidden whitespace-nowrap font-display text-xs font-bold uppercase tracking-wider transition-all duration-300 group-hover:max-w-xs group-hover:pr-1">
+            Deixe sua dúvida
+          </span>
+        </button>
+      </div>
 
-            <div className="text-center">
-              <p className="text-[10px] uppercase tracking-[0.2em] text-white/35">
-                Treino {selectedWorkoutDay}
-              </p>
-
-              <p className="font-display text-sm font-bold">
-                {workoutActiveIndex + 1}/{totalExercises}
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={togglePauseSession}
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5"
-              title={
-                sessionPaused
-                  ? 'Continuar'
-                  : 'Pausar'
-              }
-            >
-              {sessionPaused ? (
-                <Play className="h-4 w-4" />
-              ) : (
-                <Pause className="h-4 w-4" />
-              )}
-            </button>
-          </div>
-
-          {/* Progress */}
-          <div className="h-1 bg-white/5">
-            <div
-              className="h-full bg-amber-400 transition-all"
-              style={{
-                width: `${
-                  ((workoutActiveIndex + 1) /
-                    totalExercises) *
-                  100
-                }%`
-              }}
-            />
-          </div>
-
-          {/* Main */}
-          <div className="flex flex-1 flex-col overflow-y-auto px-4 py-6 sm:px-8">
-            <div className="mx-auto w-full max-w-3xl">
-              <div className="mb-6 text-center">
-                <p className="text-xs uppercase tracking-[0.2em] text-amber-400">
-                  Exercício {workoutActiveIndex + 1}
-                </p>
-
-                <h2 className="mt-2 font-display text-3xl font-bold sm:text-4xl">
-                  {activeExercise.name ||
-                    activeExercise.nome ||
-                    activeExercise.exercise ||
-                    activeExercise.exercicio ||
-                    `Exercício ${
-                      workoutActiveIndex + 1
-                    }`}
-                </h2>
-
-                <div className="mt-4 flex justify-center gap-2">
-                  <span className="rounded-xl bg-white/5 px-3 py-2 text-sm text-white/60">
-                    {activeExercise.sets ||
-                      activeExercise.series ||
-                      '-'}{' '}
-                    séries
-                  </span>
-
-                  <span className="rounded-xl bg-white/5 px-3 py-2 text-sm text-white/60">
-                    {activeExercise.reps ||
-                      activeExercise.repetitions ||
-                      activeExercise.repeticoes ||
-                      '-'}{' '}
-                    repetições
-                  </span>
-                </div>
-              </div>
-
-              {/* Video */}
-              {youtubeId(
-                activeExercise.video_url ||
-                  activeExercise.videoUrl ||
-                  activeExercise.youtube ||
-                  activeExercise.youtube_url ||
-                  activeExercise.video
-              ) && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    setSelectedVideo({
-                      id: youtubeId(
-                        activeExercise.video_url ||
-                          activeExercise.videoUrl ||
-                          activeExercise.youtube ||
-                          activeExercise.youtube_url ||
-                          activeExercise.video
-                      ),
-                      name:
-                        activeExercise.name ||
-                        activeExercise.nome ||
-                        activeExercise.exercise ||
-                        activeExercise.exercicio ||
-                        'Exercício'
-                    })
-                  }
-                  className="group relative mb-5 aspect-video w-full overflow-hidden rounded-3xl border border-white/10 bg-black"
-                >
-                  <img
-                    src={`https://img.youtube.com/vi/${youtubeId(
-                      activeExercise.video_url ||
-                        activeExercise.videoUrl ||
-                        activeExercise.youtube ||
-                        activeExercise.youtube_url ||
-                        activeExercise.video
-                    )}/hqdefault.jpg`}
-                    alt=""
-                    className="h-full w-full object-cover opacity-60 transition group-hover:opacity-75"
-                  />
-
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-amber-400 text-black shadow-2xl transition group-hover:scale-110">
-                      <Play className="ml-1 h-7 w-7 fill-current" />
-                    </div>
-                  </div>
-                </button>
-              )}
-
-              {/* Load / RPE */}
-              <div className="grid gap-3 sm:grid-cols-2">
-                <button
-                  type="button"
-                  onClick={() =>
-                    openFeedbackEditor(
-                      activeExercise,
-                      workoutActiveIndex
-                    )
-                  }
-                  className="rounded-2xl border border-white/10 bg-white/[0.035] p-4 text-left transition hover:border-amber-400/20"
-                >
-                  <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-white/40">
-                    <Gauge className="h-4 w-4" />
-                    Carga
-                  </div>
-
-                  <p className="mt-2 text-lg font-bold text-amber-400">
-                    {activeLoad ||
-                      'Adicionar carga'}
-                  </p>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    openFeedbackEditor(
-                      activeExercise,
-                      workoutActiveIndex
-                    )
-                  }
-                  className="rounded-2xl border border-white/10 bg-white/[0.035] p-4 text-left transition hover:border-purple-400/20"
-                >
-                  <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-white/40">
-                    <Activity className="h-4 w-4" />
-                    RPE
-                  </div>
-
-                  <p className="mt-2 text-lg font-bold text-purple-300">
-                    {activeRpe
-                      ? `RPE ${activeRpe}`
-                      : 'Adicionar RPE'}
-                  </p>
-                </button>
-              </div>
-
-              {/* Observation */}
-              <button
-                type="button"
-                onClick={() =>
-                  setSelectedObs({
-                    title:
-                      activeExercise.name ||
-                      activeExercise.nome ||
-                      activeExercise.exercise ||
-                      activeExercise.exercicio ||
-                      'Orientação',
-                    text:
-                      activeExercise.obs ||
-                      activeExercise.observation ||
-                      activeExercise.observacao ||
-                      activeExercise.notes ||
-                      activeExercise.notas ||
-                      'Nenhuma observação cadastrada para este exercício.'
-                  })
-                }
-                className="mt-3 flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.025] p-4 text-left"
-              >
-                <Lightbulb className="h-5 w-5 shrink-0 text-amber-400" />
-
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-white/40">
-                    Observação
-                  </p>
-
-                  <p className="mt-1 truncate text-sm text-white/65">
-                    Ver orientação do exercício
-                  </p>
-                </div>
-
-                <ChevronRight className="h-4 w-4 text-white/25" />
-              </button>
-
-              {/* Complete */}
-              <button
-                type="button"
-                onClick={() =>
-                  toggleCompleteExercise(
-                    activeExercise,
-                    workoutActiveIndex
-                  )
-                }
-                className={`mt-5 flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-4 text-sm font-bold transition ${
-                  activeIsDone
-                    ? 'bg-emerald-400 text-black'
-                    : 'bg-amber-400 text-black hover:bg-amber-300'
-                }`}
-              >
-                <CheckCircle2 className="h-5 w-5" />
-
-                {activeIsDone
-                  ? 'Exercício concluído'
-                  : 'Concluir exercício'}
-              </button>
-            </div>
-          </div>
-
-          {/* Mini navigation */}
-          <div className="border-t border-white/10 bg-ink-950/95 px-4 py-3">
-            <div className="mx-auto flex max-w-3xl items-center gap-2">
-              <button
-                type="button"
-                onClick={goToPreviousExercise}
-                disabled={workoutActiveIndex === 0}
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 disabled:opacity-20"
-              >
-                <ChevronLeft className="h-5 w-5" />
-              </button>
-
-              <div className="flex flex-1 gap-1.5 overflow-x-auto">
-                {sortedExercises.map(
-                  (exercise, index) => {
-                    const done =
-                      isExerciseCompleted(
-                        exercise,
-                        index
-                      )
-
-                    return (
-                      <button
-                        key={getExerciseKey(
-                          exercise,
-                          index
-                        )}
-                        type="button"
-                        onClick={() =>
-                          selectExercise(index)
-                        }
-                        className={`h-2 min-w-8 flex-1 rounded-full transition ${
-                          index ===
-                          workoutActiveIndex
-                            ? 'bg-amber-400'
-                            : done
-                            ? 'bg-emerald-400/70'
-                            : 'bg-white/10'
-                        }`}
-                        title={`Exercício ${
-                          index + 1
-                        }`}
-                      />
-                    )
-                  }
-                )}
-              </div>
-
-              {workoutActiveIndex <
-              totalExercises - 1 ? (
-                <button
-                  type="button"
-                  onClick={goToNextExercise}
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10"
-                >
-                  <ChevronRight className="h-5 w-5" />
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  disabled={!canFinishWorkout()}
-                  onClick={finishWorkout}
-                  className={`flex h-11 shrink-0 items-center justify-center rounded-xl px-4 text-xs font-bold transition ${
-                    canFinishWorkout()
-                      ? 'bg-amber-400 text-black hover:bg-amber-300'
-                      : 'border border-white/10 bg-white/5 text-white/25'
-                  }`}
-                >
-                  {canFinishWorkout()
-                    ? 'Finalizar'
-                    : 'Conclua todos'}
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* =====================================================
-          FINISHED SCREEN
-      ====================================================== */}
-      {showFinishedScreen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink-950 px-5">
-          <div className="w-full max-w-md text-center">
-            <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-amber-400/10">
-              <Trophy className="h-12 w-12 text-amber-400" />
-            </div>
-
-            <p className="mt-6 text-xs font-semibold uppercase tracking-[0.2em] text-amber-400">
-              Treino concluído
-            </p>
-
-            <h2 className="mt-2 font-display text-3xl font-bold">
-              Mandou bem, {firstName}!
-            </h2>
-
-            <p className="mt-3 text-sm leading-relaxed text-white/50">
-              Você concluiu todos os exercícios do Treino{' '}
-              {selectedWorkoutDay}. Esse treino foi salvo no
-              seu histórico.
-            </p>
-
-            <div className="mt-6 grid grid-cols-2 gap-3">
-              <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-4">
-                <p className="text-[10px] uppercase tracking-wider text-white/35">
-                  Exercícios
-                </p>
-
-                <p className="mt-1 text-2xl font-bold text-amber-400">
-                  {totalExercises}
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-4">
-                <p className="text-[10px] uppercase tracking-wider text-white/35">
-                  Tempo
-                </p>
-
-                <p className="mt-1 text-2xl font-bold">
-                  {formatSessionTime(
-                    sessionSeconds
-                  )}
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-6 grid gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowFinishedScreen(false)
-                  setShowHistory(true)
-                }}
-                className="flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-5 py-4 text-sm font-semibold"
-              >
-                <Trophy className="h-4 w-4 text-amber-400" />
-                Ver histórico
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setShowFinishedScreen(false)
-                  setInWorkoutMode(false)
-                  setSelectedWorkoutDay(null)
-                }}
-                className="w-full rounded-2xl bg-amber-400 px-5 py-4 text-sm font-bold text-black transition hover:bg-amber-300"
-              >
-                Voltar aos treinos
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* =====================================================
-          HISTORY MODAL
-      ====================================================== */}
-      {showHistory && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-5">
-          <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-3xl border border-white/10 bg-ink-950 shadow-2xl sm:rounded-3xl">
-            <div className="flex items-center justify-between border-b border-white/10 p-5">
-              <div>
-                <p className="text-xs uppercase tracking-wider text-amber-400">
-                  Histórico
-                </p>
-
-                <h2 className="font-display text-xl font-bold">
-                  Treino {selectedWorkoutDay}
-                </h2>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setShowHistory(false)}
-                className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 text-white/50"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="overflow-y-auto p-5">
-              {!history.length ? (
-                <div className="py-12 text-center">
-                  <Trophy className="mx-auto h-10 w-10 text-white/15" />
-
-                  <p className="mt-4 font-semibold text-white/60">
-                    Nenhum treino finalizado ainda.
-                  </p>
-
-                  <p className="mt-1 text-xs text-white/35">
-                    Quando você concluir o treino, ele
-                    aparecerá aqui.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {history.map(entry => (
-                    <div
-                      key={entry.id}
-                      className="rounded-2xl border border-white/10 bg-white/[0.03] p-4"
-                    >
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <p className="font-semibold">
-                            {entry.workoutTitle ||
-                              `Treino ${entry.day}`}
-                          </p>
-
-                          <p className="mt-1 text-xs text-white/40">
-                            {formatDate(entry.date)}
-                          </p>
-                        </div>
-
-                        <span className="rounded-lg bg-emerald-400/10 px-2 py-1 text-xs font-semibold text-emerald-300">
-                          Concluído
-                        </span>
-                      </div>
-
-                      <div className="mt-4 grid grid-cols-3 gap-2">
-                        <div className="rounded-xl bg-black/20 p-3">
-                          <span className="block text-[10px] uppercase tracking-wider text-white/30">
-                            Exercícios
-                          </span>
-
-                          <span className="mt-1 block font-bold">
-                            {entry.completedCount}/
-                            {entry.totalExercises}
-                          </span>
-                        </div>
-
-                        <div className="rounded-xl bg-black/20 p-3">
-                          <span className="block text-[10px] uppercase tracking-wider text-white/30">
-                            Tempo
-                          </span>
-
-                          <span className="mt-1 block font-bold">
-                            {formatSessionTime(
-                              entry.duration
-                            )}
-                          </span>
-                        </div>
-
-                        <div className="rounded-xl bg-black/20 p-3">
-                          <span className="block text-[10px] uppercase tracking-wider text-white/30">
-                            Cargas
-                          </span>
-
-                          <span className="mt-1 block font-bold">
-                            {
-                              Object.keys(
-                                entry.loads || {}
-                              ).filter(
-                                key =>
-                                  entry.loads[key]
-                              ).length
-                            }
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* =====================================================
-          CARGA / RPE MODAL
-      ====================================================== */}
-      {editingFeedback && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-5">
-          <div className="w-full max-w-md rounded-t-3xl border border-white/10 bg-ink-950 p-5 shadow-2xl sm:rounded-3xl">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs uppercase tracking-wider text-amber-400">
-                  Registro do exercício
-                </p>
-
-                <h2 className="mt-1 font-display text-xl font-bold">
-                  {editingFeedback.exercise?.name ||
-                    editingFeedback.exercise?.nome ||
-                    editingFeedback.exercise?.exercise ||
-                    editingFeedback.exercise?.exercicio ||
-                    'Exercício'}
-                </h2>
-              </div>
-
-              <button
-                type="button"
-                onClick={() =>
-                  setEditingFeedback(null)
-                }
-                className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/5 text-white/50"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="mt-6">
-              <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-white/40">
-                Carga utilizada
-              </label>
-
-              <input
-                type="text"
-                value={tempLoad}
-                onChange={event =>
-                  setTempLoad(event.target.value)
-                }
-                placeholder="Ex.: 60 kg"
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-amber-400/40"
-              />
-            </div>
-
-            <div className="mt-5">
-              <label className="mb-3 block text-xs font-semibold uppercase tracking-wider text-white/40">
-                RPE
-              </label>
-
-              <div className="grid grid-cols-5 gap-2">
-                {[6, 7, 8, 9, 10].map(value => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() =>
-                      setTempRpe(String(value))
-                    }
-                    className={`rounded-xl py-3 text-sm font-bold transition ${
-                      String(tempRpe) ===
-                      String(value)
-                        ? 'bg-amber-400 text-black'
-                        : 'border border-white/10 bg-white/5 text-white/55 hover:border-white/20'
-                    }`}
-                  >
-                    {value}
-                  </button>
-                ))}
-              </div>
-
-              <p className="mt-2 text-xs text-white/30">
-                6 = relativamente confortável • 10 =
-                esforço máximo
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={saveFeedbackEditor}
-              className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-amber-400 px-5 py-4 text-sm font-bold text-black transition hover:bg-amber-300"
-            >
-              <Save className="h-4 w-4" />
-              Salvar registro
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* =====================================================
-          EVALUATION MODAL
-      ====================================================== */}
       {isEvaluationOpen && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-5">
-          <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-3xl border border-white/10 bg-ink-950 shadow-2xl sm:rounded-3xl">
-            <div className="flex items-center justify-between border-b border-white/10 p-5">
-              <div>
-                <p className="text-xs uppercase tracking-wider text-amber-400">
-                  Acompanhamento
-                </p>
-
-                <h2 className="font-display text-xl font-bold">
-                  Avaliação física
-                </h2>
-              </div>
-
-              <button
-                type="button"
-                onClick={() =>
-                  setIsEvaluationOpen(false)
-                }
-                className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 text-white/50"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="overflow-y-auto p-5">
-              {!latestEvaluation ? (
-                <div className="py-12 text-center">
-                  <Activity className="mx-auto h-10 w-10 text-white/15" />
-
-                  <p className="mt-4 font-semibold text-white/60">
-                    Nenhuma avaliação encontrada.
-                  </p>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setIsEvaluationOpen(false)
+            }
+          }}
+        >
+          <div className="w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-3xl border border-gold-400/40 bg-ink-900 p-6 shadow-2xl animate-fade-in text-white">
+            <div className="flex items-center justify-between border-b border-white/10 pb-4 mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gold-400/20 text-gold-400 border border-gold-400/30">
+                  <Activity size={22} />
                 </div>
-              ) : (
-                <>
-                  <div className="rounded-2xl border border-amber-400/15 bg-amber-400/[0.05] p-4">
-                    <div className="flex items-center gap-3">
-                      <Scale className="h-5 w-5 text-amber-400" />
-
-                      <div>
-                        <p className="text-xs text-white/40">
-                          Avaliação realizada em
-                        </p>
-
-                        <p className="font-semibold">
-                          {formatDate(
-                            latestEvaluation.date ||
-                              latestEvaluation.evaluation_date ||
-                              latestEvaluation.created_at
-                          )}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                    {[
-                      [
-                        'Peso',
-                        latestEvaluation.weight,
-                        'kg'
-                      ],
-                      [
-                        'Altura',
-                        latestEvaluation.height,
-                        'cm'
-                      ],
-                      [
-                        '% Gordura',
-                        latestEvaluation.fatPercentage ??
-                          latestEvaluation.fat_percentage,
-                        '%'
-                      ],
-                      [
-                        'Massa magra',
-                        latestEvaluation.leanMass ??
-                          latestEvaluation.lean_mass,
-                        'kg'
-                      ],
-                      [
-                        'TMB',
-                        latestEvaluation.tmb,
-                        'kcal'
-                      ],
-                      [
-                        'GET',
-                        latestEvaluation.get,
-                        'kcal'
-                      ]
-                    ].map(([label, value, unit]) => (
-                      <div
-                        key={label}
-                        className="rounded-2xl border border-white/10 bg-white/[0.03] p-4"
-                      >
-                        <p className="text-[10px] uppercase tracking-wider text-white/35">
-                          {label}
-                        </p>
-
-                        <p className="mt-1 text-lg font-bold">
-                          {value ??
-                            '--'}{' '}
-                          {value !== undefined &&
-                          value !== null &&
-                          value !== ''
-                            ? unit
-                            : ''}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="mt-6">
-                    <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-white/40">
-                      Circunferências
-                    </p>
-
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                      {[
-                        [
-                          'Peitoral',
-                          latestEvaluation.chest
-                        ],
-                        [
-                          'Braço',
-                          latestEvaluation.arm
-                        ],
-                        [
-                          'Cintura',
-                          latestEvaluation.waist
-                        ],
-                        [
-                          'Quadril',
-                          latestEvaluation.hips ??
-                            latestEvaluation.hip
-                        ],
-                        [
-                          'Coxa',
-                          latestEvaluation.thigh
-                        ],
-                        [
-                          'Panturrilha',
-                          latestEvaluation.calf
-                        ]
-                      ].map(([label, value]) => (
-                        <div
-                          key={label}
-                          className="rounded-xl bg-white/[0.03] p-3"
-                        >
-                          <p className="text-[10px] uppercase tracking-wider text-white/30">
-                            {label}
-                          </p>
-
-                          <p className="mt-1 font-semibold">
-                            {value ??
-                              '--'}{' '}
-                            {value !== undefined &&
-                            value !== null &&
-                            value !== ''
-                              ? 'cm'
-                              : ''}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* =====================================================
-          VIDEO MODAL
-      ====================================================== */}
-      {selectedVideo && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-4xl overflow-hidden rounded-3xl border border-white/10 bg-ink-950 shadow-2xl">
-            <div className="flex items-center justify-between gap-4 border-b border-white/10 p-4">
-              <div className="min-w-0">
-                <p className="text-xs uppercase tracking-wider text-amber-400">
-                  Execução
-                </p>
-
-                <h2 className="truncate font-display font-bold">
-                  {selectedVideo.name}
-                </h2>
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest text-gold-400 font-bold">Danilo Lopes Consultoria</p>
+                  <h3 className="font-display text-xl uppercase tracking-wide">Avaliação Física</h3>
+                </div>
               </div>
-
               <button
                 type="button"
-                onClick={() =>
-                  setSelectedVideo(null)
-                }
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/5 text-white/50"
+                onClick={() => setIsEvaluationOpen(false)}
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-zinc-300 hover:text-gold-400 hover:border-gold-400/40 transition"
               >
-                <X className="h-5 w-5" />
+                <X size={18} />
               </button>
             </div>
 
-            <div className="aspect-video bg-black">
-              <iframe
-                title={selectedVideo.name}
-                src={`https://www.youtube.com/embed/${selectedVideo.id}?autoplay=1&rel=0`}
-                className="h-full w-full"
-                allow="autoplay; encrypted-media; picture-in-picture"
-                allowFullScreen
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* =====================================================
-          OBSERVATION MODAL
-      ====================================================== */}
-      {selectedObs && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-5">
-          <div className="w-full max-w-md rounded-t-3xl border border-white/10 bg-ink-950 p-5 shadow-2xl sm:rounded-3xl">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-400/10">
-                  <Lightbulb className="h-5 w-5 text-amber-400" />
+            {latestEvaluation ? (
+              <div className="space-y-5">
+                <div className="flex items-center justify-between bg-ink-950/60 p-3 rounded-xl border border-white/5">
+                  <span className="text-xs text-zinc-400 font-medium">Data da Avaliação:</span>
+                  <span className="text-xs font-bold text-gold-400">{latestEvaluation.date}</span>
                 </div>
 
                 <div>
-                  <p className="text-xs uppercase tracking-wider text-white/35">
-                    Observação
+                  <p className="text-xs uppercase font-bold tracking-widest text-gold-400 mb-2.5 flex items-center gap-1.5">
+                    <Scale size={14} /> Composição Corporal
                   </p>
-
-                  <h2 className="mt-1 font-display text-lg font-bold">
-                    {selectedObs.title}
-                  </h2>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div className="rounded-xl bg-ink-800 p-3 border border-white/5">
+                      <p className="text-[10px] uppercase tracking-wider text-zinc-400">Peso Total</p>
+                      <p className="font-display text-lg text-white font-bold">{latestEvaluation.weight} kg</p>
+                    </div>
+                    <div className="rounded-xl bg-ink-800 p-3 border border-white/5">
+                      <p className="text-[10px] uppercase tracking-wider text-zinc-400">Altura</p>
+                      <p className="font-display text-lg text-white font-bold">{latestEvaluation.height} m</p>
+                    </div>
+                    <div className="rounded-xl bg-ink-800 p-3 border border-white/5">
+                      <p className="text-[10px] uppercase tracking-wider text-zinc-400">% de Gordura (%BF)</p>
+                      <p className="font-display text-lg text-gold-400 font-bold">{latestEvaluation.fatPercentage}%</p>
+                    </div>
+                    <div className="rounded-xl bg-ink-800 p-3 border border-white/5">
+                      <p className="text-[10px] uppercase tracking-wider text-zinc-400">Massa Magra</p>
+                      <p className="font-display text-lg text-emerald-400 font-bold">{latestEvaluation.leanMass} kg</p>
+                    </div>
+                  </div>
                 </div>
-              </div>
 
+                <div>
+                  <p className="text-xs uppercase font-bold tracking-widest text-gold-400 mb-2.5 flex items-center gap-1.5">
+                    <Flame size={14} /> Metabolismo & Calorias
+                  </p>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div className="rounded-xl bg-ink-800 p-3 border border-white/5">
+                      <p className="text-[10px] uppercase tracking-wider text-zinc-400">Taxa Metabólica Basal (TMB)</p>
+                      <p className="font-display text-base text-white font-bold">{latestEvaluation.tmb} kcal</p>
+                    </div>
+                    <div className="rounded-xl bg-ink-800 p-3 border border-white/5">
+                      <p className="text-[10px] uppercase tracking-wider text-zinc-400">Gasto Energético Total (GET)</p>
+                      <p className="font-display text-base text-gold-400 font-bold">{latestEvaluation.get} kcal</p>
+                    </div>
+                  </div>
+                </div>
+
+                {latestEvaluation.circumferences && (
+                  <div>
+                    <p className="text-xs uppercase font-bold tracking-widest text-gold-400 mb-2.5 flex items-center gap-1.5">
+                      <UserCheck size={14} /> Circunferências (cm)
+                    </p>
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="rounded-xl bg-ink-800 p-2.5 border border-white/5">
+                        <p className="text-[9px] uppercase tracking-wider text-zinc-400">Tórax</p>
+                        <p className="font-display text-sm text-white font-bold mt-0.5">{latestEvaluation.circumferences.chest} cm</p>
+                      </div>
+                      <div className="rounded-xl bg-ink-800 p-2.5 border border-white/5">
+                        <p className="text-[9px] uppercase tracking-wider text-zinc-400">Braço</p>
+                        <p className="font-display text-sm text-white font-bold mt-0.5">{latestEvaluation.circumferences.arm} cm</p>
+                      </div>
+                      <div className="rounded-xl bg-ink-800 p-2.5 border border-white/5">
+                        <p className="text-[9px] uppercase tracking-wider text-zinc-400">Cintura</p>
+                        <p className="font-display text-sm text-white font-bold mt-0.5">{latestEvaluation.circumferences.waist} cm</p>
+                      </div>
+                      <div className="rounded-xl bg-ink-800 p-2.5 border border-white/5">
+                        <p className="text-[9px] uppercase tracking-wider text-zinc-400">Quadril</p>
+                        <p className="font-display text-sm text-white font-bold mt-0.5">{latestEvaluation.circumferences.hips} cm</p>
+                      </div>
+                      <div className="rounded-xl bg-ink-800 p-2.5 border border-white/5">
+                        <p className="text-[9px] uppercase tracking-wider text-zinc-400">Coxa</p>
+                        <p className="font-display text-sm text-white font-bold mt-0.5">{latestEvaluation.circumferences.thigh} cm</p>
+                      </div>
+                      <div className="rounded-xl bg-ink-800 p-2.5 border border-white/5">
+                        <p className="text-[9px] uppercase tracking-wider text-zinc-400">Panturrilha</p>
+                        <p className="font-display text-sm text-white font-bold mt-0.5">{latestEvaluation.circumferences.calf} cm</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="py-10 text-center space-y-3">
+                <Activity size={40} className="mx-auto text-gold-400/40 animate-pulse" />
+                <p className="text-sm font-medium text-zinc-300">Nenhuma avaliação física cadastrada.</p>
+              </div>
+            )}
+
+            <div className="mt-6 pt-4 border-t border-white/10">
               <button
                 type="button"
-                onClick={() =>
-                  setSelectedObs(null)
-                }
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/5 text-white/50"
+                onClick={() => setIsEvaluationOpen(false)}
+                className="w-full rounded-xl bg-gold-400 py-3 text-xs font-bold uppercase text-ink-950 transition hover:bg-gold-300 shadow-lg"
               >
-                <X className="h-4 w-4" />
+                Fechar
               </button>
             </div>
+          </div>
+        </div>
+      )}
 
-            <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-              <p className="whitespace-pre-line text-sm leading-relaxed text-white/65">
-                {selectedObs.text}
-              </p>
+      {selectedVideo && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              closeVideo()
+            }
+          }}
+        >
+          <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-white/10 bg-ink-900 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+              <div className="min-w-0 pr-3">
+                <p className="text-[10px] uppercase tracking-[0.18em] text-gold-400">Demonstração</p>
+                <h3 className="mt-1 truncate font-display text-lg uppercase text-white">{selectedVideo.name}</h3>
+              </div>
+              <button
+                type="button"
+                onClick={closeVideo}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 text-zinc-300 transition hover:border-gold-400/40 hover:text-gold-400"
+                aria-label="Fechar vídeo"
+              >
+                <X size={18} />
+              </button>
             </div>
+            <div className="aspect-video w-full bg-black">
+              <iframe
+                src={`https://www.youtube.com/embed/${selectedVideo.id}?autoplay=1&rel=0`}
+                title={selectedVideo.name}
+                className="h-full w-full"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+              />
+            </div>
+            <div className="flex items-center justify-between px-4 py-3">
+              <p className="text-xs text-zinc-500">Assista à execução correta do movimento.</p>
+              <button
+                type="button"
+                onClick={closeVideo}
+                className="rounded-xl bg-gold-400 px-4 py-2 text-xs font-semibold uppercase text-ink-950 transition hover:bg-gold-300"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
-            <button
-              type="button"
-              onClick={() => setSelectedObs(null)}
-              className="mt-4 w-full rounded-2xl bg-white/5 px-5 py-3 text-sm font-semibold text-white/70 transition hover:bg-white/10 hover:text-white"
-            >
-              Fechar
-            </button>
+      {selectedObs && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setSelectedObs(null)
+            }
+          }}
+        >
+          <div className="w-full max-w-md overflow-hidden rounded-2xl border border-gold-400/40 bg-ink-900 p-5 shadow-2xl animate-fade-in">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3 mb-3">
+              <div className="flex items-center gap-2">
+                <Lightbulb size={18} className="text-gold-400" />
+                <h3 className="font-display text-lg uppercase tracking-wide text-gold-400">{selectedObs.title}</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedObs(null)}
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 text-zinc-300 hover:text-gold-400 hover:border-gold-400/40 transition"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="max-h-[60vh] overflow-y-auto pr-1">
+              <p className="text-sm leading-relaxed text-zinc-200 whitespace-pre-wrap">{selectedObs.notes}</p>
+            </div>
+            <div className="mt-5 pt-3 border-t border-white/10 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setSelectedObs(null)}
+                className="w-full rounded-xl bg-gold-400 py-3 text-xs font-bold uppercase text-ink-950 transition hover:bg-gold-300 shadow-lg"
+              >
+                Entendido
+              </button>
+            </div>
           </div>
         </div>
       )}
