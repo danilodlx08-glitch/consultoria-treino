@@ -623,9 +623,15 @@ export default function StudentArea() {
         closeFeedbackEditor()
       }
     }
+
     document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [])return (
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [])
+
+  return (
     <div className="min-h-dvh bg-ink-950 pb-48 text-white relative">
       <header className="sticky top-0 z-30 border-b border-white/5 bg-ink-950/95 backdrop-blur">
         <div className="mx-auto flex max-w-md items-center justify-between px-4 py-3">
