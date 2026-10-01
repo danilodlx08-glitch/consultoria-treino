@@ -74,7 +74,7 @@ export default function StudentArea() {
   const [timerSeconds, setTimerSeconds] = useState(0)
   const [timerActive, setTimerActive] = useState(false)
   const [initialTime, setInitialTime] = useState(60)
-  const [activeRestMenu, setActiveRestMenu] = useState(null)
+  const [activeRestMenu, setActiveRestMenu] = useState(false) // Controla se o menu do relógio flutuante está aberto
 
   const [inWorkoutMode, setInWorkoutMode] = useState(false)
   const [workoutActiveIndex, setWorkoutActiveIndex] = useState(0)
@@ -166,7 +166,7 @@ export default function StudentArea() {
           if (sec <= 1) {
             playBeep(true)
             setTimerActive(false)
-            setActiveRestMenu(null) // Retrai/some automaticamente ao zerar
+            setActiveRestMenu(false) // Retrai o menu automaticamente ao zerar
             return 0
           }
           return sec - 1
@@ -191,13 +191,13 @@ export default function StudentArea() {
     setInitialTime(seconds)
     setTimerSeconds(seconds)
     setTimerActive(true)
-    setActiveRestMenu('running')
+    setActiveRestMenu(false) // Recolhe o menu para mostrar apenas o relógio a contar
   }
 
   function stopTimer() {
     setTimerActive(false)
     setTimerSeconds(0)
-    setActiveRestMenu(null)
+    setActiveRestMenu(false)
   }
 
   function toggleCompleteExercise(exerciseId) {
@@ -215,7 +215,7 @@ export default function StudentArea() {
     setSessionActive(true)
     setSessionPaused(false)
     setShowFinishedScreen(false)
-    setActiveRestMenu(null)
+    setActiveRestMenu(false)
   }
 
   function formatSessionTime(totalSecs) {
@@ -236,7 +236,7 @@ export default function StudentArea() {
       .join('\n\n')
 
     const message = encodeURIComponent(
-      `Olá Danilo! Aqui estão as cargas e o feedback de *${studentName}* referentes ao *${workoutTitle}* (${currentDay}):\n\n${exercisesList}\n\nObservações / Dúvidas:`
+      `Olá Danilo! Aqui estão las cargas e o feedback de *${studentName}* referentes ao *${workoutTitle}* (${currentDay}):\n\n${exercisesList}\n\nObservações / Dúvidas:`
     )
 
     const phone = '5527996247906'
@@ -257,7 +257,7 @@ export default function StudentArea() {
       if (event.key === 'Escape') {
         setSelectedVideo(null)
         setSelectedObs(null)
-        setActiveRestMenu(null)
+        setActiveRestMenu(false)
         setIsEvaluationOpen(false)
       }
     }
@@ -298,7 +298,7 @@ export default function StudentArea() {
               <button
                 onClick={() => {
                   setSelectedWorkoutDay(null)
-                  setActiveRestMenu(null)
+                  setActiveRestMenu(false)
                 }}
                 className="flex items-center gap-1.5 rounded-full border border-gold-400/30 bg-gold-400/10 px-3 py-1.5 text-xs font-bold text-gold-400 transition hover:bg-gold-400/20"
               >
@@ -407,7 +407,7 @@ export default function StudentArea() {
                     key={dayKey}
                     onClick={() => {
                       setSelectedWorkoutDay(dayKey)
-                      setActiveRestMenu(null)
+                      setActiveRestMenu(false)
                     }}
                     className="group relative w-full overflow-hidden rounded-2xl border border-white/10 bg-ink-800 p-4 text-left transition-all duration-300 hover:border-gold-400 hover:bg-ink-700/80 shadow-lg flex items-center gap-4"
                   >
@@ -598,7 +598,7 @@ export default function StudentArea() {
                             </span>
                             <button
                               type="button"
-                              onClick={() => setActiveRestMenu(null)}
+                              onClick={() => setActiveRestMenu(false)}
                               className="text-zinc-400 hover:text-white"
                             >
                               <X size={16} />
@@ -799,7 +799,7 @@ export default function StudentArea() {
                       disabled={workoutActiveIndex === 0}
                       onClick={() => {
                         setWorkoutActiveIndex((prev) => Math.max(0, prev - 1))
-                        setActiveRestMenu(null)
+                        setActiveRestMenu(false)
                       }}
                       className="flex items-center gap-1 rounded-xl border border-white/10 bg-ink-800 px-4 py-2.5 text-xs font-bold text-zinc-300 disabled:opacity-30 hover:border-gold-400/40 transition"
                     >
@@ -811,7 +811,7 @@ export default function StudentArea() {
                         type="button"
                         onClick={() => {
                           setWorkoutActiveIndex((prev) => Math.min(totalExercises - 1, prev + 1))
-                          setActiveRestMenu(null)
+                          setActiveRestMenu(false)
                         }}
                         className="flex items-center gap-1 rounded-xl bg-gold-400 px-5 py-2.5 text-xs font-bold uppercase text-ink-950 hover:bg-gold-300 transition shadow-md"
                       >
@@ -834,47 +834,51 @@ export default function StudentArea() {
         )}
       </main>
 
-      {/* BLOCOS FLUTUANTES EMPILHADOS NO CANTO INFERIOR DIREITO (COM O CRONÔMETRO DE DESCANSO EXPANSÍVEL) */}
+      {/* BLOCOS FLUTUANTES EMPILHADOS NO CANTO INFERIOR DIREITO (DESCANSO EXPANSÍVEL + WHATSAPP) */}
       <div className="fixed bottom-6 right-4 z-45 flex flex-col items-end gap-3">
-        {/* 1. Botão Flutuante de Descanso (Dourado - Expansível) */}
-        <div className="group/rest relative flex items-center">
-          {timerActive ? (
-            <div className="flex items-center gap-2 rounded-full bg-gold-400 text-ink-950 px-4 py-3 shadow-xl shadow-gold-400/30 border border-gold-300 animate-pulse font-display text-xs font-extrabold">
-              <Timer size={20} className="shrink-0" />
-              <span>{timerSeconds}s</span>
+        {/* 1. Botão Flutuante de Descanso (Expansível / Recolhível) */}
+        <div className="flex flex-col items-end gap-2">
+          {activeRestMenu && !timerActive && (
+            <div className="flex items-center gap-1.5 rounded-2xl border border-gold-400/50 bg-ink-900/95 p-2 shadow-2xl backdrop-blur animate-fade-in">
+              {[30, 45, 60, 90].map((sec) => (
+                <button
+                  key={sec}
+                  onClick={() => startTimer(sec)}
+                  className="rounded-xl border border-gold-400/30 bg-ink-800 px-3 py-2 text-xs font-bold text-gold-300 hover:bg-gold-400 hover:text-ink-950 transition"
+                >
+                  {sec}s
+                </button>
+              ))}
               <button
-                onClick={stopTimer}
-                className="ml-1 text-[10px] bg-ink-950 text-gold-300 px-2 py-1 rounded-full uppercase"
+                onClick={() => setActiveRestMenu(false)}
+                className="rounded-xl bg-white/10 p-2 text-zinc-300 hover:text-white transition"
               >
-                Parar
-              </button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-1 bg-ink-900 border border-gold-400/40 rounded-full p-1 shadow-xl">
-              <div className="flex items-center gap-1 px-2">
-                {[30, 45, 60].map((sec) => (
-                  <button
-                    key={sec}
-                    onClick={() => startTimer(sec)}
-                    className="h-8 w-8 rounded-full bg-ink-800 text-gold-400 text-[10px] font-bold border border-gold-400/30 hover:bg-gold-400 hover:text-ink-950 transition flex items-center justify-center"
-                    title={`Descansar ${sec}s`}
-                  >
-                    {sec}s
-                  </button>
-                ))}
-              </div>
-              <button
-                onClick={() => startTimer(initialTime)}
-                className="group flex items-center gap-2 rounded-full bg-gold-400 text-ink-950 p-3 shadow-md hover:bg-gold-300 transition"
-                title="Iniciar Descanso"
-              >
-                <Timer size={20} className="shrink-0" />
-                <span className="max-w-0 overflow-hidden whitespace-nowrap font-display text-xs font-bold uppercase tracking-wider transition-all duration-300 group-hover/rest:max-w-xs group-hover/rest:pr-2">
-                  Descanso ({initialTime}s)
-                </span>
+                <X size={14} />
               </button>
             </div>
           )}
+
+          <button
+            onClick={() => {
+              if (timerActive) {
+                stopTimer()
+              } else {
+                setActiveRestMenu(!activeRestMenu)
+              }
+            }}
+            className={`group flex items-center gap-2.5 rounded-full p-3.5 shadow-xl transition-all duration-300 border ${
+              timerActive
+                ? 'bg-gold-400 text-ink-950 border-gold-300 animate-pulse font-extrabold'
+                : 'bg-ink-900 text-gold-400 border-gold-400/40 hover:border-gold-400 hover:bg-ink-800'
+            }`}
+            aria-label="Cronómetro de descanso"
+            title={timerActive ? 'Parar descanso' : 'Iniciar descanso'}
+          >
+            <Timer size={22} className="shrink-0" />
+            <span className="font-display text-xs font-bold uppercase tracking-wider">
+              {timerActive ? `${timerSeconds}s (Parar)` : 'Descanso'}
+            </span>
+          </button>
         </div>
 
         {/* 2. Botão Flutuante de Mensagem / Dúvida (Verde) */}
