@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ExternalLink, LogOut, RefreshCw, X, Play, Timer, RotateCcw, MessageCircle, Link2, CheckCircle2, Trophy, Lightbulb, ArrowLeft, Activity, Scale, Flame, UserCheck, FlameKindling, ChevronRight, ChevronLeft } from 'lucide-react'
+import { ExternalLink, LogOut, RefreshCw, X, Play, Timer, RotateCcw, MessageCircle, Link2, CheckCircle2, Trophy, Lightbulb, ArrowLeft, Activity, Scale, Flame, UserCheck, FlameKindling, ChevronRight, ChevronLeft, Pause, PlayCircle } from 'lucide-react'
 import Logo from '../components/Logo.jsx'
 import { useAuth } from '../auth.jsx'
 import { loadData, subscribeData } from '../storage'
@@ -12,7 +12,22 @@ const COACH_TIPS = [
   "A consistência supera a intensidade ocasional. Faça o seu melhor hoje!",
   "Respire fundo: a fase excêntrica (descida) é onde o músculo mais cresce.",
   "Concentre-se no grupamento muscular que está a trabalhar, evite balançar o corpo.",
-  "Hidrate-se bem durante o treino. A performance começa na água!"
+  "Hidrate-se bem durante o treino. A performance começa na água!",
+  "Mantenha a postura firme e o abdómen contraído em todos os movimentos.",
+  "A amplitude de movimento é mais importante do que excesso de peso sem controle.",
+  "Respeite o seu tempo de descanso entre as séries para manter a intensidade alta.",
+  "Foque na contração máxima no topo de cada repetição.",
+  "O descanso faz parte do treino. Recupere-se bem para a próxima série.",
+  "Mantenha o foco e elimine as distrações enquanto estiver a treinar.",
+  "Lembre-se: cada treino é um passo a mais em direção à sua melhor versão.",
+  "Se sentir dor articular aguda, pare e ajuste a postura imediatamente.",
+  "Conecte a sua mente ao músculo que está a ser exercitado.",
+  "A persistência de hoje é a força de amanhã. Vamos com tudo!",
+  "Controle a respiração: expire no esforço e inspire na volta.",
+  "Não tenha pressa para terminar; execute cada repetição com intenção.",
+  "A disciplina é a ponte entre as suas metas e as suas conquistas.",
+  "Beba água regularmente, mesmo que não sinta tanta sede.",
+  "Aproveite o processo. Evoluir exige paciência e dedicação diária."
 ]
 
 function youtubeId(url = '') {
@@ -64,7 +79,7 @@ export default function StudentArea() {
   const [inWorkoutMode, setInWorkoutMode] = useState(false)
   const [workoutActiveIndex, setWorkoutActiveIndex] = useState(0)
 
-  // Cronómetro Geral da Sessão
+  // Cronômetro Geral da Sessão
   const [sessionSeconds, setSessionSeconds] = useState(0)
   const [sessionActive, setSessionActive] = useState(false)
   const [sessionPaused, setSessionPaused] = useState(false)
@@ -84,6 +99,7 @@ export default function StudentArea() {
   }, [data, student])
 
   const workouts = current?.workouts || data.workouts
+
   const evaluations = current?.evaluations || []
   const latestEvaluation = evaluations.length > 0 ? evaluations[evaluations.length - 1] : null
 
@@ -144,11 +160,13 @@ export default function StudentArea() {
     if (timerActive && timerSeconds > 0) {
       interval = setInterval(() => {
         setTimerSeconds((sec) => {
-          if (sec === 10) playBeep(false)
+          if (sec === 10) {
+            playBeep(false)
+          }
           if (sec <= 1) {
             playBeep(true)
             setTimerActive(false)
-            setActiveRestMenu(null)
+            setActiveRestMenu(null) // Retrai/some automaticamente ao zerar
             return 0
           }
           return sec - 1
@@ -158,7 +176,7 @@ export default function StudentArea() {
     return () => clearInterval(interval)
   }, [timerActive, timerSeconds])
 
-  // Cronómetro Geral da Sessão
+  // Cronômetro Geral da Sessão
   useEffect(() => {
     let interval = null
     if (sessionActive && !sessionPaused && !showFinishedScreen) {
@@ -173,7 +191,7 @@ export default function StudentArea() {
     setInitialTime(seconds)
     setTimerSeconds(seconds)
     setTimerActive(true)
-    setActiveRestMenu('running')
+    setActiveRestMenu('running') // Altera para estado ativo do timer no modo imersivo
   }
 
   function stopTimer() {
@@ -209,6 +227,7 @@ export default function StudentArea() {
   function sendWhatsAppFeedback() {
     const studentName = current?.name || student?.name || 'Aluno'
     const workoutTitle = workout.title || `Treino ${currentDay}`
+    
     const exercisesList = (sortedExercises || [])
       .map((ex, idx) => {
         const groupTag = ex.group ? ` [${ex.group}]` : ''
@@ -219,16 +238,34 @@ export default function StudentArea() {
     const message = encodeURIComponent(
       `Olá Danilo! Aqui estão as cargas e o feedback de *${studentName}* referentes ao *${workoutTitle}* (${currentDay}):\n\n${exercisesList}\n\nObservações / Dúvidas:`
     )
-    window.open(`https://wa.me/5527996247906?text=${message}`, '_blank', 'noopener,noreferrer')
+
+    const phone = '5527996247906'
+    window.open(`https://wa.me/${phone}?text=${message}`, '_blank', 'noopener,noreferrer')
   }
 
   function sendRealtimeDoubt() {
     const studentName = current?.name || student?.name || 'Aluno'
     const message = encodeURIComponent(
-      `Olá Danilo! Estou treinando aqui e gostaria de tirar uma dúvida. (${studentName})`
+      `Olá Danilo! Estou treinando aqui e gostaria de tirar uma dúvida ou sugerir alguma mudança. Está disponível? (${studentName})`
     )
-    window.open(`https://wa.me/5527996247906?text=${message}`, '_blank', 'noopener,noreferrer')
+    const phone = '5527996247906'
+    window.open(`https://wa.me/${phone}?text=${message}`, '_blank', 'noopener,noreferrer')
   }
+
+  useEffect(() => {
+    function handleKeyDown(event) {
+      if (event.key === 'Escape') {
+        setSelectedVideo(null)
+        setSelectedObs(null)
+        setActiveRestMenu(null)
+        setIsEvaluationOpen(false)
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [])
 
   function exit() {
     logoutStudent()
@@ -241,7 +278,14 @@ export default function StudentArea() {
       window.open(exercise.video, '_blank', 'noopener,noreferrer')
       return
     }
-    setSelectedVideo({ id: videoId, name: exercise.name })
+    setSelectedVideo({
+      id: videoId,
+      name: exercise.name,
+    })
+  }
+
+  function closeVideo() {
+    setSelectedVideo(null)
   }
 
   return (
@@ -265,6 +309,7 @@ export default function StudentArea() {
             <button
               onClick={exit}
               className="rounded-full border border-white/10 p-2 text-zinc-300 transition hover:border-gold-400/30 hover:text-gold-400"
+              aria-label="Sair"
             >
               <LogOut size={16} />
             </button>
@@ -288,11 +333,10 @@ export default function StudentArea() {
 
       <main className="mx-auto max-w-md px-4 py-5 safe-bottom">
         {!selectedWorkoutDay ? (
-          /* SELEÇÃO DOS BLOCOS DE TREINOS (A, B, C, D, E) */
           <div className="space-y-4">
             <div 
               onClick={() => setIsEvaluationOpen(true)}
-              className="group relative w-full overflow-hidden rounded-2xl border border-gold-400/40 bg-gradient-to-br from-ink-900 to-ink-800 p-5 text-left transition-all duration-300 hover:border-gold-400 cursor-pointer shadow-lg"
+              className="group relative w-full overflow-hidden rounded-2xl border border-gold-400/40 bg-gradient-to-br from-ink-900 to-ink-800 p-5 text-left transition-all duration-300 hover:border-gold-400 hover:shadow-xl hover:shadow-gold-400/10 cursor-pointer shadow-lg"
             >
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
@@ -300,24 +344,64 @@ export default function StudentArea() {
                     <Activity size={20} />
                   </div>
                   <div>
-                    <p className="text-[10px] uppercase font-bold tracking-widest text-gold-400">Avaliação Física</p>
-                    <h2 className="font-display text-lg uppercase text-white tracking-wide">Composição Corporal</h2>
+                    <p className="text-[10px] uppercase font-bold tracking-widest text-gold-400">
+                      Avaliação Física
+                    </p>
+                    <h2 className="font-display text-lg uppercase text-white tracking-wide">
+                      Composição Corporal
+                    </h2>
                   </div>
                 </div>
-                <span className="text-[11px] font-bold text-gold-400 bg-gold-400/10 px-2.5 py-1 rounded-full border border-gold-400/30">
+                <span className="text-[11px] font-bold text-gold-400 bg-gold-400/10 px-2.5 py-1 rounded-full border border-gold-400/30 group-hover:bg-gold-400 group-hover:text-ink-950 transition">
                   {latestEvaluation ? 'Ver Detalhes →' : 'Aguardando →'}
                 </span>
+              </div>
+
+              {latestEvaluation ? (
+                <div className="grid grid-cols-3 gap-2.5 pt-2 border-t border-white/10">
+                  <div className="rounded-xl bg-ink-950/60 p-2 text-center border border-white/5">
+                    <p className="text-[9px] uppercase tracking-wider text-zinc-400">Peso</p>
+                    <p className="font-display text-base text-gold-400 font-bold">{latestEvaluation.weight} kg</p>
+                  </div>
+                  <div className="rounded-xl bg-ink-950/60 p-2 text-center border border-white/5">
+                    <p className="text-[9px] uppercase tracking-wider text-zinc-400">% Gordura</p>
+                    <p className="font-display text-base text-gold-400 font-bold">{latestEvaluation.fatPercentage}%</p>
+                  </div>
+                  <div className="rounded-xl bg-ink-950/60 p-2 text-center border border-white/5">
+                    <p className="text-[9px] uppercase tracking-wider text-zinc-400">Gasto Diário</p>
+                    <p className="font-display text-base text-gold-400 font-bold">{latestEvaluation.get} kcal</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="pt-2 border-t border-white/10 text-center py-2">
+                  <p className="text-xs text-zinc-400">Nenhuma avaliação cadastrada pelo professor ainda.</p>
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-2xl border border-gold-400/30 bg-ink-900/80 p-4 shadow-md flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold-400/20 text-gold-400 border border-gold-400/30 mt-0.5">
+                <Lightbulb size={20} />
+              </div>
+              <div>
+                <p className="text-[10px] uppercase font-bold tracking-widest text-gold-400">Dica do Professor</p>
+                <p className="text-xs text-zinc-300 mt-1 leading-relaxed italic">"{dailyTip}"</p>
               </div>
             </div>
 
             <div className="pt-2">
-              <p className="text-[12px] uppercase tracking-[0.2em] text-gold-400 font-bold">Sua Rotina</p>
-              <h1 className="mt-1 font-display text-2xl uppercase">Escolha o Treino</h1>
+              <p className="text-[12px] uppercase tracking-[0.2em] text-gold-400 font-bold">
+                Sua Rotina
+              </p>
+              <h1 className="mt-1 font-display text-2xl uppercase">
+                Escolha o Treino
+              </h1>
             </div>
 
             <div className="space-y-3.5 pt-2">
               {DAYS.map((dayKey) => {
                 const wData = workouts[dayKey]
+
                 return (
                   <button
                     key={dayKey}
@@ -347,7 +431,6 @@ export default function StudentArea() {
           </div>
         ) : !inWorkoutMode ? (
           <div>
-            {/* VISTA DA LISTA DE EXERCÍCIOS DO TREINO ESCOLHIDO */}
             <div className="flex items-center justify-between">
               <p className="text-[12px] uppercase tracking-[0.2em] text-gold-400 font-bold">
                 {workout.focus || `Treino ${currentDay}`}
@@ -360,46 +443,246 @@ export default function StudentArea() {
               {workout.title} ({currentDay})
             </h1>
 
+            <div className="mt-3.5 h-2.5 w-full overflow-hidden rounded-full bg-ink-800 border border-white/5">
+              <div
+                className="h-full bg-gold-400 transition-all duration-300 shadow-sm shadow-gold-400/50"
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
+
             <button
               type="button"
               onClick={startWorkoutSession}
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-gold-500 to-gold-400 py-4 text-sm font-extrabold uppercase tracking-wider text-ink-950 transition shadow-xl"
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-gold-500 to-gold-400 py-4 text-sm font-extrabold uppercase tracking-wider text-ink-950 transition hover:from-gold-400 hover:to-gold-300 shadow-xl shadow-gold-400/20 active:scale-[0.99]"
             >
               <FlameKindling size={20} />
               🔥 Iniciar Modo Treino Imersivo
             </button>
-          </div>
-        ) : showFinishedScreen ? (
-          <div className="py-8 text-center space-y-6">
-            <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-gold-400 to-gold-600 text-ink-950 shadow-2xl">
-              <Trophy size={48} />
-            </div>
-            <h2 className="font-display text-3xl uppercase tracking-wide">Treino Concluído!</h2>
+
             <button
               type="button"
-              onClick={() => {
-                setInWorkoutMode(false)
-                setShowFinishedScreen(false)
-              }}
-              className="w-full rounded-2xl border border-white/20 bg-ink-800 py-3.5 text-xs font-bold uppercase tracking-wider text-zinc-300"
+              onClick={sendWhatsAppFeedback}
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600/20 border border-emerald-500/40 py-3.5 text-xs font-bold uppercase tracking-wider text-emerald-400 transition hover:bg-emerald-600/30 shadow-lg"
             >
-              Voltar aos Treinos
+              <MessageCircle size={18} />
+              Enviar cargas e feedback no WhatsApp
             </button>
+
+            <div className="mt-5 space-y-4">
+              {(sortedExercises || []).map((exercise, index) => {
+                const videoId = youtubeId(exercise.video)
+                const isMenuOpen = activeRestMenu === exercise.id
+                const isDone = completedExercises.includes(exercise.id)
+
+                return (
+                  <article
+                    key={exercise.id || `${currentDay}-${index}`}
+                    className={`rounded-2xl border p-4 relative transition-all duration-200 ${
+                      isDone
+                        ? 'bg-ink-900/40 border-emerald-500/30 opacity-60'
+                        : exercise.group
+                        ? 'bg-ink-800 border-gold-400/50 shadow-lg shadow-gold-400/5'
+                        : 'bg-ink-800 border-white/10'
+                    }`}
+                  >
+                    <div className="mb-3.5">
+                      {exercise.group && (
+                        <div className="mb-2 flex items-center gap-1.5 text-gold-400">
+                          <div className="flex items-center gap-1 rounded-md bg-gold-400/15 px-2.5 py-1 text-xs font-bold uppercase tracking-wider border border-gold-400/30">
+                            <Link2 size={14} />
+                            {exercise.group}
+                          </div>
+                        </div>
+                      )}
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-400 font-semibold">
+                        Exercício {index + 1}
+                      </p>
+                      <h2 className={`mt-1 font-display text-2xl uppercase leading-tight ${isDone ? 'line-through text-zinc-400' : 'text-white font-extrabold tracking-wide'}`}>
+                        {exercise.name}
+                      </h2>
+                    </div>
+
+                    <div className="flex items-stretch gap-3.5 mb-3.5">
+                      <div className="w-32 shrink-0 flex flex-col">
+                        {exercise.video ? (
+                          <button
+                            type="button"
+                            onClick={() => openVideo(exercise)}
+                            className="group relative h-full min-h-[148px] w-full overflow-hidden rounded-xl border-2 border-gold-400/40 bg-ink-700 text-left transition hover:border-gold-400 flex items-center justify-center shadow-md"
+                          >
+                            {videoId ? (
+                              <>
+                                <img
+                                  src={`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`}
+                                  alt={exercise.name}
+                                  className="absolute inset-0 h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                                />
+                                <div className="absolute inset-0 bg-black/40 transition group-hover:bg-black/50" />
+                                <div className="relative z-10 flex h-12 w-12 items-center justify-center rounded-full bg-gold-400 text-ink-950 shadow-lg">
+                                  <Play size={24} fill="currentColor" className="ml-0.5" />
+                                </div>
+                              </>
+                            ) : (
+                              <div className="flex flex-col items-center justify-center p-2 text-gold-300 text-center">
+                                <ExternalLink size={20} className="mb-1" />
+                                <span className="text-[11px] uppercase font-bold">Vídeo</span>
+                              </div>
+                            )}
+                          </button>
+                        ) : (
+                          <div className="flex h-full min-h-[148px] w-full items-center justify-center rounded-xl border border-white/10 bg-ink-900/50 text-zinc-600">
+                            <Play size={24} className="opacity-20" />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex-1 min-w-0 flex flex-col gap-2.5">
+                        <div className="grid grid-cols-2 gap-2.5">
+                          <div className="rounded-xl bg-ink-700 p-2.5 text-center border border-white/5 flex flex-col justify-center">
+                            <p className="text-[10px] uppercase tracking-widest text-zinc-400 font-bold">Séries</p>
+                            <p className="font-display text-xl text-gold-400 font-extrabold mt-0.5">{exercise.sets}</p>
+                          </div>
+                          <div className="rounded-xl bg-ink-700 p-2.5 text-center border border-white/5 flex flex-col justify-center">
+                            <p className="text-[10px] uppercase tracking-widest text-zinc-400 font-bold">Repetições</p>
+                            <p className="font-display text-xl text-gold-400 font-extrabold mt-0.5">{exercise.reps}</p>
+                          </div>
+                        </div>
+
+                        {exercise.notes ? (
+                          <div 
+                            onClick={() => setSelectedObs({ title: exercise.name, notes: exercise.notes })}
+                            className="flex items-start gap-1.5 rounded-xl bg-gold-400/10 border border-gold-400/25 p-2.5 text-[11px] leading-snug text-zinc-200 flex-1 cursor-pointer transition hover:bg-gold-400/20 hover:border-gold-400/50 active:scale-[0.99]"
+                            title="Toque para ler a observação completa"
+                          >
+                            <Lightbulb size={14} className="text-gold-400 shrink-0 mt-0.5" />
+                            <span className="line-clamp-3">{exercise.notes}</span>
+                          </div>
+                        ) : (
+                          <div className="flex-1 rounded-xl border border-dashed border-white/5 bg-ink-900/20 p-2 flex items-center justify-center text-[10px] text-zinc-600 uppercase tracking-wider">
+                            Sem observações
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="relative pt-2 border-t border-white/10">
+                      {!isMenuOpen ? (
+                        <div className="grid grid-cols-2 gap-2.5">
+                          <button
+                            type="button"
+                            onClick={() => setActiveRestMenu(exercise.id)}
+                            className="flex items-center justify-center gap-1.5 rounded-xl border border-gold-400/30 bg-ink-700 py-3 text-xs font-bold uppercase tracking-wider text-gold-300 hover:border-gold-400/60 transition shadow-sm"
+                          >
+                            <Timer size={16} />
+                            Descanso
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => toggleCompleteExercise(exercise.id)}
+                            className={`flex items-center justify-center gap-1.5 rounded-xl px-3 py-3 text-xs font-bold uppercase tracking-wider transition shadow-sm ${
+                              isDone
+                                ? 'bg-emerald-500 text-ink-950 shadow-md shadow-emerald-500/20 font-extrabold'
+                                : 'border border-white/15 bg-ink-700 text-zinc-200 hover:border-gold-400/50 hover:text-gold-300'
+                            }`}
+                          >
+                            <CheckCircle2 size={16} />
+                            {isDone ? 'Concluído' : 'Marcar'}
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="rounded-xl border border-gold-400/40 bg-ink-900 p-3 shadow-xl">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs font-bold uppercase tracking-wider text-gold-400">
+                              Selecione o tempo de descanso:
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setActiveRestMenu(null)}
+                              className="text-zinc-400 hover:text-white"
+                            >
+                              <X size={16} />
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-4 gap-1.5">
+                            {[30, 45, 60, 90].map((sec) => (
+                              <button
+                                key={sec}
+                                type="button"
+                                onClick={() => startTimer(sec)}
+                                className="rounded-lg border border-gold-400/30 bg-ink-800 py-2.5 text-xs font-bold text-gold-300 hover:bg-gold-400 hover:text-ink-950 transition"
+                              >
+                                {sec}s
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </article>
+                )
+              })}
+            </div>
+          </div>
+        ) : showFinishedScreen ? (
+          <div className="py-8 text-center space-y-6 animate-fade-in">
+            <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-gold-400 to-gold-600 text-ink-950 shadow-2xl shadow-gold-400/30">
+              <Trophy size={48} />
+            </div>
+
+            <div>
+              <p className="text-xs uppercase font-bold tracking-widest text-gold-400">Missão Cumprida</p>
+              <h2 className="font-display text-3xl uppercase tracking-wide mt-1">Treino Concluído!</h2>
+              <p className="text-sm text-zinc-300 mt-2">Você completou {completedCount} de {totalExercises} exercícios com sucesso.</p>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-ink-900 p-5 max-w-xs mx-auto space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-zinc-400 uppercase tracking-wider">Tempo Total:</span>
+                <span className="font-display text-xl text-gold-400 font-bold">{formatSessionTime(sessionSeconds)}</span>
+              </div>
+              <div className="flex items-center justify-between border-t border-white/5 pt-3">
+                <span className="text-xs text-zinc-400 uppercase tracking-wider">Aproveitamento:</span>
+                <span className="font-display text-xl text-emerald-400 font-bold">{progressPercent}%</span>
+              </div>
+            </div>
+
+            <div className="space-y-3 pt-2">
+              <button
+                type="button"
+                onClick={sendWhatsAppFeedback}
+                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 py-4 text-xs font-bold uppercase tracking-wider text-ink-950 transition hover:bg-emerald-500 shadow-xl"
+              >
+                <MessageCircle size={18} fill="currentColor" />
+                Enviar Feedback e Cargas ao Professor
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setInWorkoutMode(false)
+                  setShowFinishedScreen(false)
+                }}
+                className="w-full rounded-2xl border border-white/20 bg-ink-800 py-3.5 text-xs font-bold uppercase tracking-wider text-zinc-300 transition hover:bg-ink-700"
+              >
+                Voltar aos Treinos
+              </button>
+            </div>
           </div>
         ) : (
-          /* MODO TREINO IMERSIVO */
+          /* MODO TREINO IMERSIVO COM BOTÃO DE DESCANSO RETRÁTIL */
           <div className="space-y-4 animate-fade-in">
             <div className="flex items-center justify-between rounded-2xl bg-ink-900 border border-gold-400/40 p-3.5">
               <div className="flex items-center gap-2">
                 <Timer size={18} className="text-gold-400 animate-pulse" />
-                <span className="text-xs font-bold uppercase tracking-wider text-zinc-300">TEMPO:</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-zinc-300">Tempo:</span>
                 <span className="font-display text-lg text-gold-400 font-bold">{formatSessionTime(sessionSeconds)}</span>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setSessionPaused(!sessionPaused)}
-                  className="rounded-lg border border-white/10 bg-ink-800 px-2.5 py-1.5 text-[11px] font-bold text-zinc-300"
+                  className="rounded-lg border border-white/10 bg-ink-800 px-2.5 py-1.5 text-[11px] font-bold text-zinc-300 hover:text-white"
                 >
                   {sessionPaused ? 'Continuar' : 'Pausar'}
                 </button>
@@ -416,6 +699,17 @@ export default function StudentArea() {
               </div>
             </div>
 
+            <div className="flex items-center justify-between text-xs font-bold text-zinc-400 px-1">
+              <span>Exercício {workoutActiveIndex + 1} de {totalExercises}</span>
+              <span className="text-gold-400">{Math.round(((workoutActiveIndex + 1) / totalExercises) * 100)}%</span>
+            </div>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-ink-800 border border-white/5">
+              <div
+                className="h-full bg-gold-400 transition-all duration-300"
+                style={{ width: `${((workoutActiveIndex + 1) / totalExercises) * 100}%` }}
+              />
+            </div>
+
             {(() => {
               const exercise = sortedExercises[workoutActiveIndex]
               if (!exercise) return null
@@ -424,27 +718,45 @@ export default function StudentArea() {
 
               return (
                 <div className="rounded-2xl border border-gold-400/50 bg-ink-900 p-5 shadow-2xl space-y-4">
-                  <h2 className="font-display text-2xl uppercase tracking-wide text-white">
-                    {exercise.name}
-                  </h2>
+                  <div>
+                    {exercise.group && (
+                      <div className="mb-2 inline-flex items-center gap-1 rounded-md bg-gold-400/15 px-2.5 py-1 text-xs font-bold uppercase tracking-wider text-gold-400 border border-gold-400/30">
+                        <Link2 size={13} />
+                        {exercise.group}
+                      </div>
+                    )}
+                    <h2 className="font-display text-2xl uppercase tracking-wide text-white">
+                      {exercise.name}
+                    </h2>
+                  </div>
 
-                  {exercise.video && videoId && (
+                  {exercise.video && (
                     <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-gold-400/30 bg-black">
-                      <button
-                        type="button"
-                        onClick={() => openVideo(exercise)}
-                        className="relative h-full w-full flex items-center justify-center"
-                      >
-                        <img
-                          src={`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`}
-                          alt={exercise.name}
-                          className="absolute inset-0 h-full w-full object-cover opacity-80"
-                        />
-                        <div className="absolute inset-0 bg-black/40" />
-                        <div className="relative z-10 flex h-14 w-14 items-center justify-center rounded-full bg-gold-400 text-ink-950">
-                          <Play size={28} fill="currentColor" className="ml-1" />
-                        </div>
-                      </button>
+                      {videoId ? (
+                        <button
+                          type="button"
+                          onClick={() => openVideo(exercise)}
+                          className="group relative h-full w-full flex items-center justify-center"
+                        >
+                          <img
+                            src={`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`}
+                            alt={exercise.name}
+                            className="absolute inset-0 h-full w-full object-cover opacity-80 group-hover:scale-105 transition"
+                          />
+                          <div className="absolute inset-0 bg-black/40" />
+                          <div className="relative z-10 flex h-14 w-14 items-center justify-center rounded-full bg-gold-400 text-ink-950 shadow-xl">
+                            <Play size={28} fill="currentColor" className="ml-1" />
+                          </div>
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => openVideo(exercise)}
+                          className="h-full w-full flex items-center justify-center text-gold-400 text-xs uppercase font-bold"
+                        >
+                          <ExternalLink size={20} className="mr-2" /> Assistir Vídeo
+                        </button>
+                      )}
                     </div>
                   )}
 
@@ -468,13 +780,77 @@ export default function StudentArea() {
                     </div>
                   )}
 
+                  {/* BLOCO DE DESCANSO RETRÁTIL NO MODO IMERSIVO */}
+                  <div className="rounded-xl border border-gold-400/30 bg-ink-800/80 p-3">
+                    {!timerActive && activeRestMenu !== 'selector' ? (
+                      <button
+                        type="button"
+                        onClick={() => setActiveRestMenu('selector')}
+                        className="flex w-full items-center justify-center gap-2 rounded-lg bg-ink-700 py-2.5 text-xs font-bold uppercase tracking-wider text-gold-300 border border-gold-400/30 hover:bg-gold-400 hover:text-ink-950 transition shadow-sm"
+                      >
+                        <Timer size={16} /> ⏱️ Iniciar Descanso entre Séries
+                      </button>
+                    ) : activeRestMenu === 'selector' && !timerActive ? (
+                      <div className="space-y-2 animate-fade-in">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-gold-400">Escolha o tempo de descanso:</span>
+                          <button
+                            type="button"
+                            onClick={() => setActiveRestMenu(null)}
+                            className="text-zinc-400 hover:text-white text-xs"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-4 gap-1.5">
+                          {[30, 45, 60, 90].map((sec) => (
+                            <button
+                              key={sec}
+                              type="button"
+                              onClick={() => startTimer(sec)}
+                              className="rounded-lg border border-gold-400/30 bg-ink-900 py-2 text-xs font-bold text-gold-300 hover:bg-gold-400 hover:text-ink-950 transition"
+                            >
+                              {sec}s
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between animate-fade-in bg-ink-900 p-2.5 rounded-lg border border-gold-400/50">
+                        <div className="flex items-center gap-2">
+                          <Timer size={18} className="text-gold-400 animate-pulse" />
+                          <div>
+                            <p className="text-[9px] uppercase tracking-wider text-zinc-400 font-bold">Descansando...</p>
+                            <p className="font-display text-lg text-gold-400 font-extrabold">{timerSeconds}s</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => startTimer(initialTime)}
+                            className="rounded-lg border border-gold-400/30 bg-ink-800 px-2.5 py-1.5 text-[10px] font-bold text-gold-300 hover:bg-gold-400 hover:text-ink-950 transition"
+                          >
+                            Repetir ({initialTime}s)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={stopTimer}
+                            className="rounded-lg border border-red-500/30 bg-red-500/20 px-2.5 py-1.5 text-[10px] font-bold text-red-300 hover:bg-red-500/30 transition"
+                          >
+                            Parar
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   <button
                     type="button"
                     onClick={() => toggleCompleteExercise(exercise.id)}
                     className={`flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-xs font-extrabold uppercase tracking-wider transition ${
                       isDone
-                        ? 'bg-emerald-500 text-ink-950'
-                        : 'border border-gold-400/40 bg-ink-800 text-gold-300'
+                        ? 'bg-emerald-500 text-ink-950 shadow-lg shadow-emerald-500/20'
+                        : 'border border-gold-400/40 bg-ink-800 text-gold-300 hover:bg-gold-400 hover:text-ink-950'
                     }`}
                   >
                     <CheckCircle2 size={18} />
@@ -485,8 +861,11 @@ export default function StudentArea() {
                     <button
                       type="button"
                       disabled={workoutActiveIndex === 0}
-                      onClick={() => setWorkoutActiveIndex((prev) => Math.max(0, prev - 1))}
-                      className="flex items-center gap-1 rounded-xl border border-white/10 bg-ink-800 px-4 py-2.5 text-xs font-bold text-zinc-300 disabled:opacity-30"
+                      onClick={() => {
+                        setWorkoutActiveIndex((prev) => Math.max(0, prev - 1))
+                        setActiveRestMenu(null)
+                      }}
+                      className="flex items-center gap-1 rounded-xl border border-white/10 bg-ink-800 px-4 py-2.5 text-xs font-bold text-zinc-300 disabled:opacity-30 hover:border-gold-400/40 transition"
                     >
                       <ChevronLeft size={16} /> Anterior
                     </button>
@@ -494,8 +873,11 @@ export default function StudentArea() {
                     {workoutActiveIndex < totalExercises - 1 ? (
                       <button
                         type="button"
-                        onClick={() => setWorkoutActiveIndex((prev) => Math.min(totalExercises - 1, prev + 1))}
-                        className="flex items-center gap-1 rounded-xl bg-gold-400 px-5 py-2.5 text-xs font-bold uppercase text-ink-950"
+                        onClick={() => {
+                          setWorkoutActiveIndex((prev) => Math.min(totalExercises - 1, prev + 1))
+                          setActiveRestMenu(null)
+                        }}
+                        className="flex items-center gap-1 rounded-xl bg-gold-400 px-5 py-2.5 text-xs font-bold uppercase text-ink-950 hover:bg-gold-300 transition shadow-md"
                       >
                         Próximo Exercício <ChevronRight size={16} />
                       </button>
@@ -503,7 +885,7 @@ export default function StudentArea() {
                       <button
                         type="button"
                         onClick={() => setShowFinishedScreen(true)}
-                        className="flex items-center gap-1 rounded-xl bg-emerald-500 px-5 py-2.5 text-xs font-extrabold uppercase text-ink-950"
+                        className="flex items-center gap-1 rounded-xl bg-emerald-500 px-5 py-2.5 text-xs font-extrabold uppercase text-ink-950 hover:bg-emerald-400 transition shadow-md animate-pulse"
                       >
                         Finalizar Treino <Trophy size={16} />
                       </button>
@@ -516,38 +898,302 @@ export default function StudentArea() {
         )}
       </main>
 
-      {/* BLOCOS FLUTUANTES EMPILHADOS NO CANTO INFERIOR DIREITO */}
-      <div className="fixed bottom-36 right-4 z-45 flex flex-col items-end gap-3">
-        {/* 1. Botão Flutuante de Descanso (Dourado) */}
-        <div className="group/rest relative flex items-center">
-          <button
-            onClick={() => startTimer(initialTime)}
-            className="group flex items-center gap-2.5 rounded-full bg-gold-400 text-ink-950 p-3.5 shadow-xl shadow-gold-400/20 border border-gold-300 transition-all duration-300 hover:scale-105 hover:bg-gold-300"
-            aria-label="Iniciar descanso entre séries"
-            title="Iniciar descanso"
-          >
-            <Timer size={22} className="text-ink-950 animate-pulse shrink-0" />
-            <span className="max-w-0 overflow-hidden whitespace-nowrap font-display text-xs font-bold uppercase tracking-wider transition-all duration-300 group-hover/rest:max-w-xs group-hover/rest:pr-1">
-              Descanso ({timerActive ? `${timerSeconds}s` : `${initialTime}s`})
-            </span>
-          </button>
-        </div>
-
-        {/* 2. Botão Flutuante de Mensagem / Dúvida (Verde) */}
-        <div className="group/chat relative flex items-center">
-          <button
-            onClick={sendRealtimeDoubt}
-            className="group flex items-center gap-2.5 rounded-full bg-emerald-500 text-ink-950 p-3.5 shadow-xl shadow-emerald-500/30 border border-emerald-400 transition-all duration-300 hover:scale-105 hover:bg-emerald-400"
-            aria-label="Deixe sua dúvida ou mudanças no WhatsApp"
-            title="Deixe sua dúvida ou mudanças"
-          >
-            <MessageCircle size={22} fill="currentColor" className="text-ink-950 animate-pulse shrink-0" />
-            <span className="max-w-0 overflow-hidden whitespace-nowrap font-display text-xs font-bold uppercase tracking-wider transition-all duration-300 group-hover/chat:max-w-xs group-hover/chat:pr-1">
-              Deixe sua dúvida
-            </span>
-          </button>
-        </div>
+      <div className="fixed bottom-36 right-4 z-45 flex items-center">
+        <button
+          onClick={sendRealtimeDoubt}
+          className="group flex items-center gap-2.5 rounded-full bg-emerald-500 text-ink-950 p-3.5 shadow-xl shadow-emerald-500/30 border border-emerald-400 transition-all duration-300 hover:scale-105 hover:bg-emerald-400"
+          aria-label="Deixe sua dúvida ou mudanças no WhatsApp"
+          title="Deixe sua dúvida ou mudanças"
+        >
+          <MessageCircle size={22} fill="currentColor" className="text-ink-950 animate-pulse" />
+          <span className="max-w-0 overflow-hidden whitespace-nowrap font-display text-xs font-bold uppercase tracking-wider transition-all duration-300 group-hover:max-w-xs group-hover:pr-1">
+            Deixe sua dúvida
+          </span>
+        </button>
       </div>
+
+      {selectedWorkoutDay && !inWorkoutMode && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 border-t-2 border-gold-400/40 bg-ink-950/95 p-5 backdrop-blur shadow-2xl">
+          <div className="mx-auto max-w-md">
+            {isWorkoutCompleted ? (
+              <div className="flex items-center gap-4 animate-fade-in py-1">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-gold-400 to-gold-600 text-ink-950 shadow-xl shadow-gold-400/30">
+                  <Trophy size={32} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-display text-xl uppercase tracking-wider text-gold-300">Missão Cumprida!</p>
+                  <p className="text-xs text-zinc-200">Treino finalizado com sucesso total. Parabéns pelo foco!</p>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gold-400/15 border border-gold-400/40 text-gold-400">
+                      <Timer size={24} className="animate-pulse" />
+                    </div>
+                    <div>
+                      <p className="text-[11px] uppercase tracking-wider text-zinc-400">Descanso entre séries</p>
+                      <p className="font-display text-2xl text-gold-400 font-bold tracking-wide">
+                        {timerActive ? `${timerSeconds}s` : timerSeconds === 0 && !timerActive ? 'Pronto' : `${timerSeconds}s`}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {timerActive ? (
+                      <button
+                        onClick={stopTimer}
+                        className="rounded-xl bg-red-500/25 px-5 py-3 text-xs font-bold uppercase text-red-300 border border-red-500/30 transition hover:bg-red-500/40"
+                      >
+                        Parar
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => startTimer(initialTime)}
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-gold-400 px-4 py-3 text-xs font-bold uppercase text-ink-950 transition hover:bg-gold-300 shadow-lg shadow-gold-400/20"
+                      >
+                        <RotateCcw size={14} /> Repetir ({initialTime}s)
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-3 grid grid-cols-4 gap-2">
+                  {[30, 45, 60, 90].map((sec) => (
+                    <button
+                      key={sec}
+                      onClick={() => startTimer(sec)}
+                      className={`rounded-xl py-2 text-xs font-bold transition shadow-sm ${
+                        initialTime === sec && timerActive
+                          ? 'bg-gold-400 text-ink-950 font-bold shadow-gold/20'
+                          : 'border border-white/10 bg-ink-900 text-zinc-300 hover:border-gold-400/40 hover:text-gold-400'
+                      }`}
+                    >
+                      {sec}s
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {isEvaluationOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setIsEvaluationOpen(false)
+            }
+          }}
+        >
+          <div className="w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-3xl border border-gold-400/40 bg-ink-900 p-6 shadow-2xl animate-fade-in text-white">
+            <div className="flex items-center justify-between border-b border-white/10 pb-4 mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gold-400/20 text-gold-400 border border-gold-400/30">
+                  <Activity size={22} />
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest text-gold-400 font-bold">Danilo Lopes Consultoria</p>
+                  <h3 className="font-display text-xl uppercase tracking-wide">Avaliação Física</h3>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEvaluationOpen(false)}
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-zinc-300 hover:text-gold-400 hover:border-gold-400/40 transition"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {latestEvaluation ? (
+              <div className="space-y-5">
+                <div className="flex items-center justify-between bg-ink-950/60 p-3 rounded-xl border border-white/5">
+                  <span className="text-xs text-zinc-400 font-medium">Data da Avaliação:</span>
+                  <span className="text-xs font-bold text-gold-400">{latestEvaluation.date}</span>
+                </div>
+
+                <div>
+                  <p className="text-xs uppercase font-bold tracking-widest text-gold-400 mb-2.5 flex items-center gap-1.5">
+                    <Scale size={14} /> Composição Corporal
+                  </p>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div className="rounded-xl bg-ink-800 p-3 border border-white/5">
+                      <p className="text-[10px] uppercase tracking-wider text-zinc-400">Peso Total</p>
+                      <p className="font-display text-lg text-white font-bold">{latestEvaluation.weight} kg</p>
+                    </div>
+                    <div className="rounded-xl bg-ink-800 p-3 border border-white/5">
+                      <p className="text-[10px] uppercase tracking-wider text-zinc-400">Altura</p>
+                      <p className="font-display text-lg text-white font-bold">{latestEvaluation.height} m</p>
+                    </div>
+                    <div className="rounded-xl bg-ink-800 p-3 border border-white/5">
+                      <p className="text-[10px] uppercase tracking-wider text-zinc-400">% de Gordura (%BF)</p>
+                      <p className="font-display text-lg text-gold-400 font-bold">{latestEvaluation.fatPercentage}%</p>
+                    </div>
+                    <div className="rounded-xl bg-ink-800 p-3 border border-white/5">
+                      <p className="text-[10px] uppercase tracking-wider text-zinc-400">Massa Magra</p>
+                      <p className="font-display text-lg text-emerald-400 font-bold">{latestEvaluation.leanMass} kg</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-xs uppercase font-bold tracking-widest text-gold-400 mb-2.5 flex items-center gap-1.5">
+                    <Flame size={14} /> Metabolismo & Calorias
+                  </p>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div className="rounded-xl bg-ink-800 p-3 border border-white/5">
+                      <p className="text-[10px] uppercase tracking-wider text-zinc-400">Taxa Metabólica Basal (TMB)</p>
+                      <p className="font-display text-base text-white font-bold">{latestEvaluation.tmb} kcal</p>
+                    </div>
+                    <div className="rounded-xl bg-ink-800 p-3 border border-white/5">
+                      <p className="text-[10px] uppercase tracking-wider text-zinc-400">Gasto Energético Total (GET)</p>
+                      <p className="font-display text-base text-gold-400 font-bold">{latestEvaluation.get} kcal</p>
+                    </div>
+                  </div>
+                </div>
+
+                {latestEvaluation.circumferences && (
+                  <div>
+                    <p className="text-xs uppercase font-bold tracking-widest text-gold-400 mb-2.5 flex items-center gap-1.5">
+                      <UserCheck size={14} /> Circunferências (cm)
+                    </p>
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="rounded-xl bg-ink-800 p-2.5 border border-white/5">
+                        <p className="text-[9px] uppercase tracking-wider text-zinc-400">Tórax</p>
+                        <p className="font-display text-sm text-white font-bold mt-0.5">{latestEvaluation.circumferences.chest} cm</p>
+                      </div>
+                      <div className="rounded-xl bg-ink-800 p-2.5 border border-white/5">
+                        <p className="text-[9px] uppercase tracking-wider text-zinc-400">Braço</p>
+                        <p className="font-display text-sm text-white font-bold mt-0.5">{latestEvaluation.circumferences.arm} cm</p>
+                      </div>
+                      <div className="rounded-xl bg-ink-800 p-2.5 border border-white/5">
+                        <p className="text-[9px] uppercase tracking-wider text-zinc-400">Cintura</p>
+                        <p className="font-display text-sm text-white font-bold mt-0.5">{latestEvaluation.circumferences.waist} cm</p>
+                      </div>
+                      <div className="rounded-xl bg-ink-800 p-2.5 border border-white/5">
+                        <p className="text-[9px] uppercase tracking-wider text-zinc-400">Quadril</p>
+                        <p className="font-display text-sm text-white font-bold mt-0.5">{latestEvaluation.circumferences.hips} cm</p>
+                      </div>
+                      <div className="rounded-xl bg-ink-800 p-2.5 border border-white/5">
+                        <p className="text-[9px] uppercase tracking-wider text-zinc-400">Coxa</p>
+                        <p className="font-display text-sm text-white font-bold mt-0.5">{latestEvaluation.circumferences.thigh} cm</p>
+                      </div>
+                      <div className="rounded-xl bg-ink-800 p-2.5 border border-white/5">
+                        <p className="text-[9px] uppercase tracking-wider text-zinc-400">Panturrilha</p>
+                        <p className="font-display text-sm text-white font-bold mt-0.5">{latestEvaluation.circumferences.calf} cm</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="py-10 text-center space-y-3">
+                <Activity size={40} className="mx-auto text-gold-400/40 animate-pulse" />
+                <p className="text-sm font-medium text-zinc-300">Nenhuma avaliação física cadastrada.</p>
+              </div>
+            )}
+
+            <div className="mt-6 pt-4 border-t border-white/10">
+              <button
+                type="button"
+                onClick={() => setIsEvaluationOpen(false)}
+                className="w-full rounded-xl bg-gold-400 py-3 text-xs font-bold uppercase text-ink-950 transition hover:bg-gold-300 shadow-lg"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedVideo && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              closeVideo()
+            }
+          }}
+        >
+          <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-white/10 bg-ink-900 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+              <div className="min-w-0 pr-3">
+                <p className="text-[10px] uppercase tracking-[0.18em] text-gold-400">Demonstração</p>
+                <h3 className="mt-1 truncate font-display text-lg uppercase text-white">{selectedVideo.name}</h3>
+              </div>
+              <button
+                type="button"
+                onClick={closeVideo}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 text-zinc-300 transition hover:border-gold-400/40 hover:text-gold-400"
+                aria-label="Fechar vídeo"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="aspect-video w-full bg-black">
+              <iframe
+                src={`https://www.youtube.com/embed/${selectedVideo.id}?autoplay=1&rel=0`}
+                title={selectedVideo.name}
+                className="h-full w-full"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+              />
+            </div>
+            <div className="flex items-center justify-between px-4 py-3">
+              <p className="text-xs text-zinc-500">Assista à execução correta do movimento.</p>
+              <button
+                type="button"
+                onClick={closeVideo}
+                className="rounded-xl bg-gold-400 px-4 py-2 text-xs font-semibold uppercase text-ink-950 transition hover:bg-gold-300"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedObs && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setSelectedObs(null)
+            }
+          }}
+        >
+          <div className="w-full max-w-md overflow-hidden rounded-2xl border border-gold-400/40 bg-ink-900 p-5 shadow-2xl animate-fade-in">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3 mb-3">
+              <div className="flex items-center gap-2">
+                <Lightbulb size={18} className="text-gold-400" />
+                <h3 className="font-display text-lg uppercase tracking-wide text-gold-400">{selectedObs.title}</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedObs(null)}
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 text-zinc-300 hover:text-gold-400 hover:border-gold-400/40 transition"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="max-h-[60vh] overflow-y-auto pr-1">
+              <p className="text-sm leading-relaxed text-zinc-200 whitespace-pre-wrap">{selectedObs.notes}</p>
+            </div>
+            <div className="mt-5 pt-3 border-t border-white/10 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setSelectedObs(null)}
+                className="w-full rounded-xl bg-gold-400 py-3 text-xs font-bold uppercase text-ink-950 transition hover:bg-gold-300 shadow-lg"
+              >
+                Entendido
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
