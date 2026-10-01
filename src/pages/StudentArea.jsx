@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ExternalLink, LogOut, RefreshCw, X, Play, Timer, RotateCcw, MessageCircle, Link2, CheckCircle2, Trophy, Lightbulb, ArrowLeft, Activity, Scale, Flame, UserCheck, FlameKindling, ChevronRight, ChevronLeft, Pause, PlayCircle } from 'lucide-react'
+import { ExternalLink, LogOut, RefreshCw, X, Play, Timer, RotateCcw, MessageCircle, Link2, CheckCircle2, Trophy, Lightbulb, ArrowLeft, Activity, Scale, Flame, UserCheck, FlameKindling, ChevronRight, ChevronLeft, Pause, PlayCircle, AlertCircle } from 'lucide-react'
 import Logo from '../components/Logo.jsx'
 import { useAuth } from '../auth.jsx'
 import { loadData, subscribeData } from '../storage'
@@ -27,7 +27,7 @@ const COACH_TIPS = [
   "Não tenha pressa para terminar; execute cada repetição com intenção.",
   "A disciplina é a ponte entre as suas metas e as suas conquistas.",
   "Beba água regularmente, mesmo que não sinta tanta sede.",
-  "Aproveite o processo. Evoluir exige paciência e dedicação diária."
+  "Aproveite o processo. Evoluir exige patience e dedicação diária."
 ]
 
 function youtubeId(url = '') {
@@ -90,16 +90,17 @@ export default function StudentArea() {
     return COACH_TIPS[index]
   }, [])
 
+  // CORREÇÃO: Removido o fallback perigoso por `data.students[0]`
   const current = useMemo(() => {
+    if (!student?.id && !student?.code) return null
     return (
-      data.students.find(
+      data.students?.find(
         (item) => item.id === student?.id || item.code === student?.code
-      ) || data.students[0]
+      ) || null
     )
   }, [data, student])
 
-  const workouts = current?.workouts || data.workouts
-
+  const workouts = current?.workouts || {}
   const evaluations = current?.evaluations || []
   const latestEvaluation = evaluations.length > 0 ? evaluations[evaluations.length - 1] : null
 
@@ -139,7 +140,6 @@ export default function StudentArea() {
   const totalExercises = sortedExercises.length
   const completedCount = sortedExercises.filter((ex) => completedExercises.includes(ex.id)).length
   const progressPercent = totalExercises > 0 ? Math.round((completedCount / totalExercises) * 100) : 0
-  const isWorkoutCompleted = totalExercises > 0 && completedCount === totalExercises
 
   useEffect(() => {
     const stop = subscribeData((next) => {
@@ -154,7 +154,7 @@ export default function StudentArea() {
     return stop
   }, [])
 
-  // Temporizador de Descanso com sumiço automático ao zerar
+  // Temporizador de Descanso
   useEffect(() => {
     let interval = null
     if (timerActive && timerSeconds > 0) {
@@ -288,6 +288,29 @@ export default function StudentArea() {
     setSelectedVideo(null)
   }
 
+  // TRATAMENTO DE SEGURANÇA: Se o aluno não for encontrado na base de dados
+  if (!current) {
+    return (
+      <div className="min-h-dvh bg-ink-950 flex items-center justify-center p-4 text-white">
+        <div className="w-full max-w-sm rounded-3xl border border-red-500/30 bg-ink-900 p-6 text-center shadow-2xl space-y-4">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-red-500/20 text-red-400 border border-red-500/30">
+            <AlertCircle size={28} />
+          </div>
+          <div>
+            <h2 className="font-display text-xl uppercase">Sessão Expirada</h2>
+            <p className="text-xs text-zinc-400 mt-1">Não foi possível localizar os seus dados de cadastro. Por favor, faça login novamente.</p>
+          </div>
+          <button
+            onClick={exit}
+            className="w-full rounded-xl bg-gold-400 py-3 text-xs font-bold uppercase text-ink-950 hover:bg-gold-300 transition shadow-lg"
+          >
+            Voltar ao Login
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-dvh bg-ink-950 pb-48 text-white relative">
       <header className="sticky top-0 z-30 border-b border-white/5 bg-ink-950/95 backdrop-blur">
@@ -319,7 +342,7 @@ export default function StudentArea() {
         <div className="mx-auto max-w-md px-4 pb-3 flex items-center justify-between">
           <div>
             <p className="text-xs text-zinc-500">
-              Olá, {current?.name || student?.name || 'aluno'}
+              Olá, {current?.name || 'aluno'}
             </p>
             {syncedAt && (
               <p className="mt-1 flex items-center gap-1 text-[11px] text-gold-400/80">
@@ -564,7 +587,6 @@ export default function StudentArea() {
                       </div>
                     </div>
 
-                    {/* BOTÃO DE DESCANSO REMOVIDO DE DENTRO DO CARTÃO DO EXERCÍCIO */}
                     <div className="relative pt-2 border-t border-white/10">
                       <button
                         type="button"
@@ -661,7 +683,6 @@ export default function StudentArea() {
 
             <div className="flex items-center justify-between text-xs font-bold text-zinc-400 px-1">
               <span>Exercício {workoutActiveIndex + 1} de {totalExercises}</span>
-              {/* PORCENTAGEM REAL BASEADA NOS CONCLUÍDOS */}
               <span className="text-gold-400">{progressPercent}% concluído</span>
             </div>
             <div className="h-2 w-full overflow-hidden rounded-full bg-ink-800 border border-white/5">
@@ -795,9 +816,8 @@ export default function StudentArea() {
         )}
       </main>
 
-      {/* BLOCOS FLUTUANTES REPOSICIONADOS: WHATSAPP EM CIMA, DESCANSO LOGO ABAIXO */}
+      {/* BOTÕES FLUTUANTES (WHATSAPP EM CIMA, DESCANSO EMBAIXO) */}
       <div className="fixed bottom-6 right-4 z-45 flex flex-col items-end gap-3">
-        {/* 1. Botão Flutuante de Mensagem / Dúvida (Fica em cima agora) */}
         <button
           onClick={sendRealtimeDoubt}
           className="group flex items-center gap-2.5 rounded-full bg-emerald-500 text-ink-950 p-3.5 shadow-xl shadow-emerald-500/30 border border-emerald-400 transition-all duration-300 hover:scale-105 hover:bg-emerald-400"
@@ -810,7 +830,6 @@ export default function StudentArea() {
           </span>
         </button>
 
-        {/* 2. Botão Flutuante de Descanso (Fica logo abaixo da mensagem) */}
         <div className="flex flex-col items-end gap-2">
           {activeRestMenu && !timerActive && (
             <div className="flex items-center gap-1.5 rounded-2xl border border-gold-400/50 bg-ink-900/95 p-2 shadow-2xl backdrop-blur animate-fade-in">
