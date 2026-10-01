@@ -70,7 +70,7 @@ export default function StudentArea() {
 
   const [completedExercises, setCompletedExercises] = useState([])
 
-  // Estados dos cronômetros e Modo Treino
+  // Estados dos cronómetros e Modo Treino
   const [timerSeconds, setTimerSeconds] = useState(0)
   const [timerActive, setTimerActive] = useState(false)
   const [initialTime, setInitialTime] = useState(60)
@@ -191,7 +191,7 @@ export default function StudentArea() {
     setInitialTime(seconds)
     setTimerSeconds(seconds)
     setTimerActive(true)
-    setActiveRestMenu('running')
+    setActiveRestMenu('running') // Altera para estado ativo do timer no modo imersivo
   }
 
   function stopTimer() {
@@ -670,7 +670,7 @@ export default function StudentArea() {
             </div>
           </div>
         ) : (
-          /* MODO TREINO IMERSIVO COM OS BOTÕES FLUTUANTES EMPILHADOS NO CANTO */
+          /* MODO TREINO IMERSIVO COM BOTÃO DE DESCANSO RETRÁTIL */
           <div className="space-y-4 animate-fade-in">
             <div className="flex items-center justify-between rounded-2xl bg-ink-900 border border-gold-400/40 p-3.5">
               <div className="flex items-center gap-2">
@@ -780,6 +780,70 @@ export default function StudentArea() {
                     </div>
                   )}
 
+                  {/* BLOCO DE DESCANSO RETRÁTIL NO MODO IMERSIVO */}
+                  <div className="rounded-xl border border-gold-400/30 bg-ink-800/80 p-3">
+                    {!timerActive && activeRestMenu !== 'selector' ? (
+                      <button
+                        type="button"
+                        onClick={() => setActiveRestMenu('selector')}
+                        className="flex w-full items-center justify-center gap-2 rounded-lg bg-ink-700 py-2.5 text-xs font-bold uppercase tracking-wider text-gold-300 border border-gold-400/30 hover:bg-gold-400 hover:text-ink-950 transition shadow-sm"
+                      >
+                        <Timer size={16} /> ⏱️ Iniciar Descanso entre Séries
+                      </button>
+                    ) : activeRestMenu === 'selector' && !timerActive ? (
+                      <div className="space-y-2 animate-fade-in">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-gold-400">Escolha o tempo de descanso:</span>
+                          <button
+                            type="button"
+                            onClick={() => setActiveRestMenu(null)}
+                            className="text-zinc-400 hover:text-white text-xs"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-4 gap-1.5">
+                          {[30, 45, 60, 90].map((sec) => (
+                            <button
+                              key={sec}
+                              type="button"
+                              onClick={() => startTimer(sec)}
+                              className="rounded-lg border border-gold-400/30 bg-ink-900 py-2 text-xs font-bold text-gold-300 hover:bg-gold-400 hover:text-ink-950 transition"
+                            >
+                              {sec}s
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between animate-fade-in bg-ink-900 p-2.5 rounded-lg border border-gold-400/50">
+                        <div className="flex items-center gap-2">
+                          <Timer size={18} className="text-gold-400 animate-pulse" />
+                          <div>
+                            <p className="text-[9px] uppercase tracking-wider text-zinc-400 font-bold">Descansando...</p>
+                            <p className="font-display text-lg text-gold-400 font-extrabold">{timerSeconds}s</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => startTimer(initialTime)}
+                            className="rounded-lg border border-gold-400/30 bg-ink-800 px-2.5 py-1.5 text-[10px] font-bold text-gold-300 hover:bg-gold-400 hover:text-ink-950 transition"
+                          >
+                            Repetir ({initialTime}s)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={stopTimer}
+                            className="rounded-lg border border-red-500/30 bg-red-500/20 px-2.5 py-1.5 text-[10px] font-bold text-red-300 hover:bg-red-500/30 transition"
+                          >
+                            Parar
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   <button
                     type="button"
                     onClick={() => toggleCompleteExercise(exercise.id)}
@@ -834,62 +898,86 @@ export default function StudentArea() {
         )}
       </main>
 
-      {/* BLOCOS FLUTUANTES EMPILHADOS NO CANTO INFERIOR DIREITO (COM O CRONÓMETRO DE DESCANSO EXPANSÍVEL) */}
-      <div className="fixed bottom-6 right-4 z-45 flex flex-col items-end gap-3">
-        {/* 1. Botão Flutuante de Descanso (Dourado - Expansível) */}
-        <div className="group/rest relative flex items-center">
-          {timerActive ? (
-            <div className="flex items-center gap-2 rounded-full bg-gold-400 text-ink-950 px-4 py-3 shadow-xl shadow-gold-400/30 border border-gold-300 animate-pulse font-display text-xs font-extrabold">
-              <Timer size={20} className="shrink-0" />
-              <span>{timerSeconds}s</span>
-              <button
-                onClick={stopTimer}
-                className="ml-1 text-[10px] bg-ink-950 text-gold-300 px-2 py-1 rounded-full uppercase"
-              >
-                Parar
-              </button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-1 bg-ink-900 border border-gold-400/40 rounded-full p-1 shadow-xl">
-              <div className="flex items-center gap-1 px-2">
-                {[30, 45, 60].map((sec) => (
-                  <button
-                    key={sec}
-                    onClick={() => startTimer(sec)}
-                    className="h-8 w-8 rounded-full bg-ink-800 text-gold-400 text-[10px] font-bold border border-gold-400/30 hover:bg-gold-400 hover:text-ink-950 transition flex items-center justify-center"
-                    title={`Descansar ${sec}s`}
-                  >
-                    {sec}s
-                  </button>
-                ))}
-              </div>
-              <button
-                onClick={() => startTimer(initialTime)}
-                className="group flex items-center gap-2 rounded-full bg-gold-400 text-ink-950 p-3 shadow-md hover:bg-gold-300 transition"
-                title="Iniciar Descanso"
-              >
-                <Timer size={20} className="shrink-0" />
-                <span className="max-w-0 overflow-hidden whitespace-nowrap font-display text-xs font-bold uppercase tracking-wider transition-all duration-300 group-hover/rest:max-w-xs group-hover/rest:pr-2">
-                  Descanso ({initialTime}s)
-                </span>
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* 2. Botão Flutuante de Mensagem / Dúvida (Verde) */}
+      <div className="fixed bottom-36 right-4 z-45 flex items-center">
         <button
           onClick={sendRealtimeDoubt}
           className="group flex items-center gap-2.5 rounded-full bg-emerald-500 text-ink-950 p-3.5 shadow-xl shadow-emerald-500/30 border border-emerald-400 transition-all duration-300 hover:scale-105 hover:bg-emerald-400"
           aria-label="Deixe sua dúvida ou mudanças no WhatsApp"
           title="Deixe sua dúvida ou mudanças"
         >
-          <MessageCircle size={22} fill="currentColor" className="text-ink-950 animate-pulse shrink-0" />
+          <MessageCircle size={22} fill="currentColor" className="text-ink-950 animate-pulse" />
           <span className="max-w-0 overflow-hidden whitespace-nowrap font-display text-xs font-bold uppercase tracking-wider transition-all duration-300 group-hover:max-w-xs group-hover:pr-1">
             Deixe sua dúvida
           </span>
         </button>
       </div>
+
+      {selectedWorkoutDay && !inWorkoutMode && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 border-t-2 border-gold-400/40 bg-ink-950/95 p-5 backdrop-blur shadow-2xl">
+          <div className="mx-auto max-w-md">
+            {isWorkoutCompleted ? (
+              <div className="flex items-center gap-4 animate-fade-in py-1">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-gold-400 to-gold-600 text-ink-950 shadow-xl shadow-gold-400/30">
+                  <Trophy size={32} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-display text-xl uppercase tracking-wider text-gold-300">Missão Cumprida!</p>
+                  <p className="text-xs text-zinc-200">Treino finalizado com sucesso total. Parabéns pelo foco!</p>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gold-400/15 border border-gold-400/40 text-gold-400">
+                      <Timer size={24} className="animate-pulse" />
+                    </div>
+                    <div>
+                      <p className="text-[11px] uppercase tracking-wider text-zinc-400">Descanso entre séries</p>
+                      <p className="font-display text-2xl text-gold-400 font-bold tracking-wide">
+                        {timerActive ? `${timerSeconds}s` : timerSeconds === 0 && !timerActive ? 'Pronto' : `${timerSeconds}s`}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {timerActive ? (
+                      <button
+                        onClick={stopTimer}
+                        className="rounded-xl bg-red-500/25 px-5 py-3 text-xs font-bold uppercase text-red-300 border border-red-500/30 transition hover:bg-red-500/40"
+                      >
+                        Parar
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => startTimer(initialTime)}
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-gold-400 px-4 py-3 text-xs font-bold uppercase text-ink-950 transition hover:bg-gold-300 shadow-lg shadow-gold-400/20"
+                      >
+                        <RotateCcw size={14} /> Repetir ({initialTime}s)
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-3 grid grid-cols-4 gap-2">
+                  {[30, 45, 60, 90].map((sec) => (
+                    <button
+                      key={sec}
+                      onClick={() => startTimer(sec)}
+                      className={`rounded-xl py-2 text-xs font-bold transition shadow-sm ${
+                        initialTime === sec && timerActive
+                          ? 'bg-gold-400 text-ink-950 font-bold shadow-gold/20'
+                          : 'border border-white/10 bg-ink-900 text-zinc-300 hover:border-gold-400/40 hover:text-gold-400'
+                      }`}
+                    >
+                      {sec}s
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {isEvaluationOpen && (
         <div
@@ -1058,7 +1146,7 @@ export default function StudentArea() {
               <p className="text-xs text-zinc-500">Assista à execução correta do movimento.</p>
               <button
                 type="button"
-                onClick(closeVideo)
+                onClick={closeVideo}
                 className="rounded-xl bg-gold-400 px-4 py-2 text-xs font-semibold uppercase text-ink-950 transition hover:bg-gold-300"
               >
                 Fechar
