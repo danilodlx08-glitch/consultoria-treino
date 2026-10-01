@@ -1,63 +1,33 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import {
-  ExternalLink,
-  LogOut,
-  RefreshCw,
-  X,
-  Play,
-  Timer,
-  RotateCcw,
-  MessageCircle,
-  Link2,
-  CheckCircle2,
-  Trophy,
-  Lightbulb,
-  ArrowLeft,
-  Activity,
-  Scale,
-  Flame,
-  UserCheck,
-  FlameKindling,
-  ChevronRight,
-  ChevronLeft,
-  Pause,
-  PlayCircle,
-  Gauge,
-  Save,
-  History,
-  Plus,
-} from 'lucide-react'
+import { ExternalLink, LogOut, RefreshCw, X, Play, Timer, RotateCcw, MessageCircle, Link2, CheckCircle2, Trophy, Lightbulb, ArrowLeft, Activity, Scale, Flame, UserCheck, FlameKindling, ChevronRight, ChevronLeft, Pause, PlayCircle } from 'lucide-react'
 import Logo from '../components/Logo.jsx'
 import { useAuth } from '../auth.jsx'
 import { loadData, subscribeData } from '../storage'
 
 const DAYS = ['A', 'B', 'C', 'D', 'E']
 
-const SESSION_PREFIX = 'dl_consultoria_student_session_v2'
-const HISTORY_PREFIX = 'dl_consultoria_student_history_v2'
-
 const COACH_TIPS = [
-  'Priorize a execução correta antes de aumentar a carga.',
-  'A consistência supera a intensidade ocasional. Faça o seu melhor hoje!',
-  'Respire fundo: a fase excêntrica (descida) é onde o músculo mais cresce.',
-  'Concentre-se no grupamento muscular que está a trabalhar, evite balançar o corpo.',
-  'Hidrate-se bem durante o treino. A performance começa na água!',
-  'Mantenha a postura firme e o abdómen contraído em todos os movimentos.',
-  'A amplitude de movimento é mais importante do que excesso de peso sem controle.',
-  'Respeite o seu tempo de descanso entre as séries para manter a intensidade alta.',
-  'Foque na contração máxima no topo de cada repetição.',
-  'O descanso faz parte do treino. Recupere-se bem para a próxima série.',
-  'Mantenha o foco e elimine as distrações enquanto estiver a treinar.',
-  'Lembre-se: cada treino é um passo a mais em direção à sua melhor versão.',
-  'Se sentir dor articular aguda, pare e ajuste a postura imediatamente.',
-  'Conecte a sua mente ao músculo que está a ser exercitado.',
-  'A persistência de hoje é a força de amanhã. Vamos com tudo!',
-  'Controle a respiração: expire no esforço e inspire na volta.',
-  'Não tenha pressa para terminar; execute cada repetição com intenção.',
-  'A disciplina é a ponte entre as suas metas e as suas conquistas.',
-  'Beba água regularmente, mesmo que não sinta tanta sede.',
-  'Aproveite o processo. Evoluir exige paciência e dedicação diária.',
+  "Priorize a execução correta antes de aumentar a carga.",
+  "A consistência supera a intensidade ocasional. Faça o seu melhor hoje!",
+  "Respire fundo: a fase excêntrica (descida) é onde o músculo mais cresce.",
+  "Concentre-se no grupamento muscular que está a trabalhar, evite balançar o corpo.",
+  "Hidrate-se bem durante o treino. A performance começa na água!",
+  "Mantenha a postura firme e o abdómen contraído em todos os movimentos.",
+  "A amplitude de movimento é mais importante do que excesso de peso sem controle.",
+  "Respeite o seu tempo de descanso entre as séries para manter a intensidade alta.",
+  "Foque na contração máxima no topo de cada repetição.",
+  "O descanso faz parte do treino. Recupere-se bem para a próxima série.",
+  "Mantenha o foco e elimine as distrações enquanto estiver a treinar.",
+  "Lembre-se: cada treino é um passo a mais em direção à sua melhor versão.",
+  "Se sentir dor articular aguda, pare e ajuste a postura imediatamente.",
+  "Conecte a sua mente ao músculo que está a ser exercitado.",
+  "A persistência de hoje é a força de amanhã. Vamos com tudo!",
+  "Controle a respiração: expire no esforço e inspire na volta.",
+  "Não tenha pressa para terminar; execute cada repetição com intenção.",
+  "A disciplina é a ponte entre as suas metas e as suas conquistas.",
+  "Beba água regularmente, mesmo que não sinta tanta sede.",
+  "Aproveite o processo. Evoluir exige paciência e dedicação diária."
 ]
 
 function youtubeId(url = '') {
@@ -67,98 +37,23 @@ function youtubeId(url = '') {
   return match ? match[1] : null
 }
 
-function safeStorageGet(key, fallback = null) {
-  try {
-    const raw = window.localStorage.getItem(key)
-    if (!raw) return fallback
-    return JSON.parse(raw)
-  } catch {
-    return fallback
-  }
-}
-
-function safeStorageSet(key, value) {
-  try {
-    window.localStorage.setItem(key, JSON.stringify(value))
-    return true
-  } catch {
-    return false
-  }
-}
-
-function safeStorageRemove(key) {
-  try {
-    window.localStorage.removeItem(key)
-  } catch {}
-}
-
-function getStudentStorageId(student, current) {
-  return student?.id || student?.code || current?.id || current?.code || 'student'
-}
-
-function getSessionStorageKey(student, current, day) {
-  const studentId = getStudentStorageId(student, current)
-  return `${SESSION_PREFIX}_${String(studentId)}_${day}`
-}
-
-function getHistoryStorageKey(student, current) {
-  const studentId = getStudentStorageId(student, current)
-  return `${HISTORY_PREFIX}_${String(studentId)}`
-}
-
-function getExerciseKey(exercise, index, day) {
-  if (exercise?.id !== undefined && exercise?.id !== null) {
-    return String(exercise.id)
-  }
-  return `${day}-${index}-${String(exercise?.name || 'exercise').trim()}`
-}
-
-function getDateKey(date = new Date()) {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
-function formatDate(dateString) {
-  if (!dateString) return ''
-  try {
-    return new Date(dateString).toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    })
-  } catch {
-    return dateString
-  }
-}
-
-function formatSessionTime(totalSecs = 0) {
-  const mins = Math.floor(Number(totalSecs || 0) / 60)
-  const secs = Number(totalSecs || 0) % 60
-  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
-}
-
 function playBeep(isFinal = false) {
   try {
-    const AudioContext = window.AudioContext || window.webkitAudioContext
-    if (AudioContext) {
-      const audioCtx = new AudioContext()
-      const osc = audioCtx.createOscillator()
-      const gain = audioCtx.createGain()
-      osc.type = isFinal ? 'square' : 'sine'
-      osc.frequency.setValueAtTime(isFinal ? 880 : 440, audioCtx.currentTime)
-      gain.gain.setValueAtTime(0.15, audioCtx.currentTime)
-      osc.connect(gain)
-      gain.connect(audioCtx.destination)
-      osc.start()
-      osc.stop(audioCtx.currentTime + (isFinal ? 0.6 : 0.2))
-    }
-  } catch {}
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+    const osc = audioCtx.createOscillator()
+    const gain = audioCtx.createGain()
+    osc.type = isFinal ? 'square' : 'sine'
+    osc.frequency.setValueAtTime(isFinal ? 880 : 440, audioCtx.currentTime)
+    gain.gain.setValueAtTime(0.15, audioCtx.currentTime)
+    osc.connect(gain)
+    gain.connect(audioCtx.destination)
+    osc.start()
+    osc.stop(audioCtx.currentTime + (isFinal ? 0.6 : 0.2))
+  } catch (e) {}
   if (navigator.vibrate) {
     try {
       navigator.vibrate(isFinal ? [300, 150, 300] : 200)
-    } catch {}
+    } catch (e) {}
   }
 }
 
@@ -167,7 +62,6 @@ export default function StudentArea() {
   const navigate = useNavigate()
 
   const [data, setData] = useState(() => loadData())
-
   const [selectedWorkoutDay, setSelectedWorkoutDay] = useState(null)
   const [syncedAt, setSyncedAt] = useState('')
   const [selectedVideo, setSelectedVideo] = useState(null)
@@ -175,9 +69,8 @@ export default function StudentArea() {
   const [isEvaluationOpen, setIsEvaluationOpen] = useState(false)
 
   const [completedExercises, setCompletedExercises] = useState([])
-  const [exerciseLoads, setExerciseLoads] = useState({})
-  const [exerciseRpe, setExerciseRpe] = useState({})
 
+  // Estados dos cronômetros e Modo Treino
   const [timerSeconds, setTimerSeconds] = useState(0)
   const [timerActive, setTimerActive] = useState(false)
   const [initialTime, setInitialTime] = useState(60)
@@ -186,29 +79,27 @@ export default function StudentArea() {
   const [inWorkoutMode, setInWorkoutMode] = useState(false)
   const [workoutActiveIndex, setWorkoutActiveIndex] = useState(0)
 
+  // Cronômetro Geral da Sessão
   const [sessionSeconds, setSessionSeconds] = useState(0)
   const [sessionActive, setSessionActive] = useState(false)
   const [sessionPaused, setSessionPaused] = useState(false)
   const [showFinishedScreen, setShowFinishedScreen] = useState(false)
 
-  const [feedbackEditor, setFeedbackEditor] = useState(null)
-  const [feedbackLoad, setFeedbackLoad] = useState('')
-  const [feedbackRpe, setFeedbackRpe] = useState('')
-
-  const [history, setHistory] = useState([])
-  const [isHistoryOpen, setIsHistoryOpen] = useState(false)
-  const [lastFinishedSummary, setLastFinishedSummary] = useState(null)
+  const dailyTip = useMemo(() => {
+    const index = Math.floor(Math.random() * COACH_TIPS.length)
+    return COACH_TIPS[index]
+  }, [])
 
   const current = useMemo(() => {
-    if (!student?.id && !student?.code) return null
     return (
-      data.students?.find(
+      data.students.find(
         (item) => item.id === student?.id || item.code === student?.code
-      ) || null
+      ) || data.students[0]
     )
   }, [data, student])
 
-  const workouts = current?.workouts || data.workouts || {}
+  const workouts = current?.workouts || data.workouts
+
   const evaluations = current?.evaluations || []
   const latestEvaluation = evaluations.length > 0 ? evaluations[evaluations.length - 1] : null
 
@@ -227,7 +118,9 @@ export default function StudentArea() {
     original.forEach((ex) => {
       const groupKey = (ex.group || '').trim()
       if (groupKey) {
-        if (!groupedMap.has(groupKey)) groupedMap.set(groupKey, [])
+        if (!groupedMap.has(groupKey)) {
+          groupedMap.set(groupKey, [])
+        }
         groupedMap.get(groupKey).push(ex)
       } else {
         ungrouped.push(ex)
@@ -239,29 +132,14 @@ export default function StudentArea() {
       result.push(...exercisesInGroup)
     })
     result.push(...ungrouped)
+
     return result
   }, [workout.exercises])
 
   const totalExercises = sortedExercises.length
-
-  const completedCount = sortedExercises.filter((ex, index) =>
-    completedExercises.includes(getExerciseKey(ex, index, currentDay))
-  ).length
-
-  // PROGRESSO BASEADO EXCLUSIVAMENTE NOS EXERCÍCIOS CONCLUÍDOS
-  const progressPercent =
-    totalExercises > 0 ? Math.round((completedCount / totalExercises) * 100) : 0
-
-  const dailyTip = useMemo(() => {
-    const dateKey = getDateKey()
-    let hash = 0
-    for (let index = 0; index < dateKey.length; index += 1) {
-      hash = (hash << 5) - hash + dateKey.charCodeAt(index)
-      hash |= 0
-    }
-    const position = Math.abs(hash) % COACH_TIPS.length
-    return COACH_TIPS[position]
-  }, [])
+  const completedCount = sortedExercises.filter((ex) => completedExercises.includes(ex.id)).length
+  const progressPercent = totalExercises > 0 ? Math.round((completedCount / totalExercises) * 100) : 0
+  const isWorkoutCompleted = totalExercises > 0 && completedCount === totalExercises
 
   useEffect(() => {
     const stop = subscribeData((next) => {
@@ -276,101 +154,15 @@ export default function StudentArea() {
     return stop
   }, [])
 
-  useEffect(() => {
-    if (!current) {
-      setHistory([])
-      return
-    }
-    const savedHistory = safeStorageGet(getHistoryStorageKey(student, current), [])
-    setHistory(Array.isArray(savedHistory) ? savedHistory : [])
-  }, [student, current])
-
-  function getSavedSession(day) {
-    if (!current) return null
-    const saved = safeStorageGet(getSessionStorageKey(student, current, day), null)
-    if (!saved || saved.status !== 'active') return null
-    return saved
-  }
-
-  function saveCurrentSession(overrides = {}) {
-    if (!selectedWorkoutDay || !current) return
-    const existing = getSavedSession(selectedWorkoutDay) || {}
-    const session = {
-      id: existing.id || `${selectedWorkoutDay}-${Date.now()}`,
-      day: selectedWorkoutDay,
-      startedAt: existing.startedAt || new Date().toISOString(),
-      elapsedSeconds: overrides.elapsedSeconds ?? sessionSeconds,
-      completed: overrides.completed ?? completedExercises,
-      loads: overrides.loads ?? exerciseLoads,
-      rpe: overrides.rpe ?? exerciseRpe,
-      activeIndex: overrides.activeIndex ?? workoutActiveIndex,
-      status: 'active',
-    }
-    safeStorageSet(getSessionStorageKey(student, current, selectedWorkoutDay), session)
-  }
-
-  function loadSessionForDay(day) {
-    const saved = getSavedSession(day)
-    if (!saved) {
-      setCompletedExercises([])
-      setExerciseLoads({})
-      setExerciseRpe({})
-      setSessionSeconds(0)
-      setWorkoutActiveIndex(0)
-      setSessionPaused(false)
-      setSessionActive(false)
-      setShowFinishedScreen(false)
-      setLastFinishedSummary(null)
-      return null
-    }
-
-    setCompletedExercises(Array.isArray(saved.completed) ? saved.completed : [])
-    setExerciseLoads(saved.loads && typeof saved.loads === 'object' ? saved.loads : {})
-    setExerciseRpe(saved.rpe && typeof saved.rpe === 'object' ? saved.rpe : {})
-    setSessionSeconds(Number(saved.elapsedSeconds || 0))
-    const maxIndex = Math.max(0, (workouts[day]?.exercises?.length || 1) - 1)
-    setWorkoutActiveIndex(Math.min(Number(saved.activeIndex || 0), maxIndex))
-    setSessionPaused(false)
-    setSessionActive(false)
-    setShowFinishedScreen(false)
-    setLastFinishedSummary(null)
-    return saved
-  }
-
-  useEffect(() => {
-    if (!selectedWorkoutDay || !current) return
-    loadSessionForDay(selectedWorkoutDay)
-  }, [selectedWorkoutDay, current?.id, current?.code])
-
-  useEffect(() => {
-    if (!selectedWorkoutDay || !current || showFinishedScreen) return
-    const hasProgress =
-      completedExercises.length > 0 ||
-      sessionSeconds > 0 ||
-      Object.keys(exerciseLoads).length > 0 ||
-      Object.keys(exerciseRpe).length > 0
-
-    if (!hasProgress && !sessionActive) return
-    saveCurrentSession()
-  }, [
-    completedExercises,
-    exerciseLoads,
-    exerciseRpe,
-    sessionSeconds,
-    workoutActiveIndex,
-    sessionActive,
-    selectedWorkoutDay,
-    current?.id,
-    current?.code,
-    showFinishedScreen,
-  ])
-
+  // Temporizador de Descanso com sumiço automático ao zerar
   useEffect(() => {
     let interval = null
     if (timerActive && timerSeconds > 0) {
       interval = setInterval(() => {
         setTimerSeconds((sec) => {
-          if (sec === 10) playBeep(false)
+          if (sec === 10) {
+            playBeep(false)
+          }
           if (sec <= 1) {
             playBeep(true)
             setTimerActive(false)
@@ -384,6 +176,7 @@ export default function StudentArea() {
     return () => clearInterval(interval)
   }, [timerActive, timerSeconds])
 
+  // Cronômetro Geral da Sessão
   useEffect(() => {
     let interval = null
     if (sessionActive && !sessionPaused && !showFinishedScreen) {
@@ -407,175 +200,45 @@ export default function StudentArea() {
     setActiveRestMenu(false)
   }
 
-  function toggleCompleteExercise(exercise, index) {
-    const key = getExerciseKey(exercise, index, currentDay)
+  function toggleCompleteExercise(exerciseId) {
     setCompletedExercises((prev) =>
-      prev.includes(key) ? prev.filter((id) => id !== key) : [...prev, key]
+      prev.includes(exerciseId)
+        ? prev.filter((id) => id !== exerciseId)
+        : [...prev, exerciseId]
     )
   }
 
   function startWorkoutSession() {
-    const saved = getSavedSession(currentDay)
-    if (saved) {
-      setCompletedExercises(Array.isArray(saved.completed) ? saved.completed : [])
-      setExerciseLoads(saved.loads && typeof saved.loads === 'object' ? saved.loads : {})
-      setExerciseRpe(saved.rpe && typeof saved.rpe === 'object' ? saved.rpe : {})
-      setSessionSeconds(Number(saved.elapsedSeconds || 0))
-      setWorkoutActiveIndex(
-        Math.min(Number(saved.activeIndex || 0), Math.max(0, totalExercises - 1))
-      )
-    } else {
-      const newSession = {
-        id: `${currentDay}-${Date.now()}`,
-        day: currentDay,
-        startedAt: new Date().toISOString(),
-        elapsedSeconds: 0,
-        completed: [],
-        loads: {},
-        rpe: {},
-        activeIndex: 0,
-        status: 'active',
-      }
-      safeStorageSet(getSessionStorageKey(student, current, currentDay), newSession)
-      setCompletedExercises([])
-      setExerciseLoads({})
-      setExerciseRpe({})
-      setSessionSeconds(0)
-      setWorkoutActiveIndex(0)
-    }
     setInWorkoutMode(true)
+    setWorkoutActiveIndex(0)
+    setSessionSeconds(0)
     setSessionActive(true)
     setSessionPaused(false)
     setShowFinishedScreen(false)
     setActiveRestMenu(false)
   }
 
-  function startNewWorkoutSession() {
-    const hasProgress =
-      completedExercises.length > 0 ||
-      sessionSeconds > 0 ||
-      Object.keys(exerciseLoads).length > 0 ||
-      Object.keys(exerciseRpe).length > 0
-
-    if (hasProgress) {
-      const confirmed = window.confirm(
-        'Este treino possui progresso salvo. Deseja apagar o progresso atual e começar um novo treino?'
-      )
-      if (!confirmed) return
-    }
-
-    if (selectedWorkoutDay && current) {
-      safeStorageRemove(getSessionStorageKey(student, current, selectedWorkoutDay))
-    }
-
-    stopTimer()
-    setCompletedExercises([])
-    setExerciseLoads({})
-    setExerciseRpe({})
-    setSessionSeconds(0)
-    setWorkoutActiveIndex(0)
-    setSessionPaused(false)
-    setSessionActive(false)
-    setShowFinishedScreen(false)
-    setLastFinishedSummary(null)
-    setInWorkoutMode(true)
-    setSessionActive(true)
-  }
-
-  function formatCurrentSessionTime() {
-    return formatSessionTime(sessionSeconds)
-  }
-
-  function openFeedbackEditor(exercise, index) {
-    const key = getExerciseKey(exercise, index, currentDay)
-    setFeedbackEditor({ exercise, index, key })
-    setFeedbackLoad(exerciseLoads[key] ?? '')
-    setFeedbackRpe(exerciseRpe[key] ?? '')
-  }
-
-  function closeFeedbackEditor() {
-    setFeedbackEditor(null)
-    setFeedbackLoad('')
-    setFeedbackRpe('')
-  }
-
-  function saveFeedbackEditor() {
-    if (!feedbackEditor) return
-    const { key } = feedbackEditor
-    const nextLoads = { ...exerciseLoads }
-    const nextRpe = { ...exerciseRpe }
-
-    if (feedbackLoad !== '' && feedbackLoad != null) {
-      nextLoads[key] = String(feedbackLoad)
-    } else {
-      delete nextLoads[key]
-    }
-
-    if (feedbackRpe !== '' && feedbackRpe != null) {
-      nextRpe[key] = Number(feedbackRpe)
-    } else {
-      delete nextRpe[key]
-    }
-
-    setExerciseLoads(nextLoads)
-    setExerciseRpe(nextRpe)
-    saveCurrentSession({ loads: nextLoads, rpe: nextRpe })
-    closeFeedbackEditor()
-  }
-
-  function canFinishWorkout() {
-    return totalExercises > 0 && completedCount === totalExercises
-  }
-
-  function finishWorkout() {
-    if (!canFinishWorkout()) return
-    const sessionId = getSavedSession(currentDay)?.id || `${currentDay}-${Date.now()}`
-    const historyEntry = {
-      id: `${sessionId}-finished-${Date.now()}`,
-      sessionId,
-      day: currentDay,
-      workoutTitle: workout.title || `Treino ${currentDay}`,
-      date: new Date().toISOString(),
-      startedAt: getSavedSession(currentDay)?.startedAt || new Date().toISOString(),
-      duration: sessionSeconds,
-      completedCount,
-      totalExercises,
-      loads: { ...exerciseLoads },
-      rpe: { ...exerciseRpe },
-    }
-
-    const previousHistory = safeStorageGet(getHistoryStorageKey(student, current), [])
-    const nextHistory = [historyEntry, ...(Array.isArray(previousHistory) ? previousHistory : [])].slice(0, 50)
-
-    safeStorageSet(getHistoryStorageKey(student, current), nextHistory)
-    safeStorageRemove(getSessionStorageKey(student, current, currentDay))
-
-    setHistory(nextHistory)
-    setLastFinishedSummary(historyEntry)
-    setSessionActive(false)
-    setSessionPaused(false)
-    setShowFinishedScreen(true)
-    stopTimer()
-    playBeep(true)
+  function formatSessionTime(totalSecs) {
+    const mins = Math.floor(totalSecs / 60)
+    const secs = totalSecs % 60
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
   }
 
   function sendWhatsAppFeedback() {
     const studentName = current?.name || student?.name || 'Aluno'
     const workoutTitle = workout.title || `Treino ${currentDay}`
+    
     const exercisesList = (sortedExercises || [])
       .map((ex, idx) => {
-        const key = getExerciseKey(ex, idx, currentDay)
         const groupTag = ex.group ? ` [${ex.group}]` : ''
-        const load = exerciseLoads[key] || 'Não informado'
-        const rpe = exerciseRpe[key] || 'Não informado'
-        const completed = completedExercises.includes(key) ? 'Concluído' : 'Não concluído'
-        return `*${idx + 1}. ${ex.name}*${groupTag} (Séries: ${ex.sets}, Repetições: ${ex.reps})\nCarga: ${load}\nRPE: ${rpe}\nStatus: ${completed}`
+        return `*${idx + 1}. ${ex.name}*${groupTag} (Séries: ${ex.sets}, Repetições: ${ex.reps})\nCarga: `
       })
       .join('\n\n')
 
     const message = encodeURIComponent(
-      `Olá Danilo! Aqui está o feedback de *${studentName}* referente ao *${workoutTitle}* (${currentDay}).\n\n${exercisesList}\n\nTempo da sessão: ${formatSessionTime(sessionSeconds)}\n\nObservações / Dúvidas:`
+      `Olá Danilo! Aqui estão as cargas e o feedback de *${studentName}* referentes ao *${workoutTitle}* (${currentDay}):\n\n${exercisesList}\n\nObservações / Dúvidas:`
     )
+
     const phone = '5527996247906'
     window.open(`https://wa.me/${phone}?text=${message}`, '_blank', 'noopener,noreferrer')
   }
@@ -589,6 +252,21 @@ export default function StudentArea() {
     window.open(`https://wa.me/${phone}?text=${message}`, '_blank', 'noopener,noreferrer')
   }
 
+  useEffect(() => {
+    function handleKeyDown(event) {
+      if (event.key === 'Escape') {
+        setSelectedVideo(null)
+        setSelectedObs(null)
+        setActiveRestMenu(false)
+        setIsEvaluationOpen(false)
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [])
+
   function exit() {
     logoutStudent()
     navigate('/')
@@ -600,36 +278,15 @@ export default function StudentArea() {
       window.open(exercise.video, '_blank', 'noopener,noreferrer')
       return
     }
-    setSelectedVideo({ id: videoId, name: exercise.name })
+    setSelectedVideo({
+      id: videoId,
+      name: exercise.name,
+    })
   }
 
   function closeVideo() {
     setSelectedVideo(null)
   }
-
-  function getExerciseFeedback(exercise, index) {
-    const key = getExerciseKey(exercise, index, currentDay)
-    return { key, load: exerciseLoads[key], rpe: exerciseRpe[key] }
-  }
-
-  useEffect(() => {
-    function handleKeyDown(event) {
-      if (event.key === 'Escape') {
-        setSelectedVideo(null)
-        setSelectedObs(null)
-        setActiveRestMenu(false)
-        setIsEvaluationOpen(false)
-        setIsHistoryOpen(false)
-        closeFeedbackEditor()
-      }
-    }
-
-    document.addEventListener('keydown', handleKeyDown)
-
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [])
 
   return (
     <div className="min-h-dvh bg-ink-950 pb-48 text-white relative">
@@ -744,8 +401,6 @@ export default function StudentArea() {
             <div className="space-y-3.5 pt-2">
               {DAYS.map((dayKey) => {
                 const wData = workouts[dayKey]
-                const savedSession = getSavedSession(dayKey)
-                const savedCompleted = savedSession?.completed?.length || 0
 
                 return (
                   <button
@@ -768,13 +423,7 @@ export default function StudentArea() {
                       <p className="text-xs text-zinc-400 mt-0.5">
                         {wData?.exercises?.length || 0} exercícios • Foco principal
                       </p>
-                      {savedSession && savedCompleted > 0 && (
-                        <p className="mt-1.5 text-[10px] font-bold uppercase tracking-wider text-gold-400">
-                          ↻ Progresso salvo — {savedCompleted} concluído{savedCompleted !== 1 ? 's' : ''}
-                        </p>
-                      )}
                     </div>
-                    <ChevronRight size={20} className="text-gold-400/60 group-hover:text-gold-400 transition" />
                   </button>
                 )
               })}
@@ -801,56 +450,32 @@ export default function StudentArea() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-2.5 mt-4">
-              <button
-                type="button"
-                onClick={startWorkoutSession}
-                className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-gold-500 to-gold-400 py-4 text-xs font-extrabold uppercase tracking-wider text-ink-950 transition hover:from-gold-400 hover:to-gold-300 shadow-xl shadow-gold-400/20 active:scale-[0.99]"
-              >
-                <FlameKindling size={19} />
-                {completedCount > 0 || sessionSeconds > 0 ? 'Continuar Treino' : 'Iniciar Treino'}
-              </button>
+            <button
+              type="button"
+              onClick={startWorkoutSession}
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-gold-500 to-gold-400 py-4 text-sm font-extrabold uppercase tracking-wider text-ink-950 transition hover:from-gold-400 hover:to-gold-300 shadow-xl shadow-gold-400/20 active:scale-[0.99]"
+            >
+              <FlameKindling size={20} />
+              🔥 Iniciar Modo Treino Imersivo
+            </button>
 
-              <button
-                type="button"
-                onClick={startNewWorkoutSession}
-                className="flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-ink-800 py-4 text-xs font-extrabold uppercase tracking-wider text-zinc-200 transition hover:border-gold-400/40 hover:text-gold-300"
-              >
-                <RotateCcw size={17} />
-                Novo Treino
-              </button>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2.5 mt-3">
-              <button
-                type="button"
-                onClick={() => setIsHistoryOpen(true)}
-                className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-ink-800 py-3 text-[11px] font-bold uppercase tracking-wider text-zinc-300 transition hover:border-gold-400/40 hover:text-gold-300"
-              >
-                <History size={16} />
-                Histórico
-              </button>
-
-              <button
-                type="button"
-                onClick={sendWhatsAppFeedback}
-                className="flex items-center justify-center gap-2 rounded-xl bg-emerald-600/20 border border-emerald-500/40 py-3 text-[11px] font-bold uppercase tracking-wider text-emerald-400 transition hover:bg-emerald-600/30"
-              >
-                <MessageCircle size={16} />
-                Enviar Feedback
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={sendWhatsAppFeedback}
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600/20 border border-emerald-500/40 py-3.5 text-xs font-bold uppercase tracking-wider text-emerald-400 transition hover:bg-emerald-600/30 shadow-lg"
+            >
+              <MessageCircle size={18} />
+              Enviar cargas e feedback no WhatsApp
+            </button>
 
             <div className="mt-5 space-y-4">
               {(sortedExercises || []).map((exercise, index) => {
-                const key = getExerciseKey(exercise, index, currentDay)
                 const videoId = youtubeId(exercise.video)
-                const isDone = completedExercises.includes(key)
-                const feedback = getExerciseFeedback(exercise, index)
+                const isDone = completedExercises.includes(exercise.id)
 
                 return (
                   <article
-                    key={key}
+                    key={exercise.id || `${currentDay}-${index}`}
                     className={`rounded-2xl border p-4 relative transition-all duration-200 ${
                       isDone
                         ? 'bg-ink-900/40 border-emerald-500/30 opacity-60'
@@ -939,38 +564,11 @@ export default function StudentArea() {
                       </div>
                     </div>
 
-                    {/* BOTÕES DE CARGA E RPE NA LISTA NORMAL (DESCANSO REMOVIDO DAQUI) */}
-                    <div className="grid grid-cols-2 gap-2.5 mb-3">
-                      <button
-                        type="button"
-                        onClick={() => openFeedbackEditor(exercise, index)}
-                        className="rounded-xl border border-gold-400/25 bg-ink-700 px-3 py-2.5 text-left transition hover:border-gold-400/50"
-                      >
-                        <div className="flex items-center gap-1.5">
-                          <Gauge size={14} className="text-gold-400" />
-                          <span className="text-[9px] uppercase tracking-wider font-bold text-zinc-400">Carga</span>
-                        </div>
-                        <p className="mt-1 truncate text-xs font-bold text-white">{feedback.load || 'Adicionar carga'}</p>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => openFeedbackEditor(exercise, index)}
-                        className="rounded-xl border border-gold-400/25 bg-ink-700 px-3 py-2.5 text-left transition hover:border-gold-400/50"
-                      >
-                        <div className="flex items-center gap-1.5">
-                          <Activity size={14} className="text-gold-400" />
-                          <span className="text-[9px] uppercase tracking-wider font-bold text-zinc-400">RPE</span>
-                        </div>
-                        <p className="mt-1 text-xs font-bold text-white">{feedback.rpe ? `RPE ${feedback.rpe}` : 'Adicionar RPE'}</p>
-                      </button>
-                    </div>
-
-                    {/* BOTÃO ÚNICO DE MARCAR COMO CONCLUÍDO (SEM O DESCANSO NA LISTA) */}
+                    {/* BOTÃO DE DESCANSO REMOVIDO DE DENTRO DO CARTÃO DO EXERCÍCIO */}
                     <div className="relative pt-2 border-t border-white/10">
                       <button
                         type="button"
-                        onClick={() => toggleCompleteExercise(exercise, index)}
+                        onClick={() => toggleCompleteExercise(exercise.id)}
                         className={`flex w-full items-center justify-center gap-1.5 rounded-xl px-3 py-3 text-xs font-bold uppercase tracking-wider transition shadow-sm ${
                           isDone
                             ? 'bg-emerald-500 text-ink-950 shadow-md shadow-emerald-500/20 font-extrabold'
@@ -995,17 +593,17 @@ export default function StudentArea() {
             <div>
               <p className="text-xs uppercase font-bold tracking-widest text-gold-400">Missão Cumprida</p>
               <h2 className="font-display text-3xl uppercase tracking-wide mt-1">Treino Concluído!</h2>
-              <p className="text-sm text-zinc-300 mt-2">Você completou {lastFinishedSummary?.completedCount ?? completedCount} de {lastFinishedSummary?.totalExercises ?? totalExercises} exercícios com sucesso.</p>
+              <p className="text-sm text-zinc-300 mt-2">Você completou {completedCount} de {totalExercises} exercícios com sucesso.</p>
             </div>
 
             <div className="rounded-2xl border border-white/10 bg-ink-900 p-5 max-w-xs mx-auto space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs text-zinc-400 uppercase tracking-wider">Tempo Total:</span>
-                <span className="font-display text-xl text-gold-400 font-bold">{formatSessionTime(lastFinishedSummary?.duration ?? sessionSeconds)}</span>
+                <span className="font-display text-xl text-gold-400 font-bold">{formatSessionTime(sessionSeconds)}</span>
               </div>
               <div className="flex items-center justify-between border-t border-white/5 pt-3">
                 <span className="text-xs text-zinc-400 uppercase tracking-wider">Aproveitamento:</span>
-                <span className="font-display text-xl text-emerald-400 font-bold">100%</span>
+                <span className="font-display text-xl text-emerald-400 font-bold">{progressPercent}%</span>
               </div>
             </div>
 
@@ -1024,12 +622,6 @@ export default function StudentArea() {
                 onClick={() => {
                   setInWorkoutMode(false)
                   setShowFinishedScreen(false)
-                  setSelectedWorkoutDay(null)
-                  setCompletedExercises([])
-                  setExerciseLoads({})
-                  setExerciseRpe({})
-                  setSessionSeconds(0)
-                  setWorkoutActiveIndex(0)
                 }}
                 className="w-full rounded-2xl border border-white/20 bg-ink-800 py-3.5 text-xs font-bold uppercase tracking-wider text-zinc-300 transition hover:bg-ink-700"
               >
@@ -1038,22 +630,18 @@ export default function StudentArea() {
             </div>
           </div>
         ) : (
-          /* MODO TREINO IMERSIVO (BARRA DE PROGRESSO BASEADA NOS CONCLUÍDOS) */
+          /* MODO TREINO IMERSIVO */
           <div className="space-y-4 animate-fade-in">
             <div className="flex items-center justify-between rounded-2xl bg-ink-900 border border-gold-400/40 p-3.5">
               <div className="flex items-center gap-2">
                 <Timer size={18} className="text-gold-400 animate-pulse" />
                 <span className="text-xs font-bold uppercase tracking-wider text-zinc-300">Tempo:</span>
-                <span className="font-display text-lg text-gold-400 font-bold">{formatCurrentSessionTime()}</span>
+                <span className="font-display text-lg text-gold-400 font-bold">{formatSessionTime(sessionSeconds)}</span>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => {
-                    const nextPaused = !sessionPaused
-                    setSessionPaused(nextPaused)
-                    if (selectedWorkoutDay) saveCurrentSession()
-                  }}
+                  onClick={() => setSessionPaused(!sessionPaused)}
                   className="rounded-lg border border-white/10 bg-ink-800 px-2.5 py-1.5 text-[11px] font-bold text-zinc-300 hover:text-white"
                 >
                   {sessionPaused ? 'Continuar' : 'Pausar'}
@@ -1061,9 +649,7 @@ export default function StudentArea() {
                 <button
                   type="button"
                   onClick={() => {
-                    saveCurrentSession()
                     setInWorkoutMode(false)
-                    setSessionActive(false)
                     stopTimer()
                   }}
                   className="rounded-lg border border-red-500/30 bg-red-500/20 px-2.5 py-1.5 text-[11px] font-bold text-red-300"
@@ -1073,17 +659,9 @@ export default function StudentArea() {
               </div>
             </div>
 
-            {sessionPaused && (
-              <div className="rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-4 py-2.5 text-center">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-yellow-300">
-                  Treino pausado — seu progresso está salvo
-                </p>
-              </div>
-            )}
-
             <div className="flex items-center justify-between text-xs font-bold text-zinc-400 px-1">
               <span>Exercício {workoutActiveIndex + 1} de {totalExercises}</span>
-              {/* BARRA DE PROGRESSO CORRIGIDA: AGORA USA COMPLETEDCOUNT REAL */}
+              {/* PORCENTAGEM REAL BASEADA NOS CONCLUÍDOS */}
               <span className="text-gold-400">{progressPercent}% concluído</span>
             </div>
             <div className="h-2 w-full overflow-hidden rounded-full bg-ink-800 border border-white/5">
@@ -1093,43 +671,11 @@ export default function StudentArea() {
               />
             </div>
 
-            <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
-              {sortedExercises.map((exercise, index) => {
-                const key = getExerciseKey(exercise, index, currentDay)
-                const done = completedExercises.includes(key)
-                const active = index === workoutActiveIndex
-
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => {
-                      setWorkoutActiveIndex(index)
-                      setActiveRestMenu(false)
-                    }}
-                    className={`shrink-0 flex h-9 min-w-9 items-center justify-center rounded-lg border text-[11px] font-extrabold transition ${
-                      active
-                        ? 'border-gold-400 bg-gold-400 text-ink-950'
-                        : done
-                        ? 'border-emerald-500/50 bg-emerald-500/20 text-emerald-400'
-                        : 'border-white/10 bg-ink-800 text-zinc-400'
-                    }`}
-                    title={exercise.name}
-                  >
-                    {done ? <CheckCircle2 size={14} /> : index + 1}
-                  </button>
-                )
-              })}
-            </div>
-
             {(() => {
               const exercise = sortedExercises[workoutActiveIndex]
               if (!exercise) return null
-              const key = getExerciseKey(exercise, workoutActiveIndex, currentDay)
               const videoId = youtubeId(exercise.video)
-              const isDone = completedExercises.includes(key)
-              const load = exerciseLoads[key]
-              const rpe = exerciseRpe[key]
+              const isDone = completedExercises.includes(exercise.id)
 
               return (
                 <div className="rounded-2xl border border-gold-400/50 bg-ink-900 p-5 shadow-2xl space-y-4">
@@ -1140,10 +686,7 @@ export default function StudentArea() {
                         {exercise.group}
                       </div>
                     )}
-                    <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500 font-bold">
-                      Exercício {workoutActiveIndex + 1}
-                    </p>
-                    <h2 className="font-display text-2xl uppercase tracking-wide text-white mt-1">
+                    <h2 className="font-display text-2xl uppercase tracking-wide text-white">
                       {exercise.name}
                     </h2>
                   </div>
@@ -1189,32 +732,6 @@ export default function StudentArea() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => openFeedbackEditor(exercise, workoutActiveIndex)}
-                      className="rounded-xl border border-gold-400/30 bg-ink-800 p-3 text-left transition hover:border-gold-400/60"
-                    >
-                      <div className="flex items-center gap-1.5">
-                        <Gauge size={15} className="text-gold-400" />
-                        <span className="text-[9px] uppercase tracking-wider text-zinc-400 font-bold">Carga utilizada</span>
-                      </div>
-                      <p className="mt-1 text-sm font-bold text-white">{load || 'Adicionar carga'}</p>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => openFeedbackEditor(exercise, workoutActiveIndex)}
-                      className="rounded-xl border border-gold-400/30 bg-ink-800 p-3 text-left transition hover:border-gold-400/60"
-                    >
-                      <div className="flex items-center gap-1.5">
-                        <Activity size={15} className="text-gold-400" />
-                        <span className="text-[9px] uppercase tracking-wider text-zinc-400 font-bold">Percepção RPE</span>
-                      </div>
-                      <p className="mt-1 text-sm font-bold text-white">{rpe ? `RPE ${rpe}` : 'Adicionar RPE'}</p>
-                    </button>
-                  </div>
-
                   {exercise.notes && (
                     <div className="rounded-xl bg-gold-400/10 border border-gold-400/25 p-3 text-xs leading-relaxed text-zinc-200">
                       <div className="flex items-center gap-1.5 text-gold-400 font-bold uppercase text-[10px] tracking-wider mb-1">
@@ -1226,7 +743,7 @@ export default function StudentArea() {
 
                   <button
                     type="button"
-                    onClick={() => toggleCompleteExercise(exercise, workoutActiveIndex)}
+                    onClick={() => toggleCompleteExercise(exercise.id)}
                     className={`flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-xs font-extrabold uppercase tracking-wider transition ${
                       isDone
                         ? 'bg-emerald-500 text-ink-950 shadow-lg shadow-emerald-500/20'
@@ -1261,30 +778,16 @@ export default function StudentArea() {
                       >
                         Próximo Exercício <ChevronRight size={16} />
                       </button>
-                    ) : canFinishWorkout() ? (
+                    ) : (
                       <button
                         type="button"
-                        onClick={finishWorkout}
+                        onClick={() => setShowFinishedScreen(true)}
                         className="flex items-center gap-1 rounded-xl bg-emerald-500 px-5 py-2.5 text-xs font-extrabold uppercase text-ink-950 hover:bg-emerald-400 transition shadow-md animate-pulse"
                       >
                         Finalizar Treino <Trophy size={16} />
                       </button>
-                    ) : (
-                      <button
-                        type="button"
-                        disabled
-                        className="flex items-center gap-1 rounded-xl border border-white/10 bg-ink-800 px-4 py-2.5 text-[10px] font-bold uppercase text-zinc-500 cursor-not-allowed"
-                      >
-                        Conclua todos
-                      </button>
                     )}
                   </div>
-
-                  {!canFinishWorkout() && workoutActiveIndex === totalExercises - 1 && (
-                    <p className="text-center text-[10px] text-zinc-500 uppercase tracking-wider">
-                      Marque todos os exercícios como concluídos para finalizar o treino.
-                    </p>
-                  )}
                 </div>
               )
             })()}
@@ -1292,8 +795,22 @@ export default function StudentArea() {
         )}
       </main>
 
-      {/* BOTÕES FLUTUANTES (DESCANSO E WHATSAPP) */}
-      <div className="fixed bottom-6 right-4 z-40 flex flex-col items-end gap-3">
+      {/* BLOCOS FLUTUANTES REPOSICIONADOS: WHATSAPP EM CIMA, DESCANSO LOGO ABAIXO */}
+      <div className="fixed bottom-6 right-4 z-45 flex flex-col items-end gap-3">
+        {/* 1. Botão Flutuante de Mensagem / Dúvida (Fica em cima agora) */}
+        <button
+          onClick={sendRealtimeDoubt}
+          className="group flex items-center gap-2.5 rounded-full bg-emerald-500 text-ink-950 p-3.5 shadow-xl shadow-emerald-500/30 border border-emerald-400 transition-all duration-300 hover:scale-105 hover:bg-emerald-400"
+          aria-label="Deixe sua dúvida ou mudanças no WhatsApp"
+          title="Deixe sua dúvida ou mudanças"
+        >
+          <MessageCircle size={22} fill="currentColor" className="text-ink-950 animate-pulse shrink-0" />
+          <span className="max-w-0 overflow-hidden whitespace-nowrap font-display text-xs font-bold uppercase tracking-wider transition-all duration-300 group-hover:max-w-xs group-hover:pr-1">
+            Deixe sua dúvida
+          </span>
+        </button>
+
+        {/* 2. Botão Flutuante de Descanso (Fica logo abaixo da mensagem) */}
         <div className="flex flex-col items-end gap-2">
           {activeRestMenu && !timerActive && (
             <div className="flex items-center gap-1.5 rounded-2xl border border-gold-400/50 bg-ink-900/95 p-2 shadow-2xl backdrop-blur animate-fade-in">
@@ -1325,201 +842,27 @@ export default function StudentArea() {
             }}
             className={`group flex items-center gap-2.5 rounded-full p-3.5 shadow-xl transition-all duration-300 border ${
               timerActive
-                ? 'bg-gold-400 text-ink-950 border-gold-300 animate-pulse font-extrabold'
-                : 'bg-ink-900 text-gold-400 border-gold-400/40 hover:border-gold-400 hover:bg-ink-800'
+                ? 'bg-gold-400 text-ink-950 border-gold-300 animate-pulse font-extrabold px-5 scale-105'
+                : 'bg-ink-900 text-gold-400 border-gold-400/40 hover:border-gold-400 hover:bg-ink-800 p-3'
             }`}
-            aria-label="Cronômetro de descanso"
+            aria-label="Cronómetro de descanso"
             title={timerActive ? 'Parar descanso' : 'Iniciar descanso'}
           >
-            <Timer size={22} className="shrink-0" />
-            <span className="font-display text-xs font-bold uppercase tracking-wider">
+            <Timer size={timerActive ? 24 : 20} className="shrink-0" />
+            <span className={`font-display text-xs font-bold uppercase tracking-wider ${timerActive ? 'inline' : 'max-w-0 overflow-hidden whitespace-nowrap transition-all duration-300 group-hover:max-w-xs group-hover:pr-1'}`}>
               {timerActive ? `${timerSeconds}s (Parar)` : 'Descanso'}
             </span>
           </button>
         </div>
-
-        <button
-          onClick={sendRealtimeDoubt}
-          className="group flex items-center gap-2.5 rounded-full bg-emerald-500 text-ink-950 p-3.5 shadow-xl shadow-emerald-500/30 border border-emerald-400 transition-all duration-300 hover:scale-105 hover:bg-emerald-400"
-          aria-label="Deixe sua dúvida ou mudanças no WhatsApp"
-          title="Deixe sua dúvida ou mudanças"
-        >
-          <MessageCircle size={22} fill="currentColor" className="text-ink-950 animate-pulse shrink-0" />
-          <span className="max-w-0 overflow-hidden whitespace-nowrap font-display text-xs font-bold uppercase tracking-wider transition-all duration-300 group-hover:max-w-xs group-hover:pr-1">
-            Deixe sua dúvida
-          </span>
-        </button>
       </div>
 
-      {/* MODAL DE CARGA / RPE */}
-      {feedbackEditor && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) closeFeedbackEditor()
-          }}
-        >
-          <div className="w-full max-w-md rounded-3xl border border-gold-400/40 bg-ink-900 p-5 shadow-2xl animate-fade-in">
-            <div className="flex items-center justify-between border-b border-white/10 pb-4">
-              <div>
-                <p className="text-[10px] uppercase tracking-widest text-gold-400 font-bold">Feedback do exercício</p>
-                <h3 className="mt-1 font-display text-xl uppercase">{feedbackEditor.exercise.name}</h3>
-              </div>
-              <button
-                type="button"
-                onClick={closeFeedbackEditor}
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-zinc-300 hover:text-gold-400 hover:border-gold-400/40"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="space-y-5 mt-5">
-              <div>
-                <label className="mb-2 block text-[10px] uppercase tracking-widest font-bold text-gold-400">Carga utilizada</label>
-                <input
-                  type="text"
-                  value={feedbackLoad}
-                  onChange={(event) => setFeedbackLoad(event.target.value)}
-                  placeholder="Ex.: 20 kg"
-                  className="w-full rounded-xl border border-white/10 bg-ink-800 px-4 py-3 text-sm text-white outline-none transition focus:border-gold-400/60"
-                />
-              </div>
-
-              <div>
-                <div className="mb-2 flex items-center justify-between">
-                  <label className="block text-[10px] uppercase tracking-widest font-bold text-gold-400">RPE — percepção de esforço</label>
-                  {feedbackRpe && (
-                    <span className="rounded-full bg-gold-400/15 px-2.5 py-1 text-[10px] font-bold text-gold-400 border border-gold-400/30">
-                      RPE {feedbackRpe}
-                    </span>
-                  )}
-                </div>
-                <div className="grid grid-cols-5 gap-2">
-                  {[6, 7, 8, 9, 10].map((value) => (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() => setFeedbackRpe(String(value))}
-                      className={`rounded-xl border py-3 text-sm font-extrabold transition ${
-                        String(feedbackRpe) === String(value)
-                          ? 'border-gold-400 bg-gold-400 text-ink-950'
-                          : 'border-white/10 bg-ink-800 text-zinc-300 hover:border-gold-400/50 hover:text-gold-300'
-                      }`}
-                    >
-                      {value}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-6 grid grid-cols-2 gap-2.5">
-              <button
-                type="button"
-                onClick={closeFeedbackEditor}
-                className="rounded-xl border border-white/10 bg-ink-800 py-3 text-xs font-bold uppercase text-zinc-300 hover:bg-ink-700"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={saveFeedbackEditor}
-                className="flex items-center justify-center gap-2 rounded-xl bg-gold-400 py-3 text-xs font-bold uppercase text-ink-950 hover:bg-gold-300 shadow-lg"
-              >
-                <Save size={16} /> Salvar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL DE HISTÓRICO */}
-      {isHistoryOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) setIsHistoryOpen(false)
-          }}
-        >
-          <div className="w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-3xl border border-gold-400/40 bg-ink-900 p-5 shadow-2xl animate-fade-in">
-            <div className="flex items-center justify-between border-b border-white/10 pb-4 mb-4">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gold-400/20 text-gold-400 border border-gold-400/30">
-                  <History size={21} />
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase tracking-widest text-gold-400 font-bold">Treino {currentDay}</p>
-                  <h3 className="font-display text-xl uppercase">Histórico</h3>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsHistoryOpen(false)}
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-zinc-300 hover:text-gold-400 hover:border-gold-400/40"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            {history.filter((item) => item.day === currentDay).length > 0 ? (
-              <div className="space-y-3">
-                {history
-                  .filter((item) => item.day === currentDay)
-                  .map((item) => (
-                    <div key={item.id} className="rounded-2xl border border-white/10 bg-ink-800 p-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-[10px] uppercase tracking-widest text-gold-400 font-bold">Treino {item.day}</p>
-                          <h4 className="mt-1 font-display text-lg uppercase">{item.workoutTitle}</h4>
-                        </div>
-                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">
-                          <CheckCircle2 size={20} />
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-3 gap-2 mt-3">
-                        <div className="rounded-xl bg-ink-950/60 p-2 text-center">
-                          <p className="text-[8px] uppercase tracking-wider text-zinc-500">Data</p>
-                          <p className="mt-1 text-[11px] font-bold text-white">{formatDate(item.date)}</p>
-                        </div>
-                        <div className="rounded-xl bg-ink-950/60 p-2 text-center">
-                          <p className="text-[8px] uppercase tracking-wider text-zinc-500">Tempo</p>
-                          <p className="mt-1 text-[11px] font-bold text-gold-400">{formatSessionTime(item.duration)}</p>
-                        </div>
-                        <div className="rounded-xl bg-ink-950/60 p-2 text-center">
-                          <p className="text-[8px] uppercase tracking-wider text-zinc-500">Exercícios</p>
-                          <p className="mt-1 text-[11px] font-bold text-emerald-400">{item.completedCount}/{item.totalExercises}</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-              </div>
-            ) : (
-              <div className="py-12 text-center">
-                <History size={42} className="mx-auto text-gold-400/30" />
-                <p className="mt-3 text-sm font-medium text-zinc-300">Nenhum treino concluído registrado para o Treino {currentDay}.</p>
-              </div>
-            )}
-
-            <div className="mt-5 border-t border-white/10 pt-4">
-              <button
-                type="button"
-                onClick={() => setIsHistoryOpen(false)}
-                className="w-full rounded-xl bg-gold-400 py-3 text-xs font-bold uppercase text-ink-950 hover:bg-gold-300"
-              >
-                Fechar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* AVALIAÇÃO FÍSICA */}
       {isEvaluationOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm"
           onMouseDown={(event) => {
-            if (event.target === event.currentTarget) setIsEvaluationOpen(false)
+            if (event.target === event.currentTarget) {
+              setIsEvaluationOpen(false)
+            }
           }}
         >
           <div className="w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-3xl border border-gold-400/40 bg-ink-900 p-6 shadow-2xl animate-fade-in text-white">
@@ -1548,6 +891,7 @@ export default function StudentArea() {
                   <span className="text-xs text-zinc-400 font-medium">Data da Avaliação:</span>
                   <span className="text-xs font-bold text-gold-400">{latestEvaluation.date}</span>
                 </div>
+
                 <div>
                   <p className="text-xs uppercase font-bold tracking-widest text-gold-400 mb-2.5 flex items-center gap-1.5">
                     <Scale size={14} /> Composição Corporal
@@ -1571,6 +915,56 @@ export default function StudentArea() {
                     </div>
                   </div>
                 </div>
+
+                <div>
+                  <p className="text-xs uppercase font-bold tracking-widest text-gold-400 mb-2.5 flex items-center gap-1.5">
+                    <Flame size={14} /> Metabolismo & Calorias
+                  </p>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div className="rounded-xl bg-ink-800 p-3 border border-white/5">
+                      <p className="text-[10px] uppercase tracking-wider text-zinc-400">Taxa Metabólica Basal (TMB)</p>
+                      <p className="font-display text-base text-white font-bold">{latestEvaluation.tmb} kcal</p>
+                    </div>
+                    <div className="rounded-xl bg-ink-800 p-3 border border-white/5">
+                      <p className="text-[10px] uppercase tracking-wider text-zinc-400">Gasto Energético Total (GET)</p>
+                      <p className="font-display text-base text-gold-400 font-bold">{latestEvaluation.get} kcal</p>
+                    </div>
+                  </div>
+                </div>
+
+                {latestEvaluation.circumferences && (
+                  <div>
+                    <p className="text-xs uppercase font-bold tracking-widest text-gold-400 mb-2.5 flex items-center gap-1.5">
+                      <UserCheck size={14} /> Circunferências (cm)
+                    </p>
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="rounded-xl bg-ink-800 p-2.5 border border-white/5">
+                        <p className="text-[9px] uppercase tracking-wider text-zinc-400">Tórax</p>
+                        <p className="font-display text-sm text-white font-bold mt-0.5">{latestEvaluation.circumferences.chest} cm</p>
+                      </div>
+                      <div className="rounded-xl bg-ink-800 p-2.5 border border-white/5">
+                        <p className="text-[9px] uppercase tracking-wider text-zinc-400">Braço</p>
+                        <p className="font-display text-sm text-white font-bold mt-0.5">{latestEvaluation.circumferences.arm} cm</p>
+                      </div>
+                      <div className="rounded-xl bg-ink-800 p-2.5 border border-white/5">
+                        <p className="text-[9px] uppercase tracking-wider text-zinc-400">Cintura</p>
+                        <p className="font-display text-sm text-white font-bold mt-0.5">{latestEvaluation.circumferences.waist} cm</p>
+                      </div>
+                      <div className="rounded-xl bg-ink-800 p-2.5 border border-white/5">
+                        <p className="text-[9px] uppercase tracking-wider text-zinc-400">Quadril</p>
+                        <p className="font-display text-sm text-white font-bold mt-0.5">{latestEvaluation.circumferences.hips} cm</p>
+                      </div>
+                      <div className="rounded-xl bg-ink-800 p-2.5 border border-white/5">
+                        <p className="text-[9px] uppercase tracking-wider text-zinc-400">Coxa</p>
+                        <p className="font-display text-sm text-white font-bold mt-0.5">{latestEvaluation.circumferences.thigh} cm</p>
+                      </div>
+                      <div className="rounded-xl bg-ink-800 p-2.5 border border-white/5">
+                        <p className="text-[9px] uppercase tracking-wider text-zinc-400">Panturrilha</p>
+                        <p className="font-display text-sm text-white font-bold mt-0.5">{latestEvaluation.circumferences.calf} cm</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="py-10 text-center space-y-3">
@@ -1592,12 +986,13 @@ export default function StudentArea() {
         </div>
       )}
 
-      {/* MODAL DE VÍDEO */}
       {selectedVideo && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm"
           onMouseDown={(event) => {
-            if (event.target === event.currentTarget) closeVideo()
+            if (event.target === event.currentTarget) {
+              closeVideo()
+            }
           }}
         >
           <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-white/10 bg-ink-900 shadow-2xl">
@@ -1610,6 +1005,7 @@ export default function StudentArea() {
                 type="button"
                 onClick={closeVideo}
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 text-zinc-300 transition hover:border-gold-400/40 hover:text-gold-400"
+                aria-label="Fechar vídeo"
               >
                 <X size={18} />
               </button>
@@ -1623,16 +1019,27 @@ export default function StudentArea() {
                 allowFullScreen
               />
             </div>
+            <div className="flex items-center justify-between px-4 py-3">
+              <p className="text-xs text-zinc-500">Assista à execução correta do movimento.</p>
+              <button
+                type="button"
+                onClick={closeVideo}
+                className="rounded-xl bg-gold-400 px-4 py-2 text-xs font-semibold uppercase text-ink-950 transition hover:bg-gold-300"
+              >
+                Fechar
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* MODAL DE OBSERVAÇÃO */}
       {selectedObs && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
           onMouseDown={(event) => {
-            if (event.target === event.currentTarget) setSelectedObs(null)
+            if (event.target === event.currentTarget) {
+              setSelectedObs(null)
+            }
           }}
         >
           <div className="w-full max-w-md overflow-hidden rounded-2xl border border-gold-400/40 bg-ink-900 p-5 shadow-2xl animate-fade-in">
