@@ -27,7 +27,7 @@ const COACH_TIPS = [
   "Não tenha pressa para terminar; execute cada repetição com intenção.",
   "A disciplina é a ponte entre as suas metas e as suas conquistas.",
   "Beba água regularmente, mesmo que não sinta tanta sede.",
-  "Aproveite o processo. Evoluir exige patience e dedicação diária."
+  "Aproveite o processo. Evoluir exige paciência e dedicação diária."
 ]
 
 function youtubeId(url = '') {
@@ -90,7 +90,6 @@ export default function StudentArea() {
     return COACH_TIPS[index]
   }, [])
 
-  // CORREÇÃO: Removido o fallback perigoso por `data.students[0]`
   const current = useMemo(() => {
     if (!student?.id && !student?.code) return null
     return (
@@ -200,12 +199,21 @@ export default function StudentArea() {
     setActiveRestMenu(false)
   }
 
+  // ATUALIZADO: Ao marcar o exercício, verifica se todos foram concluídos para exibir a tela de finalização
   function toggleCompleteExercise(exerciseId) {
-    setCompletedExercises((prev) =>
-      prev.includes(exerciseId)
+    setCompletedExercises((prev) => {
+      const isAlreadyDone = prev.includes(exerciseId)
+      const nextCompleted = isAlreadyDone
         ? prev.filter((id) => id !== exerciseId)
         : [...prev, exerciseId]
-    )
+
+      // Se não estava concluído e agora completou todos os exercícios da lista
+      if (!isAlreadyDone && totalExercises > 0 && nextCompleted.length === totalExercises) {
+        setShowFinishedScreen(true)
+      }
+
+      return nextCompleted
+    })
   }
 
   function startWorkoutSession() {
@@ -225,7 +233,7 @@ export default function StudentArea() {
   }
 
   function sendWhatsAppFeedback() {
-    const studentName = current?.name || student?.name || 'Aluno'
+    const studentName = current?.name || 'Aluno'
     const workoutTitle = workout.title || `Treino ${currentDay}`
     
     const exercisesList = (sortedExercises || [])
@@ -244,7 +252,7 @@ export default function StudentArea() {
   }
 
   function sendRealtimeDoubt() {
-    const studentName = current?.name || student?.name || 'Aluno'
+    const studentName = current?.name || 'Aluno'
     const message = encodeURIComponent(
       `Olá Danilo! Estou treinando aqui e gostaria de tirar uma dúvida ou sugerir alguma mudança. Está disponível? (${studentName})`
     )
@@ -288,7 +296,6 @@ export default function StudentArea() {
     setSelectedVideo(null)
   }
 
-  // TRATAMENTO DE SEGURANÇA: Se o aluno não for encontrado na base de dados
   if (!current) {
     return (
       <div className="min-h-dvh bg-ink-950 flex items-center justify-center p-4 text-white">
@@ -321,6 +328,7 @@ export default function StudentArea() {
               <button
                 onClick={() => {
                   setSelectedWorkoutDay(null)
+                  setShowFinishedScreen(false)
                   setActiveRestMenu(false)
                 }}
                 className="flex items-center gap-1.5 rounded-full border border-gold-400/30 bg-gold-400/10 px-3 py-1.5 text-xs font-bold text-gold-400 transition hover:bg-gold-400/20"
@@ -430,6 +438,7 @@ export default function StudentArea() {
                     key={dayKey}
                     onClick={() => {
                       setSelectedWorkoutDay(dayKey)
+                      setShowFinishedScreen(false)
                       setActiveRestMenu(false)
                     }}
                     className="group relative w-full overflow-hidden rounded-2xl border border-white/10 bg-ink-800 p-4 text-left transition-all duration-300 hover:border-gold-400 hover:bg-ink-700/80 shadow-lg flex items-center gap-4"
@@ -450,6 +459,51 @@ export default function StudentArea() {
                   </button>
                 )
               })}
+            </div>
+          </div>
+        ) : showFinishedScreen ? (
+          <div className="py-8 text-center space-y-6 animate-fade-in">
+            <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-gold-400 to-gold-600 text-ink-950 shadow-2xl shadow-gold-400/30">
+              <Trophy size={48} />
+            </div>
+
+            <div>
+              <p className="text-xs uppercase font-bold tracking-widest text-gold-400">Missão Cumprida</p>
+              <h2 className="font-display text-3xl uppercase tracking-wide mt-1">Treino Concluído!</h2>
+              <p className="text-sm text-zinc-300 mt-2">Você completou {completedCount} de {totalExercises} exercícios com sucesso.</p>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-ink-900 p-5 max-w-xs mx-auto space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-zinc-400 uppercase tracking-wider">Tempo Total:</span>
+                <span className="font-display text-xl text-gold-400 font-bold">{formatSessionTime(sessionSeconds)}</span>
+              </div>
+              <div className="flex items-center justify-between border-t border-white/5 pt-3">
+                <span className="text-xs text-zinc-400 uppercase tracking-wider">Aproveitamento:</span>
+                <span className="font-display text-xl text-emerald-400 font-bold">{progressPercent}%</span>
+              </div>
+            </div>
+
+            <div className="space-y-3 pt-2">
+              <button
+                type="button"
+                onClick={sendWhatsAppFeedback}
+                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 py-4 text-xs font-bold uppercase tracking-wider text-ink-950 transition hover:bg-emerald-500 shadow-xl"
+              >
+                <MessageCircle size={18} fill="currentColor" />
+                Enviar Feedback e Cargas ao Professor
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setInWorkoutMode(false)
+                  setShowFinishedScreen(false)
+                }}
+                className="w-full rounded-2xl border border-white/20 bg-ink-800 py-3.5 text-xs font-bold uppercase tracking-wider text-zinc-300 transition hover:bg-ink-700"
+              >
+                Voltar aos Treinos
+              </button>
             </div>
           </div>
         ) : !inWorkoutMode ? (
@@ -604,51 +658,6 @@ export default function StudentArea() {
                   </article>
                 )
               })}
-            </div>
-          </div>
-        ) : showFinishedScreen ? (
-          <div className="py-8 text-center space-y-6 animate-fade-in">
-            <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-gold-400 to-gold-600 text-ink-950 shadow-2xl shadow-gold-400/30">
-              <Trophy size={48} />
-            </div>
-
-            <div>
-              <p className="text-xs uppercase font-bold tracking-widest text-gold-400">Missão Cumprida</p>
-              <h2 className="font-display text-3xl uppercase tracking-wide mt-1">Treino Concluído!</h2>
-              <p className="text-sm text-zinc-300 mt-2">Você completou {completedCount} de {totalExercises} exercícios com sucesso.</p>
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-ink-900 p-5 max-w-xs mx-auto space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-zinc-400 uppercase tracking-wider">Tempo Total:</span>
-                <span className="font-display text-xl text-gold-400 font-bold">{formatSessionTime(sessionSeconds)}</span>
-              </div>
-              <div className="flex items-center justify-between border-t border-white/5 pt-3">
-                <span className="text-xs text-zinc-400 uppercase tracking-wider">Aproveitamento:</span>
-                <span className="font-display text-xl text-emerald-400 font-bold">{progressPercent}%</span>
-              </div>
-            </div>
-
-            <div className="space-y-3 pt-2">
-              <button
-                type="button"
-                onClick={sendWhatsAppFeedback}
-                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 py-4 text-xs font-bold uppercase tracking-wider text-ink-950 transition hover:bg-emerald-500 shadow-xl"
-              >
-                <MessageCircle size={18} fill="currentColor" />
-                Enviar Feedback e Cargas ao Professor
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setInWorkoutMode(false)
-                  setShowFinishedScreen(false)
-                }}
-                className="w-full rounded-2xl border border-white/20 bg-ink-800 py-3.5 text-xs font-bold uppercase tracking-wider text-zinc-300 transition hover:bg-ink-700"
-              >
-                Voltar aos Treinos
-              </button>
             </div>
           </div>
         ) : (
