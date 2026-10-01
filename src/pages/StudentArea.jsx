@@ -1,17 +1,63 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ExternalLink, LogOut, RefreshCw, X, Play, Timer, RotateCcw, MessageCircle, Link2, CheckCircle2, Trophy, Lightbulb, ArrowLeft, Activity, Scale, Flame, UserCheck } from 'lucide-react'
+import { ExternalLink, LogOut, RefreshCw, X, Play, Timer, RotateCcw, MessageCircle, Link2, CheckCircle2, Trophy, Lightbulb, ArrowLeft, Activity, Scale, Flame, UserCheck, FlameKindling, ChevronRight, ChevronLeft, Pause, PlayCircle } from 'lucide-react'
 import Logo from '../components/Logo.jsx'
 import { useAuth } from '../auth.jsx'
 import { loadData, subscribeData } from '../storage'
 
 const DAYS = ['A', 'B', 'C', 'D', 'E']
 
+const COACH_TIPS = [
+  "Priorize a execução correta antes de aumentar a carga.",
+  "A consistência supera a intensidade ocasional. Faça o seu melhor hoje!",
+  "Respire fundo: a fase excêntrica (descida) é onde o músculo mais cresce.",
+  "Concentre-se no grupamento muscular que está a trabalhar, evite balançar o corpo.",
+  "Hidrate-se bem durante o treino. A performance começa na água!",
+  "Mantenha a postura firme e o abdómen contraído em todos os movimentos.",
+  "A amplitude de movimento é mais importante do que excesso de peso sem controle.",
+  "Respeite o seu tempo de descanso entre as séries para manter a intensidade alta.",
+  "Foque na contração máxima no topo de cada repetição.",
+  "O descanso faz parte do treino. Recupere-se bem para a próxima série.",
+  "Mantenha o foco e elimine as distrações enquanto estiver a treinar.",
+  "Lembre-se: cada treino é um passo a mais em direção à sua melhor versão.",
+  "Se sentir dor articular aguda, pare e ajuste a postura imediatamente.",
+  "Conecte a sua mente ao músculo que está a ser exercitado.",
+  "A persistência de hoje é a força de amanhã. Vamos com tudo!",
+  "Controle a respiração: expire no esforço e inspire na volta.",
+  "Não tenha pressa para terminar; execute cada repetição com intenção.",
+  "A disciplina é a ponte entre as suas metas e as suas conquistas.",
+  "Beba água regularmente, mesmo que não sinta tanta sede.",
+  "Aproveite o processo. Evoluir exige paciência e dedicação diária."
+]
+
 function youtubeId(url = '') {
   const match = url.match(
     /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{6,})/
   )
   return match ? match[1] : null
+}
+
+// Utilitário para gerar bips sonoros e vibração no navegador (sem dependências externas)
+function playBeep(isFinal = false) {
+  try {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+    const osc = audioCtx.createOscillator()
+    const gain = audioCtx.createGain()
+    osc.type = isFinal ? 'square' : 'sine'
+    osc.frequency.setValueAtTime(isFinal ? 880 : 440, audioCtx.currentTime)
+    gain.gain.setValueAtTime(0.15, audioCtx.currentTime)
+    osc.connect(gain)
+    gain.connect(audioCtx.destination)
+    osc.start()
+    osc.stop(audioCtx.currentTime + (isFinal ? 0.6 : 0.2))
+  } catch (e) {
+    // Ignora se o browser bloquear áudio sem interação prévia
+  }
+  if (navigator.vibrate) {
+    try {
+      navigator.vibrate(isFinal ? [300, 150, 300] : 200)
+    } catch (e) {}
+  }
 }
 
 export default function StudentArea() {
@@ -27,10 +73,26 @@ export default function StudentArea() {
 
   const [completedExercises, setCompletedExercises] = useState([])
 
+  // Estados dos cronómetros e Modo Treino
   const [timerSeconds, setTimerSeconds] = useState(0)
   const [timerActive, setTimerActive] = useState(false)
   const [initialTime, setInitialTime] = useState(60)
   const [activeRestMenu, setActiveRestMenu] = useState(null)
+
+  const [inWorkoutMode, setInWorkoutMode] = useState(false)
+  const [workoutActiveIndex, setWorkoutActiveIndex] = useState(0)
+
+  // Cronômetro Geral da Sessão
+  const [sessionSeconds, setSessionSeconds] = useState(0)
+  const [sessionActive, setSessionActive] = useState(false)
+  const [sessionPaused, setSessionPaused] = useState(false)
+  const [showFinishedScreen, setShowFinishedScreen] = useState(false)
+
+  // Dica do professor do dia (fixa por sessão/carregamento)
+  const dailyTip = useMemo(() => {
+    const index = Math.floor(Math.random() * COACH_TIPS.length)
+    return COACH_TIPS[index]
+  }, [])
 
   const current = useMemo(() => {
     return (
@@ -42,7 +104,6 @@ export default function StudentArea() {
 
   const workouts = current?.workouts || data.workouts
 
-  // Avaliações reais do aluno (sem dados fictícios estáticos)
   const evaluations = current?.evaluations || []
   const latestEvaluation = evaluations.length > 0 ? evaluations[evaluations.length - 1] : null
 
@@ -97,17 +158,37 @@ export default function StudentArea() {
     return stop
   }, [])
 
+  // Temporizador de Descanso com avisos sonoros
   useEffect(() => {
     let interval = null
     if (timerActive && timerSeconds > 0) {
       interval = setInterval(() => {
-        setTimerSeconds((sec) => sec - 1)
+        setTimerSeconds((sec) => {
+          if (sec === 10) {
+            playBeep(false)
+          }
+          if (sec <= 1) {
+            playBeep(true)
+            setTimerActive(false)
+            return 0
+          }
+          return sec - 1
+        })
       }, 1000)
-    } else if (timerSeconds === 0 && timerActive) {
-      setTimerActive(false)
     }
     return () => clearInterval(interval)
   }, [timerActive, timerSeconds])
+
+  // Cronômetro Geral da Sessão
+  useEffect(() => {
+    let interval = null
+    if (sessionActive && !sessionPaused && !showFinishedScreen) {
+      interval = setInterval(() => {
+        setSessionSeconds((sec) => sec + 1)
+      }, 1000)
+    }
+    return () => clearInterval(interval)
+  }, [sessionActive, sessionPaused, showFinishedScreen])
 
   function startTimer(seconds) {
     setInitialTime(seconds)
@@ -127,6 +208,21 @@ export default function StudentArea() {
         ? prev.filter((id) => id !== exerciseId)
         : [...prev, exerciseId]
     )
+  }
+
+  function startWorkoutSession() {
+    setInWorkoutMode(true)
+    setWorkoutActiveIndex(0)
+    setSessionSeconds(0)
+    setSessionActive(true)
+    setSessionPaused(false)
+    setShowFinishedScreen(false)
+  }
+
+  function formatSessionTime(totalSecs) {
+    const mins = Math.floor(totalSecs / 60)
+    const secs = totalSecs % 60
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
   }
 
   function sendWhatsAppFeedback() {
@@ -199,7 +295,7 @@ export default function StudentArea() {
         <div className="mx-auto flex max-w-md items-center justify-between px-4 py-3">
           <Logo className="h-10 w-10" showText />
           <div className="flex items-center gap-2">
-            {selectedWorkoutDay && (
+            {selectedWorkoutDay && !inWorkoutMode && (
               <button
                 onClick={() => {
                   setSelectedWorkoutDay(null)
@@ -221,25 +317,27 @@ export default function StudentArea() {
           </div>
         </div>
 
-        <div className="mx-auto max-w-md px-4 pb-3">
-          <p className="text-xs text-zinc-500">
-            Olá, {current?.name || student?.name || 'aluno'}
-          </p>
-          {syncedAt && (
-            <p className="mt-1 flex items-center gap-1 text-[11px] text-gold-400/80">
-              <RefreshCw size={10} />
-              Atualizado às {syncedAt}
+        <div className="mx-auto max-w-md px-4 pb-3 flex items-center justify-between">
+          <div>
+            <p className="text-xs text-zinc-500">
+              Olá, {current?.name || student?.name || 'aluno'}
             </p>
-          )}
+            {syncedAt && (
+              <p className="mt-1 flex items-center gap-1 text-[11px] text-gold-400/80">
+                <RefreshCw size={10} />
+                Atualizado às {syncedAt}
+              </p>
+            )}
+          </div>
         </div>
       </header>
 
       <main className="mx-auto max-w-md px-4 py-5 safe-bottom">
         {!selectedWorkoutDay ? (
-          /* TELA 1: CARD DE AVALIAÇÃO FÍSICA NO TOPO + LISTA DE TREINOS */
+          /* TELA 1: HOME COM AVALIAÇÃO + DICA DO PROFESSOR + LISTA DE TREINOS */
           <div className="space-y-4">
             
-            {/* CARD DE AVALIAÇÃO FÍSICA & COMPOSIÇÃO CORPORAL (AGORA NO TOPO) */}
+            {/* CARD DE AVALIAÇÃO FÍSICA & COMPOSIÇÃO CORPORAL */}
             <div 
               onClick={() => setIsEvaluationOpen(true)}
               className="group relative w-full overflow-hidden rounded-2xl border border-gold-400/40 bg-gradient-to-br from-ink-900 to-ink-800 p-5 text-left transition-all duration-300 hover:border-gold-400 hover:shadow-xl hover:shadow-gold-400/10 cursor-pointer shadow-lg"
@@ -263,7 +361,6 @@ export default function StudentArea() {
                 </span>
               </div>
 
-              {/* MÉTRICAS RÁPIDAS OU ESTADO VAZIO */}
               {latestEvaluation ? (
                 <div className="grid grid-cols-3 gap-2.5 pt-2 border-t border-white/10">
                   <div className="rounded-xl bg-ink-950/60 p-2 text-center border border-white/5">
@@ -284,6 +381,17 @@ export default function StudentArea() {
                   <p className="text-xs text-zinc-400">Nenhuma avaliação cadastrada pelo professor ainda.</p>
                 </div>
               )}
+            </div>
+
+            {/* CARD DE DICA DO PROFESSOR (DINÂMICO) */}
+            <div className="rounded-2xl border border-gold-400/30 bg-ink-900/80 p-4 shadow-md flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold-400/20 text-gold-400 border border-gold-400/30 mt-0.5">
+                <Lightbulb size={20} />
+              </div>
+              <div>
+                <p className="text-[10px] uppercase font-bold tracking-widest text-gold-400">Dica do Professor</p>
+                <p className="text-xs text-zinc-300 mt-1 leading-relaxed italic">"{dailyTip}"</p>
+              </div>
             </div>
 
             {/* TÍTULO DA ROTINA DE TREINOS */}
@@ -318,14 +426,17 @@ export default function StudentArea() {
                       <h2 className="font-display text-xl uppercase text-white tracking-wide group-hover:text-gold-300 transition-colors leading-snug">
                         {wData?.title || `Treino ${dayKey}`}
                       </h2>
+                      <p className="text-xs text-zinc-400 mt-0.5">
+                        {wData?.exercises?.length || 0} exercícios • Foco principal
+                      </p>
                     </div>
                   </button>
                 )
               })}
             </div>
           </div>
-        ) : (
-          /* TELA 2: EXIBIÇÃO DOS EXERCÍCIOS DO TREINO ESCOLHIDO */
+        ) : !inWorkoutMode ? (
+          /* TELA 2: LISTA DE EXERCÍCIOS DO TREINO ESCOLHIDO + BOTÃO INICIAR MODO TREINO */
           <div>
             <div className="flex items-center justify-between">
               <p className="text-[12px] uppercase tracking-[0.2em] text-gold-400 font-bold">
@@ -346,10 +457,20 @@ export default function StudentArea() {
               />
             </div>
 
+            {/* BOTÃO PARA INICIAR O MODO TREINO IMERSIVO */}
+            <button
+              type="button"
+              onClick={startWorkoutSession}
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-gold-500 to-gold-400 py-4 text-sm font-extrabold uppercase tracking-wider text-ink-950 transition hover:from-gold-400 hover:to-gold-300 shadow-xl shadow-gold-400/20 active:scale-[0.99]"
+            >
+              <FlameKindling size={20} />
+              🔥 Iniciar Modo Treino Imersivo
+            </button>
+
             <button
               type="button"
               onClick={sendWhatsAppFeedback}
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600/20 border border-emerald-500/40 py-3.5 text-xs font-bold uppercase tracking-wider text-emerald-400 transition hover:bg-emerald-600/30 shadow-lg"
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600/20 border border-emerald-500/40 py-3.5 text-xs font-bold uppercase tracking-wider text-emerald-400 transition hover:bg-emerald-600/30 shadow-lg"
             >
               <MessageCircle size={18} />
               Enviar cargas e feedback no WhatsApp
@@ -499,7 +620,7 @@ export default function StudentArea() {
                                 onClick={() => startTimer(sec)}
                                 className="rounded-lg border border-gold-400/30 bg-ink-800 py-2.5 text-xs font-bold text-gold-300 hover:bg-gold-400 hover:text-ink-950 transition"
                               >
-                                {sec} segundos
+                                {sec}s
                               </button>
                             ))}
                           </div>
@@ -510,6 +631,215 @@ export default function StudentArea() {
                 )
               })}
             </div>
+          </div>
+        ) : showFinishedScreen ? (
+          /* TELA DE PARABÉNS / CONCLUSÃO DE TREINO */
+          <div className="py-8 text-center space-y-6 animate-fade-in">
+            <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-gold-400 to-gold-600 text-ink-950 shadow-2xl shadow-gold-400/30">
+              <Trophy size={48} />
+            </div>
+
+            <div>
+              <p className="text-xs uppercase font-bold tracking-widest text-gold-400">Missão Cumprida</p>
+              <h2 className="font-display text-3xl uppercase tracking-wide mt-1">Treino Concluído!</h2>
+              <p className="text-sm text-zinc-300 mt-2">Você completou {completedCount} de {totalExercises} exercícios com sucesso.</p>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-ink-900 p-5 max-w-xs mx-auto space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-zinc-400 uppercase tracking-wider">Tempo Total:</span>
+                <span className="font-display text-xl text-gold-400 font-bold">{formatSessionTime(sessionSeconds)}</span>
+              </div>
+              <div className="flex items-center justify-between border-t border-white/5 pt-3">
+                <span className="text-xs text-zinc-400 uppercase tracking-wider">Aproveitamento:</span>
+                <span className="font-display text-xl text-emerald-400 font-bold">{progressPercent}%</span>
+              </div>
+            </div>
+
+            <div className="space-y-3 pt-2">
+              <button
+                type="button"
+                onClick={sendWhatsAppFeedback}
+                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 py-4 text-xs font-bold uppercase tracking-wider text-ink-950 transition hover:bg-emerald-500 shadow-xl"
+              >
+                <MessageCircle size={18} fill="currentColor" />
+                Enviar Feedback e Cargas ao Professor
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setInWorkoutMode(false)
+                  setShowFinishedScreen(false)
+                }}
+                className="w-full rounded-2xl border border-white/20 bg-ink-800 py-3.5 text-xs font-bold uppercase tracking-wider text-zinc-300 transition hover:bg-ink-700"
+              >
+                Voltar aos Treinos
+              </button>
+            </div>
+          </div>
+        ) : (
+          /* MODO TREINO IMERSIVO (EXIBIÇÃO PASSO A PASSO DO EXERCÍCIO ATUAL) */
+          <div className="space-y-4 animate-fade-in">
+            {/* CABEÇALHO DO MODO TREINO COM CRONÓMETRO GERAL */}
+            <div className="flex items-center justify-between rounded-2xl bg-ink-900 border border-gold-400/40 p-3.5">
+              <div className="flex items-center gap-2">
+                <Timer size={18} className="text-gold-400 animate-pulse" />
+                <span className="text-xs font-bold uppercase tracking-wider text-zinc-300">Tempo:</span>
+                <span className="font-display text-lg text-gold-400 font-bold">{formatSessionTime(sessionSeconds)}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSessionPaused(!sessionPaused)}
+                  className="rounded-lg border border-white/10 bg-ink-800 px-2.5 py-1.5 text-[11px] font-bold text-zinc-300 hover:text-white"
+                >
+                  {sessionPaused ? 'Continuar' : 'Pausar'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setInWorkoutMode(false)
+                  }}
+                  className="rounded-lg border border-red-500/30 bg-red-500/20 px-2.5 py-1.5 text-[11px] font-bold text-red-300"
+                >
+                  Sair
+                </button>
+              </div>
+            </div>
+
+            {/* BARRA DE PROGRESSO DO MODO TREINO */}
+            <div className="flex items-center justify-between text-xs font-bold text-zinc-400 px-1">
+              <span>Exercício {workoutActiveIndex + 1} de {totalExercises}</span>
+              <span className="text-gold-400">{Math.round(((workoutActiveIndex + 1) / totalExercises) * 100)}%</span>
+            </div>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-ink-800 border border-white/5">
+              <div
+                className="h-full bg-gold-400 transition-all duration-300"
+                style={{ width: `${((workoutActiveIndex + 1) / totalExercises) * 100}%` }}
+              />
+            </div>
+
+            {/* CARTÃO DO EXERCÍCIO ATUAL */}
+            {(() => {
+              const exercise = sortedExercises[workoutActiveIndex]
+              if (!exercise) return null
+              const videoId = youtubeId(exercise.video)
+              const isDone = completedExercises.includes(exercise.id)
+
+              return (
+                <div className="rounded-2xl border border-gold-400/50 bg-ink-900 p-5 shadow-2xl space-y-4">
+                  <div>
+                    {exercise.group && (
+                      <div className="mb-2 inline-flex items-center gap-1 rounded-md bg-gold-400/15 px-2.5 py-1 text-xs font-bold uppercase tracking-wider text-gold-400 border border-gold-400/30">
+                        <Link2 size={13} />
+                        {exercise.group}
+                      </div>
+                    )}
+                    <h2 className="font-display text-2xl uppercase tracking-wide text-white">
+                      {exercise.name}
+                    </h2>
+                  </div>
+
+                  {/* VÍDEO DE DEMONSTRAÇÃO */}
+                  {exercise.video && (
+                    <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-gold-400/30 bg-black">
+                      {videoId ? (
+                        <button
+                          type="button"
+                          onClick={() => openVideo(exercise)}
+                          className="group relative h-full w-full flex items-center justify-center"
+                        >
+                          <img
+                            src={`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`}
+                            alt={exercise.name}
+                            className="absolute inset-0 h-full w-full object-cover opacity-80 group-hover:scale-105 transition"
+                          />
+                          <div className="absolute inset-0 bg-black/40" />
+                          <div className="relative z-10 flex h-14 w-14 items-center justify-center rounded-full bg-gold-400 text-ink-950 shadow-xl">
+                            <Play size={28} fill="currentColor" className="ml-1" />
+                          </div>
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => openVideo(exercise)}
+                          className="h-full w-full flex items-center justify-center text-gold-400 text-xs uppercase font-bold"
+                        >
+                          <ExternalLink size={20} className="mr-2" /> Assistir Vídeo
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* SÉRIES E REPETIÇÕES */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-xl bg-ink-800 p-3 text-center border border-white/5">
+                      <p className="text-[10px] uppercase tracking-wider text-zinc-400 font-bold">Séries</p>
+                      <p className="font-display text-2xl text-gold-400 font-extrabold mt-0.5">{exercise.sets}</p>
+                    </div>
+                    <div className="rounded-xl bg-ink-800 p-3 text-center border border-white/5">
+                      <p className="text-[10px] uppercase tracking-wider text-zinc-400 font-bold">Repetições</p>
+                      <p className="font-display text-2xl text-gold-400 font-extrabold mt-0.5">{exercise.reps}</p>
+                    </div>
+                  </div>
+
+                  {/* ORIENTAÇÕES / DICAS */}
+                  {exercise.notes && (
+                    <div className="rounded-xl bg-gold-400/10 border border-gold-400/25 p-3 text-xs leading-relaxed text-zinc-200">
+                      <div className="flex items-center gap-1.5 text-gold-400 font-bold uppercase text-[10px] tracking-wider mb-1">
+                        <Lightbulb size={14} /> Foco / Execução
+                      </div>
+                      <p>{exercise.notes}</p>
+                    </div>
+                  )}
+
+                  {/* BOTÃO DE MARCAR CONCLUÍDO */}
+                  <button
+                    type="button"
+                    onClick={() => toggleCompleteExercise(exercise.id)}
+                    className={`flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-xs font-extrabold uppercase tracking-wider transition ${
+                      isDone
+                        ? 'bg-emerald-500 text-ink-950 shadow-lg shadow-emerald-500/20'
+                        : 'border border-gold-400/40 bg-ink-800 text-gold-300 hover:bg-gold-400 hover:text-ink-950'
+                    }`}
+                  >
+                    <CheckCircle2 size={18} />
+                    {isDone ? 'Exercício Concluído ✓' : 'Marcar como Concluído'}
+                  </button>
+
+                  {/* NAVEGAÇÃO ENTRE EXERCÍCIOS */}
+                  <div className="flex items-center justify-between pt-2 border-t border-white/10">
+                    <button
+                      type="button"
+                      disabled={workoutActiveIndex === 0}
+                      onClick={() => setWorkoutActiveIndex((prev) => Math.max(0, prev - 1))}
+                      className="flex items-center gap-1 rounded-xl border border-white/10 bg-ink-800 px-4 py-2.5 text-xs font-bold text-zinc-300 disabled:opacity-30 hover:border-gold-400/40 transition"
+                    >
+                      <ChevronLeft size={16} /> Anterior
+                    </button>
+
+                    {workoutActiveIndex < totalExercises - 1 ? (
+                      <button
+                        type="button"
+                        onClick={() => setWorkoutActiveIndex((prev) => Math.min(totalExercises - 1, prev + 1))}
+                        className="flex items-center gap-1 rounded-xl bg-gold-400 px-5 py-2.5 text-xs font-bold uppercase text-ink-950 hover:bg-gold-300 transition shadow-md"
+                      >
+                        Próximo Exercício <ChevronRight size={16} />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setShowFinishedScreen(true)}
+                        className="flex items-center gap-1 rounded-xl bg-emerald-500 px-5 py-2.5 text-xs font-extrabold uppercase text-ink-950 hover:bg-emerald-400 transition shadow-md animate-pulse"
+                      >
+                        Finalizar Treino <Trophy size={16} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )
+            })()}
           </div>
         )}
       </main>
@@ -529,8 +859,8 @@ export default function StudentArea() {
         </button>
       </div>
 
-      {/* RODAPÉ FIXO INTELIGENTE */}
-      {selectedWorkoutDay && (
+      {/* RODAPÉ FIXO INTELIGENTE COM CRONÓMETRO DE DESCANSO */}
+      {selectedWorkoutDay && !inWorkoutMode && (
         <div className="fixed bottom-0 left-0 right-0 z-40 border-t-2 border-gold-400/40 bg-ink-950/95 p-5 backdrop-blur shadow-2xl">
           <div className="mx-auto max-w-md">
             {isWorkoutCompleted ? (
@@ -553,7 +883,7 @@ export default function StudentArea() {
                     <div>
                       <p className="text-[11px] uppercase tracking-wider text-zinc-400">Descanso entre séries</p>
                       <p className="font-display text-2xl text-gold-400 font-bold tracking-wide">
-                        {timerActive ? `${timerSeconds} segundos` : timerSeconds === 0 && !timerActive ? 'Pronto' : `${timerSeconds} segundos`}
+                        {timerActive ? `${timerSeconds}s` : timerSeconds === 0 && !timerActive ? 'Pronto' : `${timerSeconds}s`}
                       </p>
                     </div>
                   </div>
@@ -570,7 +900,7 @@ export default function StudentArea() {
                         onClick={() => startTimer(initialTime)}
                         className="inline-flex items-center gap-1.5 rounded-xl bg-gold-400 px-4 py-3 text-xs font-bold uppercase text-ink-950 transition hover:bg-gold-300 shadow-lg shadow-gold-400/20"
                       >
-                        <RotateCcw size={14} /> Repetir ({initialTime} segundos)
+                        <RotateCcw size={14} /> Repetir ({initialTime}s)
                       </button>
                     )}
                   </div>
@@ -587,7 +917,7 @@ export default function StudentArea() {
                           : 'border border-white/10 bg-ink-900 text-zinc-300 hover:border-gold-400/40 hover:text-gold-400'
                       }`}
                     >
-                      {sec} segundos
+                      {sec}s
                     </button>
                   ))}
                 </div>
