@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ExternalLink, LogOut, RefreshCw, X, Play, Timer, RotateCcw, MessageCircle, Link2, CheckCircle2, Trophy, Lightbulb, ArrowLeft, Activity, Scale, Flame, UserCheck, FlameKindling, ChevronRight, ChevronLeft, Pause, PlayCircle, AlertCircle, Loader2 } from 'lucide-react'
+import { ExternalLink, LogOut, RefreshCw, X, Play, Timer, RotateCcw, MessageCircle, Link2, CheckCircle2, Trophy, Lightbulb, ArrowLeft, Activity, Scale, Flame, UserCheck, FlameKindling, ChevronRight, ChevronLeft, Pause, PlayCircle, AlertCircle, Loader2, Dumbbell, ThumbsUp, Award, Zap } from 'lucide-react'
 import Logo from '../components/Logo.jsx'
 import { useAuth } from '../auth.jsx'
 import { loadData, subscribeData } from '../storage'
@@ -57,6 +57,24 @@ function playBeep(isFinal = false) {
   }
 }
 
+// Ícones personalizados para cada número de série
+function getSetIcon(index) {
+  switch (index) {
+    case 0:
+      return <Dumbbell size={16} className="text-gold-400" />
+    case 1:
+      return <Flame size={16} className="text-orange-400" />
+    case 2:
+      return <ThumbsUp size={16} className="text-emerald-400" />
+    case 3:
+      return <Zap size={16} className="text-yellow-400" />
+    case 4:
+      return <Award size={16} className="text-purple-400" />
+    default:
+      return <Trophy size={16} className="text-gold-400" />
+  }
+}
+
 export default function StudentArea() {
   const { student, logoutStudent } = useAuth()
   const navigate = useNavigate()
@@ -69,10 +87,8 @@ export default function StudentArea() {
   const [selectedObs, setSelectedObs] = useState(null)
   const [isEvaluationOpen, setIsEvaluationOpen] = useState(false)
 
-  // Armazena as séries concluídas por exercício, ex: { 'exerciseId-1': 1, 'exerciseId-2': 3 }
   const [exerciseProgress, setExerciseProgress] = useState({})
 
-  // Estados dos cronômetros e Modo Treino
   const [timerSeconds, setTimerSeconds] = useState(0)
   const [timerActive, setTimerActive] = useState(false)
   const [initialTime, setInitialTime] = useState(60)
@@ -81,7 +97,6 @@ export default function StudentArea() {
   const [inWorkoutMode, setInWorkoutMode] = useState(false)
   const [workoutActiveIndex, setWorkoutActiveIndex] = useState(0)
 
-  // Cronômetro Geral da Sessão
   const [sessionSeconds, setSessionSeconds] = useState(0)
   const [sessionActive, setSessionActive] = useState(false)
   const [sessionPaused, setSessionPaused] = useState(false)
@@ -147,7 +162,6 @@ export default function StudentArea() {
 
   const totalExercises = sortedExercises.length
 
-  // Calcula quantos exercícios foram totalmente concluídos (todas as séries feitas)
   const completedCount = useMemo(() => {
     return sortedExercises.filter((ex) => {
       const totalSets = parseInt(ex.sets) || 1
@@ -171,7 +185,6 @@ export default function StudentArea() {
     return stop
   }, [])
 
-  // Temporizador de Descanso
   useEffect(() => {
     let interval = null
     if (timerActive && timerSeconds > 0) {
@@ -193,7 +206,6 @@ export default function StudentArea() {
     return () => clearInterval(interval)
   }, [timerActive, timerSeconds])
 
-  // Cronômetro Geral da Sessão
   useEffect(() => {
     let interval = null
     if (sessionActive && !sessionPaused && !showFinishedScreen) {
@@ -217,14 +229,12 @@ export default function StudentArea() {
     setActiveRestMenu(false)
   }
 
-  // Avança ou alterna o contador de séries do exercício
   function handleSetClick(exercise, setIndex) {
     const totalSets = parseInt(exercise.sets) || 1
     const currentDone = exerciseProgress[exercise.id] || 0
 
     let nextDone = setIndex + 1
     if (currentDone === nextDone) {
-      // Se clicar na última série já concluída, desmarca aquela série
       nextDone = setIndex
     }
 
@@ -234,7 +244,6 @@ export default function StudentArea() {
     }
     setExerciseProgress(updatedProgress)
 
-    // Verifica se completou todas as séries de todos os exercícios
     const allDone = sortedExercises.every((ex) => {
       const sTotal = parseInt(ex.sets) || 1
       const sDone = updatedProgress[ex.id] || 0
@@ -684,11 +693,12 @@ export default function StudentArea() {
                       </div>
                     </div>
 
-                    {/* CONTADOR INTERATIVO DE SÉRIES */}
+                    {/* CONTADOR INTERATIVO COM TEXTO CENTRALIZADO E ÍCONES */}
                     <div className="pt-3 border-t border-white/10 space-y-2">
-                      <div className="flex items-center justify-between text-[11px] uppercase tracking-wider text-zinc-400 font-bold">
-                        <span>Progresso das Séries ({doneSets}/{totalSets})</span>
-                        {isAllDone && <span className="text-emerald-400 font-extrabold flex items-center gap-1"><CheckCircle2 size={14} /> Concluído</span>}
+                      <div className="flex items-center justify-center text-[11px] uppercase tracking-wider text-zinc-400 font-bold gap-1 text-center">
+                        <span>Progresso das Séries</span>
+                        <span className="text-gold-400 font-extrabold">({doneSets}/{totalSets})</span>
+                        {isAllDone && <span className="text-emerald-400 font-extrabold flex items-center gap-1 ml-1">• Concluído <CheckCircle2 size={13} /></span>}
                       </div>
                       <div className="flex items-center gap-2">
                         {Array.from({ length: totalSets }).map((_, sIdx) => {
@@ -704,8 +714,9 @@ export default function StudentArea() {
                                   : 'bg-ink-700 text-zinc-300 border-white/10 hover:border-gold-400/50 hover:text-gold-300'
                               }`}
                             >
+                              {!isDone && getSetIcon(sIdx)}
                               <span>S{sIdx + 1}</span>
-                              {isDone && <CheckCircle2 size={13} />}
+                              {isDone && <CheckCircle2 size={14} />}
                             </button>
                           )
                         })}
@@ -829,11 +840,12 @@ export default function StudentArea() {
                     </div>
                   )}
 
-                  {/* CONTADOR DE SÉRIES NO MODO IMERSIVO */}
+                  {/* CONTADOR DE SÉRIES CENTRALIZADO NO MODO IMERSIVO */}
                   <div className="space-y-2 pt-2">
-                    <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-zinc-400">
-                      <span>Marcar Séries ({doneSets}/{totalSets})</span>
-                      {isAllDone && <span className="text-emerald-400 font-extrabold">Completo ✓</span>}
+                    <div className="flex items-center justify-center text-xs font-bold uppercase tracking-wider text-zinc-400 gap-1 text-center">
+                      <span>Progresso das Séries</span>
+                      <span className="text-gold-400">({doneSets}/{totalSets})</span>
+                      {isAllDone && <span className="text-emerald-400 font-extrabold ml-1">• Completo ✓</span>}
                     </div>
                     <div className="flex items-center gap-2">
                       {Array.from({ length: totalSets }).map((_, sIdx) => {
@@ -849,8 +861,9 @@ export default function StudentArea() {
                                 : 'bg-ink-800 text-gold-300 border-gold-400/40 hover:bg-gold-400 hover:text-ink-950'
                             }`}
                           >
+                            {!isDone && getSetIcon(sIdx)}
                             <span>Série {sIdx + 1}</span>
-                            {isDone && <CheckCircle2 size={15} />}
+                            {isDone && <CheckCircle2 size={16} />}
                           </button>
                         )
                       })}
