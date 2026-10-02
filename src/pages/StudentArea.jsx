@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ExternalLink, LogOut, RefreshCw, X, Play, Timer, RotateCcw, MessageCircle, Link2, CheckCircle2, Trophy, Lightbulb, ArrowLeft, Activity, Scale, Flame, UserCheck, FlameKindling, ChevronRight, ChevronLeft, Pause, PlayCircle, AlertCircle } from 'lucide-react'
+import { ExternalLink, LogOut, RefreshCw, X, Play, Timer, RotateCcw, MessageCircle, Link2, CheckCircle2, Trophy, Lightbulb, ArrowLeft, Activity, Scale, Flame, UserCheck, FlameKindling, ChevronRight, ChevronLeft, Pause, PlayCircle, AlertCircle, Loader2 } from 'lucide-react'
 import Logo from '../components/Logo.jsx'
 import { useAuth } from '../auth.jsx'
 import { loadData, subscribeData } from '../storage'
@@ -62,6 +62,7 @@ export default function StudentArea() {
   const navigate = useNavigate()
 
   const [data, setData] = useState(() => loadData())
+  const [isLoadingAuth, setIsLoadingAuth] = useState(true)
   const [selectedWorkoutDay, setSelectedWorkoutDay] = useState(null)
   const [syncedAt, setSyncedAt] = useState('')
   const [selectedVideo, setSelectedVideo] = useState(null)
@@ -89,6 +90,14 @@ export default function StudentArea() {
     const index = Math.floor(Math.random() * COACH_TIPS.length)
     return COACH_TIPS[index]
   }, [])
+
+  // Efeito para dar um breve respiro para o auth carregar do storage
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoadingAuth(false)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [student])
 
   const current = useMemo(() => {
     if (!student?.id && !student?.code) return null
@@ -199,7 +208,6 @@ export default function StudentArea() {
     setActiveRestMenu(false)
   }
 
-  // ATUALIZADO: Ao marcar o exercício, verifica se todos foram concluídos para exibir a tela de finalização
   function toggleCompleteExercise(exerciseId) {
     setCompletedExercises((prev) => {
       const isAlreadyDone = prev.includes(exerciseId)
@@ -207,7 +215,6 @@ export default function StudentArea() {
         ? prev.filter((id) => id !== exerciseId)
         : [...prev, exerciseId]
 
-      // Se não estava concluído e agora completou todos os exercícios da lista
       if (!isAlreadyDone && totalExercises > 0 && nextCompleted.length === totalExercises) {
         setShowFinishedScreen(true)
       }
@@ -294,6 +301,18 @@ export default function StudentArea() {
 
   function closeVideo() {
     setSelectedVideo(null)
+  }
+
+  // Enquanto estiver carregando o auth, exibe um loader elegante em vez da tela de erro
+  if (isLoadingAuth) {
+    return (
+      <div className="min-h-dvh bg-ink-950 flex items-center justify-center p-4 text-white">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 size={36} className="text-gold-400 animate-spin" />
+          <p className="text-xs uppercase tracking-widest text-zinc-400 font-bold">Carregando dados...</p>
+        </div>
+      </div>
+    )
   }
 
   if (!current) {
