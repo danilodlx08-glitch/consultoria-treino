@@ -57,7 +57,6 @@ function playBeep(isFinal = false) {
   }
 }
 
-// Ícones personalizados para cada número de série
 function getSetIcon(index) {
   switch (index) {
     case 0:
@@ -372,8 +371,9 @@ export default function StudentArea() {
     <div className="min-h-dvh bg-ink-950 pb-48 text-white relative">
       <header className="sticky top-0 z-30 border-b border-white/5 bg-ink-950/95 backdrop-blur">
         <div className="mx-auto flex max-w-md items-center justify-between px-4 py-3">
-          <Logo className="h-10 w-10" showText />
-          <div className="flex items-center gap-3">
+          <Logo className="h-9 w-9" showText />
+          
+          <div className="flex items-center gap-2">
             {selectedWorkoutDay && !inWorkoutMode && (
               <button
                 onClick={() => {
@@ -381,31 +381,33 @@ export default function StudentArea() {
                   setShowFinishedScreen(false)
                   setActiveRestMenu(false)
                 }}
-                className="flex items-center gap-2 rounded-xl bg-gold-400 px-4 py-2.5 text-xs font-extrabold uppercase tracking-wider text-ink-950 transition hover:bg-gold-300 shadow-lg shadow-gold-400/20 active:scale-95"
+                className="flex items-center gap-1.5 rounded-xl border border-gold-400/50 bg-ink-900 px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-gold-400 transition hover:bg-gold-400 hover:text-ink-950 shadow-sm"
+                title="Voltar aos treinos"
               >
-                <ArrowLeft size={16} />
-                <span>Voltar aos Treinos</span>
+                <ArrowLeft size={14} />
+                <span>Treinos</span>
               </button>
             )}
             <button
               onClick={exit}
-              className="rounded-xl border border-white/10 bg-ink-900 p-2.5 text-zinc-400 transition hover:border-red-500/40 hover:text-red-400 hover:bg-red-500/10"
+              className="flex items-center gap-1 rounded-xl border border-white/10 bg-ink-900 px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-zinc-400 transition hover:border-red-500/40 hover:text-red-400 hover:bg-red-500/10"
               aria-label="Sair da conta"
               title="Sair da conta"
             >
-              <LogOut size={16} />
+              <LogOut size={14} />
+              <span>Sair</span>
             </button>
           </div>
         </div>
 
-        <div className="mx-auto max-w-md px-4 pb-3 flex items-center justify-between">
+        <div className="mx-auto max-w-md px-4 pb-2.5 flex items-center justify-between">
           <div>
-            <p className="text-xs text-zinc-500">
-              Olá, {current?.name || 'aluno'}
+            <p className="text-xs text-zinc-400">
+              Olá, <span className="text-white font-medium">{current?.name || 'aluno'}</span>
             </p>
             {syncedAt && (
-              <p className="mt-1 flex items-center gap-1 text-[11px] text-gold-400/80">
-                <RefreshCw size={10} />
+              <p className="mt-0.5 flex items-center gap-1 text-[10px] text-gold-400/80">
+                <RefreshCw size={9} />
                 Atualizado às {syncedAt}
               </p>
             )}
