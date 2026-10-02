@@ -373,7 +373,7 @@ export default function StudentArea() {
       <header className="sticky top-0 z-30 border-b border-white/5 bg-ink-950/95 backdrop-blur">
         <div className="mx-auto flex max-w-md items-center justify-between px-4 py-3">
           <Logo className="h-10 w-10" showText />
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             {selectedWorkoutDay && !inWorkoutMode && (
               <button
                 onClick={() => {
@@ -381,16 +381,17 @@ export default function StudentArea() {
                   setShowFinishedScreen(false)
                   setActiveRestMenu(false)
                 }}
-                className="flex items-center gap-1.5 rounded-full border border-gold-400/30 bg-gold-400/10 px-3 py-1.5 text-xs font-bold text-gold-400 transition hover:bg-gold-400/20"
+                className="flex items-center gap-2 rounded-xl bg-gold-400 px-4 py-2.5 text-xs font-extrabold uppercase tracking-wider text-ink-950 transition hover:bg-gold-300 shadow-lg shadow-gold-400/20 active:scale-95"
               >
-                <ArrowLeft size={14} />
-                <span>Treinos</span>
+                <ArrowLeft size={16} />
+                <span>Voltar aos Treinos</span>
               </button>
             )}
             <button
               onClick={exit}
-              className="rounded-full border border-white/10 p-2 text-zinc-300 transition hover:border-gold-400/30 hover:text-gold-400"
-              aria-label="Sair"
+              className="rounded-xl border border-white/10 bg-ink-900 p-2.5 text-zinc-400 transition hover:border-red-500/40 hover:text-red-400 hover:bg-red-500/10"
+              aria-label="Sair da conta"
+              title="Sair da conta"
             >
               <LogOut size={16} />
             </button>
@@ -693,7 +694,6 @@ export default function StudentArea() {
                       </div>
                     </div>
 
-                    {/* CONTADOR INTERATIVO COM TEXTO CENTRALIZADO E ÍCONES */}
                     <div className="pt-3 border-t border-white/10 space-y-2">
                       <div className="flex items-center justify-center text-[11px] uppercase tracking-wider text-zinc-400 font-bold gap-1 text-center">
                         <span>Progresso das Séries</span>
@@ -840,7 +840,6 @@ export default function StudentArea() {
                     </div>
                   )}
 
-                  {/* CONTADOR DE SÉRIES CENTRALIZADO NO MODO IMERSIVO */}
                   <div className="space-y-2 pt-2">
                     <div className="flex items-center justify-center text-xs font-bold uppercase tracking-wider text-zinc-400 gap-1 text-center">
                       <span>Progresso das Séries</span>
@@ -911,7 +910,6 @@ export default function StudentArea() {
         )}
       </main>
 
-      {/* BOTÕES FLUTUANTES (WHATSAPP E DESCANSO) */}
       <div className="fixed bottom-6 right-4 z-45 flex flex-col items-end gap-3">
         <button
           onClick={sendRealtimeDoubt}
