@@ -69,7 +69,8 @@ export default function StudentArea() {
   const [selectedObs, setSelectedObs] = useState(null)
   const [isEvaluationOpen, setIsEvaluationOpen] = useState(false)
 
-  const [completedExercises, setCompletedExercises] = useState([])
+  // Armazena as séries concluídas por exercício, ex: { 'exerciseId-1': 1, 'exerciseId-2': 3 }
+  const [exerciseProgress, setExerciseProgress] = useState({})
 
   // Estados dos cronômetros e Modo Treino
   const [timerSeconds, setTimerSeconds] = useState(0)
@@ -91,7 +92,6 @@ export default function StudentArea() {
     return COACH_TIPS[index]
   }, [])
 
-  // Efeito para dar um breve respiro para o auth carregar do storage
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsLoadingAuth(false)
@@ -146,7 +146,16 @@ export default function StudentArea() {
   }, [workout.exercises])
 
   const totalExercises = sortedExercises.length
-  const completedCount = sortedExercises.filter((ex) => completedExercises.includes(ex.id)).length
+
+  // Calcula quantos exercícios foram totalmente concluídos (todas as séries feitas)
+  const completedCount = useMemo(() => {
+    return sortedExercises.filter((ex) => {
+      const totalSets = parseInt(ex.sets) || 1
+      const doneSets = exerciseProgress[ex.id] || 0
+      return doneSets >= totalSets
+    }).length
+  }, [sortedExercises, exerciseProgress])
+
   const progressPercent = totalExercises > 0 ? Math.round((completedCount / totalExercises) * 100) : 0
 
   useEffect(() => {
@@ -208,19 +217,33 @@ export default function StudentArea() {
     setActiveRestMenu(false)
   }
 
-  function toggleCompleteExercise(exerciseId) {
-    setCompletedExercises((prev) => {
-      const isAlreadyDone = prev.includes(exerciseId)
-      const nextCompleted = isAlreadyDone
-        ? prev.filter((id) => id !== exerciseId)
-        : [...prev, exerciseId]
+  // Avança ou alterna o contador de séries do exercício
+  function handleSetClick(exercise, setIndex) {
+    const totalSets = parseInt(exercise.sets) || 1
+    const currentDone = exerciseProgress[exercise.id] || 0
 
-      if (!isAlreadyDone && totalExercises > 0 && nextCompleted.length === totalExercises) {
-        setShowFinishedScreen(true)
-      }
+    let nextDone = setIndex + 1
+    if (currentDone === nextDone) {
+      // Se clicar na última série já concluída, desmarca aquela série
+      nextDone = setIndex
+    }
 
-      return nextCompleted
+    const updatedProgress = {
+      ...exerciseProgress,
+      [exercise.id]: nextDone,
+    }
+    setExerciseProgress(updatedProgress)
+
+    // Verifica se completou todas as séries de todos os exercícios
+    const allDone = sortedExercises.every((ex) => {
+      const sTotal = parseInt(ex.sets) || 1
+      const sDone = updatedProgress[ex.id] || 0
+      return sDone >= sTotal
     })
+
+    if (allDone && totalExercises > 0) {
+      setShowFinishedScreen(true)
+    }
   }
 
   function startWorkoutSession() {
@@ -303,7 +326,6 @@ export default function StudentArea() {
     setSelectedVideo(null)
   }
 
-  // Enquanto estiver carregando o auth, exibe um loader elegante em vez da tela de erro
   if (isLoadingAuth) {
     return (
       <div className="min-h-dvh bg-ink-950 flex items-center justify-center p-4 text-white">
@@ -567,14 +589,16 @@ export default function StudentArea() {
             <div className="mt-5 space-y-4">
               {(sortedExercises || []).map((exercise, index) => {
                 const videoId = youtubeId(exercise.video)
-                const isDone = completedExercises.includes(exercise.id)
+                const totalSets = parseInt(exercise.sets) || 1
+                const doneSets = exerciseProgress[exercise.id] || 0
+                const isAllDone = doneSets >= totalSets
 
                 return (
                   <article
                     key={exercise.id || `${currentDay}-${index}`}
                     className={`rounded-2xl border p-4 relative transition-all duration-200 ${
-                      isDone
-                        ? 'bg-ink-900/40 border-emerald-500/30 opacity-60'
+                      isAllDone
+                        ? 'bg-ink-900/40 border-emerald-500/30 opacity-75'
                         : exercise.group
                         ? 'bg-ink-800 border-gold-400/50 shadow-lg shadow-gold-400/5'
                         : 'bg-ink-800 border-white/10'
@@ -592,7 +616,7 @@ export default function StudentArea() {
                       <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-400 font-semibold">
                         Exercício {index + 1}
                       </p>
-                      <h2 className={`mt-1 font-display text-2xl uppercase leading-tight ${isDone ? 'line-through text-zinc-400' : 'text-white font-extrabold tracking-wide'}`}>
+                      <h2 className={`mt-1 font-display text-2xl uppercase leading-tight ${isAllDone ? 'line-through text-zinc-400' : 'text-white font-extrabold tracking-wide'}`}>
                         {exercise.name}
                       </h2>
                     </div>
@@ -660,19 +684,32 @@ export default function StudentArea() {
                       </div>
                     </div>
 
-                    <div className="relative pt-2 border-t border-white/10">
-                      <button
-                        type="button"
-                        onClick={() => toggleCompleteExercise(exercise.id)}
-                        className={`flex w-full items-center justify-center gap-1.5 rounded-xl px-3 py-3 text-xs font-bold uppercase tracking-wider transition shadow-sm ${
-                          isDone
-                            ? 'bg-emerald-500 text-ink-950 shadow-md shadow-emerald-500/20 font-extrabold'
-                            : 'border border-white/15 bg-ink-700 text-zinc-200 hover:border-gold-400/50 hover:text-gold-300'
-                        }`}
-                      >
-                        <CheckCircle2 size={16} />
-                        {isDone ? 'Exercício Concluído ✓' : 'Marcar como Concluído'}
-                      </button>
+                    {/* CONTADOR INTERATIVO DE SÉRIES */}
+                    <div className="pt-3 border-t border-white/10 space-y-2">
+                      <div className="flex items-center justify-between text-[11px] uppercase tracking-wider text-zinc-400 font-bold">
+                        <span>Progresso das Séries ({doneSets}/{totalSets})</span>
+                        {isAllDone && <span className="text-emerald-400 font-extrabold flex items-center gap-1"><CheckCircle2 size={14} /> Concluído</span>}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {Array.from({ length: totalSets }).map((_, sIdx) => {
+                          const isDone = sIdx < doneSets
+                          return (
+                            <button
+                              key={sIdx}
+                              type="button"
+                              onClick={() => handleSetClick(exercise, sIdx)}
+                              className={`flex-1 py-2.5 rounded-xl border text-xs font-display font-extrabold uppercase transition-all flex items-center justify-center gap-1.5 ${
+                                isDone
+                                  ? 'bg-emerald-500 text-ink-950 border-emerald-400 shadow-md shadow-emerald-500/20'
+                                  : 'bg-ink-700 text-zinc-300 border-white/10 hover:border-gold-400/50 hover:text-gold-300'
+                              }`}
+                            >
+                              <span>S{sIdx + 1}</span>
+                              {isDone && <CheckCircle2 size={13} />}
+                            </button>
+                          )
+                        })}
+                      </div>
                     </div>
                   </article>
                 )
@@ -724,7 +761,9 @@ export default function StudentArea() {
               const exercise = sortedExercises[workoutActiveIndex]
               if (!exercise) return null
               const videoId = youtubeId(exercise.video)
-              const isDone = completedExercises.includes(exercise.id)
+              const totalSets = parseInt(exercise.sets) || 1
+              const doneSets = exerciseProgress[exercise.id] || 0
+              const isAllDone = doneSets >= totalSets
 
               return (
                 <div className="rounded-2xl border border-gold-400/50 bg-ink-900 p-5 shadow-2xl space-y-4">
@@ -790,20 +829,35 @@ export default function StudentArea() {
                     </div>
                   )}
 
-                  <button
-                    type="button"
-                    onClick={() => toggleCompleteExercise(exercise.id)}
-                    className={`flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-xs font-extrabold uppercase tracking-wider transition ${
-                      isDone
-                        ? 'bg-emerald-500 text-ink-950 shadow-lg shadow-emerald-500/20'
-                        : 'border border-gold-400/40 bg-ink-800 text-gold-300 hover:bg-gold-400 hover:text-ink-950'
-                    }`}
-                  >
-                    <CheckCircle2 size={18} />
-                    {isDone ? 'Exercício Concluído ✓' : 'Marcar como Concluído'}
-                  </button>
+                  {/* CONTADOR DE SÉRIES NO MODO IMERSIVO */}
+                  <div className="space-y-2 pt-2">
+                    <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-zinc-400">
+                      <span>Marcar Séries ({doneSets}/{totalSets})</span>
+                      {isAllDone && <span className="text-emerald-400 font-extrabold">Completo ✓</span>}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {Array.from({ length: totalSets }).map((_, sIdx) => {
+                        const isDone = sIdx < doneSets
+                        return (
+                          <button
+                            key={sIdx}
+                            type="button"
+                            onClick={() => handleSetClick(exercise, sIdx)}
+                            className={`flex-1 py-3 rounded-xl border text-sm font-display font-extrabold uppercase transition-all flex items-center justify-center gap-1.5 ${
+                              isDone
+                                ? 'bg-emerald-500 text-ink-950 border-emerald-400 shadow-lg shadow-emerald-500/20'
+                                : 'bg-ink-800 text-gold-300 border-gold-400/40 hover:bg-gold-400 hover:text-ink-950'
+                            }`}
+                          >
+                            <span>Série {sIdx + 1}</span>
+                            {isDone && <CheckCircle2 size={15} />}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
 
-                  <div className="flex items-center justify-between pt-2 border-t border-white/10">
+                  <div className="flex items-center justify-between pt-3 border-t border-white/10">
                     <button
                       type="button"
                       disabled={workoutActiveIndex === 0}
@@ -844,7 +898,7 @@ export default function StudentArea() {
         )}
       </main>
 
-      {/* BOTÕES FLUTUANTES (WHATSAPP EM CIMA, DESCANSO EMBAIXO) */}
+      {/* BOTÕES FLUTUANTES (WHATSAPP E DESCANSO) */}
       <div className="fixed bottom-6 right-4 z-45 flex flex-col items-end gap-3">
         <button
           onClick={sendRealtimeDoubt}
