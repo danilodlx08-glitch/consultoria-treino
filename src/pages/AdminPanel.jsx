@@ -17,6 +17,11 @@ import {
   Pencil,
   Activity,
   Scale,
+  ChevronDown,
+  ChevronUp,
+  ArrowUp,
+  ArrowDown,
+  Clock,
 } from 'lucide-react'
 import { useAuth } from '../auth.jsx'
 import { supabase } from '../services/supabase'
@@ -120,6 +125,19 @@ function calculateEvaluationMetrics({ weight, height, age = 30, gender = 'male',
   }
 }
 
+// Função auxiliar para exibir tempo relativo da ficha do aluno
+function formatTimeAgo(dateString) {
+  if (!dateString) return 'Nunca atualizada'
+  const diffDays = Math.floor((new Date() - new Date(dateString)) / (1000 * 60 * 60 * 24))
+  if (diffDays === 0) return 'Atualizada hoje'
+  if (diffDays === 1) return 'Atualizada ontem'
+  if (diffDays < 30) return `Atualizada há ${diffDays} dias`
+  const diffMonths = Math.floor(diffDays / 30)
+  if (diffMonths === 1) return 'Atualizada há 1 mês'
+  if (diffMonths < 12) return `Atualizada há ${diffMonths} meses`
+  return 'Atualizada há mais de 1 ano'
+}
+
 export default function AdminPanel() {
   const { logoutAdmin } = useAuth()
   const navigate = useNavigate()
@@ -130,6 +148,9 @@ export default function AdminPanel() {
   const [saved, setSaved] = useState('')
   const [logoError, setLogoError] = useState('')
   const [selectedStudentId, setSelectedStudentId] = useState('')
+
+  // Estado para controlar o Acordeão dos exercícios (quais estão abertos/fechados)
+  const [expandedExercises, setExpandedExercises] = useState({})
 
   const [showCopyStudentWorkoutsModal, setShowCopyStudentWorkoutsModal] = useState(false)
   const [sourceStudentIdForCopy, setSourceStudentIdForCopy] = useState('')
@@ -361,6 +382,34 @@ export default function AdminPanel() {
     })
   }
 
+  // Função para reordenar os exercícios (Subir / Descer)
+  function moveExercise(index, direction) {
+    const workouts = studentWorkouts()
+    const exercises = [...workouts[day].exercises]
+    const targetIndex = direction === 'up' ? index - 1 : index + 1
+
+    if (targetIndex < 0 || targetIndex >= exercises.length) return
+
+    const temp = exercises[index]
+    exercises[index] = exercises[targetIndex]
+    exercises[targetIndex] = temp
+
+    persistStudentWorkouts({
+      ...workouts,
+      [day]: {
+        ...workouts[day],
+        exercises,
+      },
+    })
+  }
+
+  function toggleExerciseExpand(id) {
+    setExpandedExercises((prev) => ({
+      ...prev,
+      [id]: prev[id] === false ? true : false,
+    }))
+  }
+
   function copyWorkoutFromDay(sourceDay) {
     if (sourceDay === day) return
     const workouts = studentWorkouts()
@@ -456,7 +505,7 @@ export default function AdminPanel() {
       if (student.id === evaluatingStudent.id) {
         return {
           ...student,
-          evaluations: [newEvaluation], // Substitui conforme alinhado
+          evaluations: [newEvaluation],
           updatedAt: new Date().toISOString(),
         }
       }
@@ -637,7 +686,6 @@ export default function AdminPanel() {
     })
   }
 
-  // Função CORRIGIDA para apagar diretamente no Supabase e atualizar localmente
   async function removeStudent(id) {
     const confirmed = window.confirm('Deseja realmente excluir este aluno?')
     if (!confirmed) return
@@ -820,7 +868,6 @@ export default function AdminPanel() {
 
         {tab === 'workouts' && (
           <section className="flex flex-col h-[calc(100vh-140px)] overflow-hidden">
-            
             <div className="shrink-0 bg-ink-950 pb-3 z-10 space-y-3 border-b border-white/10">
               <div>
                 <h1 className="font-display text-2xl uppercase">Fichas individuais</h1>
@@ -907,92 +954,151 @@ export default function AdminPanel() {
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto space-y-4 pt-4 pb-20">
-              {(currentWorkout.exercises || []).map((exercise, index) => (
-                <div
-                  key={exercise.id}
-                  className="rounded-2xl border border-white/10 bg-ink-800 p-4.5"
-                >
-                  <div className="mb-3.5 flex items-center justify-between">
-                    <p className="text-xs uppercase tracking-[0.18em] text-gold-400 font-bold">
-                      Exercício {index + 1}
-                    </p>
-                    <div className="flex items-center gap-3.5">
-                      <button
-                        type="button"
-                        onClick={() => saveWorkoutExerciseToLibrary(exercise)}
-                        className="text-gold-300 hover:text-white transition"
-                        title="Salvar na biblioteca"
-                      >
-                        <Library size={18} />
-                      </button>
-                      <button
-                        onClick={() => removeExercise(exercise.id)}
-                        className="text-zinc-400 hover:text-red-400 transition"
-                        title="Excluir do treino"
-                      >
-                        <Trash2 size={18} />
-                      </button>
+            {/* LISTA DE EXERCÍCIOS COM ACORDEÃO E SETAS DE REORDENAÇÃO */}
+            <div className="flex-1 overflow-y-auto space-y-3 pt-4 pb-20">
+              {(currentWorkout.exercises || []).map((exercise, index, arr) => {
+                const isExpanded = expandedExercises[exercise.id] !== false
+                const hasGroup = Boolean(exercise.group?.trim())
+
+                return (
+                  <div
+                    key={exercise.id}
+                    className={`rounded-2xl border bg-ink-800 p-4 transition-all ${
+                      hasGroup ? 'border-gold-400/60 shadow-lg shadow-gold-400/5' : 'border-white/10'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-gold-400/20 text-xs font-bold text-gold-400 border border-gold-400/30">
+                          {index + 1}
+                        </span>
+                        <div className="min-w-0 flex-1 cursor-pointer" onClick={() => toggleExerciseExpand(exercise.id)}>
+                          <p className="font-display text-base uppercase truncate text-white">
+                            {exercise.name || 'Exercício sem nome'}
+                          </p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {exercise.muscle && (
+                              <span className="text-[11px] uppercase tracking-wider text-zinc-400 font-semibold">
+                                {exercise.muscle}
+                              </span>
+                            )}
+                            {hasGroup && (
+                              <span className="rounded bg-gold-400/20 px-1.5 py-0.5 text-[10px] uppercase font-bold text-gold-300 border border-gold-400/30">
+                                {exercise.group}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1 shrink-0">
+                        {index > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => moveExercise(index, 'up')}
+                            className="p-1.5 text-zinc-400 hover:text-gold-300 transition"
+                            title="Mover para cima"
+                          >
+                            <ArrowUp size={16} />
+                          </button>
+                        )}
+                        {index < arr.length - 1 && (
+                          <button
+                            type="button"
+                            onClick={() => moveExercise(index, 'down')}
+                            className="p-1.5 text-zinc-400 hover:text-gold-300 transition"
+                            title="Mover para baixo"
+                          >
+                            <ArrowDown size={16} />
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => saveWorkoutExerciseToLibrary(exercise)}
+                          className="p-1.5 text-gold-300 hover:text-white transition"
+                          title="Salvar na biblioteca"
+                        >
+                          <Library size={16} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeExercise(exercise.id)}
+                          className="p-1.5 text-zinc-400 hover:text-red-400 transition"
+                          title="Excluir do treino"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => toggleExerciseExpand(exercise.id)}
+                          className="p-1.5 text-zinc-300 hover:text-gold-400 transition ml-1"
+                          title={isExpanded ? 'Recolher' : 'Expandir'}
+                        >
+                          {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                        </button>
+                      </div>
                     </div>
+
+                    {isExpanded && (
+                      <div className="mt-3.5 pt-3.5 border-t border-white/10 space-y-2.5 animate-fadeIn">
+                        <input
+                          value={exercise.name}
+                          onChange={(e) => updateExercise(exercise.id, 'name', e.target.value)}
+                          placeholder="Nome do exercício"
+                          className="w-full rounded-xl border border-white/15 bg-ink-700 px-3.5 py-2.5 text-sm text-white outline-none focus:border-gold-400/50"
+                        />
+
+                        <div className="relative">
+                          <Link2 size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gold-400" />
+                          <input
+                            value={exercise.group || ''}
+                            onChange={(e) => updateExercise(exercise.id, 'group', e.target.value)}
+                            placeholder="Conjugação / Grupo (Ex: Bi-set A, Trí-set)"
+                            className="w-full rounded-xl border border-gold-400/30 bg-ink-700 py-2.5 pl-10 pr-3.5 text-xs font-semibold text-gold-300 placeholder:text-zinc-400 outline-none"
+                          />
+                        </div>
+
+                        <input
+                          value={exercise.muscle || ''}
+                          onChange={(e) => updateExercise(exercise.id, 'muscle', e.target.value)}
+                          placeholder="Grupo muscular (ex: Peito)"
+                          className="w-full rounded-xl border border-white/15 bg-ink-700 px-3.5 py-2.5 text-sm text-white outline-none focus:border-gold-400/50"
+                        />
+
+                        <div className="grid grid-cols-2 gap-2.5">
+                          <input
+                            value={exercise.sets}
+                            onChange={(e) => updateExercise(exercise.id, 'sets', e.target.value)}
+                            placeholder="Séries"
+                            className="rounded-xl border border-white/15 bg-ink-700 px-3.5 py-2.5 text-sm text-white outline-none focus:border-gold-400/50"
+                          />
+                          <input
+                            value={exercise.reps}
+                            onChange={(e) => updateExercise(exercise.id, 'reps', e.target.value)}
+                            placeholder="Repetições"
+                            className="rounded-xl border border-white/15 bg-ink-700 px-3.5 py-2.5 text-sm text-white outline-none focus:border-gold-400/50"
+                          />
+                        </div>
+
+                        <textarea
+                          value={exercise.notes}
+                          onChange={(e) => updateExercise(exercise.id, 'notes', e.target.value)}
+                          placeholder="Observações"
+                          rows={2}
+                          className="w-full rounded-xl border border-white/15 bg-ink-700 px-3.5 py-2.5 text-sm text-white outline-none focus:border-gold-400/50"
+                        />
+
+                        <input
+                          value={exercise.video}
+                          onChange={(e) => updateExercise(exercise.id, 'video', e.target.value)}
+                          placeholder="Cole o link do vídeo (YouTube)"
+                          className="w-full rounded-xl border border-white/15 bg-ink-700 px-3.5 py-2.5 text-sm text-white outline-none focus:border-gold-400/50"
+                        />
+                      </div>
+                    )}
                   </div>
-
-                  <input
-                    value={exercise.name}
-                    onChange={(e) => updateExercise(exercise.id, 'name', e.target.value)}
-                    placeholder="Nome do exercício"
-                    className="mb-2.5 w-full rounded-xl border border-white/15 bg-ink-700 px-3.5 py-3 text-base text-white outline-none focus:border-gold-400/50"
-                  />
-
-                  <div className="mb-2.5 flex items-center gap-2">
-                    <div className="relative flex-1">
-                      <Link2 size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gold-400" />
-                      <input
-                        value={exercise.group || ''}
-                        onChange={(e) => updateExercise(exercise.id, 'group', e.target.value)}
-                        placeholder="Conjugação / Grupo (Ex: Bi-set A, Trí-set)"
-                        className="w-full rounded-xl border border-gold-400/30 bg-ink-700 py-3 pl-10 pr-3.5 text-xs font-semibold text-gold-300 placeholder:text-zinc-400 outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  <input
-                    value={exercise.muscle || ''}
-                    onChange={(e) => updateExercise(exercise.id, 'muscle', e.target.value)}
-                    placeholder="Grupo muscular (ex: Peito)"
-                    className="mb-2.5 w-full rounded-xl border border-white/15 bg-ink-700 px-3.5 py-3 text-base text-white outline-none focus:border-gold-400/50"
-                  />
-
-                  <div className="mb-2.5 grid grid-cols-2 gap-2.5">
-                    <input
-                      value={exercise.sets}
-                      onChange={(e) => updateExercise(exercise.id, 'sets', e.target.value)}
-                      placeholder="Séries"
-                      className="rounded-xl border border-white/15 bg-ink-700 px-3.5 py-3 text-base text-white outline-none focus:border-gold-400/50"
-                    />
-                    <input
-                      value={exercise.reps}
-                      onChange={(e) => updateExercise(exercise.id, 'reps', e.target.value)}
-                      placeholder="Repetições"
-                      className="rounded-xl border border-white/15 bg-ink-700 px-3.5 py-3 text-base text-white outline-none focus:border-gold-400/50"
-                    />
-                  </div>
-
-                  <textarea
-                    value={exercise.notes}
-                    onChange={(e) => updateExercise(exercise.id, 'notes', e.target.value)}
-                    placeholder="Observações"
-                    rows={2}
-                    className="mb-2.5 w-full rounded-xl border border-white/15 bg-ink-700 px-3.5 py-3 text-base text-white outline-none focus:border-gold-400/50"
-                  />
-
-                  <input
-                    value={exercise.video}
-                    onChange={(e) => updateExercise(exercise.id, 'video', e.target.value)}
-                    placeholder="Cole o link do vídeo (YouTube)"
-                    className="w-full rounded-xl border border-white/15 bg-ink-700 px-3.5 py-3 text-base text-white outline-none focus:border-gold-400/50"
-                  />
-                </div>
-              ))}
+                )
+              })}
 
               <button
                 onClick={addExercise}
@@ -1002,7 +1108,6 @@ export default function AdminPanel() {
                 Adicionar exercício manualmente
               </button>
             </div>
-
           </section>
         )}
 
@@ -1074,74 +1179,106 @@ export default function AdminPanel() {
               />
             </div>
 
+            {/* LISTA DE ALUNOS COM BARRA LATERAL DE STATUS E TEMPO DA FICHA */}
             <div className="mt-4.5 space-y-3.5">
               {filteredStudents.length === 0 ? (
                 <div className="rounded-2xl border border-white/10 bg-ink-800 p-6 text-center">
                   <p className="text-base text-zinc-300">Nenhum aluno encontrado.</p>
                 </div>
               ) : (
-                filteredStudents.map((student) => (
-                  <article key={student.id} className="rounded-2xl border border-white/10 bg-ink-800 p-4.5">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <h2 className="font-display text-2xl uppercase text-white">{student.name}</h2>
-                        <p className="mt-1 text-sm text-zinc-300 font-medium">Código: {student.code}</p>
-                        <p className="text-sm text-zinc-300 font-medium">Senha: {student.password}</p>
-                      </div>
-                      <button onClick={() => removeStudent(student.id)} className="text-zinc-400 hover:text-red-400 transition">
-                        <Trash2 size={18} />
-                      </button>
-                    </div>
+                filteredStudents.map((student) => {
+                  const isActive = student.active !== false
 
-                    <div className="mt-3.5 flex flex-wrap gap-2">
-                      <button
-                        onClick={() => toggleStudent(student.id)}
-                        className={`rounded-lg px-3 py-1.5 text-xs font-bold uppercase tracking-wide ${
-                          student.active !== false
-                            ? 'bg-gold-400/20 text-gold-300 border border-gold-400/30'
-                            : 'bg-zinc-700 text-zinc-300'
+                  return (
+                    <article
+                      key={student.id}
+                      className="relative overflow-hidden rounded-2xl border border-white/10 bg-ink-800 p-4.5 transition-all"
+                    >
+                      <div
+                        className={`absolute left-0 top-0 bottom-0 w-1.5 ${
+                          isActive ? 'bg-gold-400' : 'bg-zinc-600'
                         }`}
-                      >
-                        {student.active !== false ? 'Ativo' : 'Inativo'}
-                      </button>
-                      <button
-                        onClick={() => {
-                          setSelectedStudentId(student.id)
-                          setTab('workouts')
-                        }}
-                        className="rounded-lg bg-ink-700 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-zinc-200 hover:bg-ink-600 transition"
-                      >
-                        Editar treinos
-                      </button>
-                      {/* BOTÃO PARA ABRIR O CADASTRO DE AVALIAÇÃO FÍSICA */}
-                      <button
-                        onClick={() => {
-                          setEvaluatingStudent(student)
-                          setEvaluationForm(emptyEvaluationForm())
-                          setShowEvaluationModal(true)
-                        }}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-gold-400/20 border border-gold-400/30 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-gold-300 hover:bg-gold-400/30 transition"
-                      >
-                        <Activity size={14} />
-                        Avaliação Física
-                      </button>
-                      <button
-                        onClick={() => copyCredentials(student)}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-ink-700 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-zinc-200 hover:bg-ink-600 transition"
-                      >
-                        <Copy size={14} />
-                        Copiar acesso
-                      </button>
-                    </div>
-                  </article>
-                ))
+                      />
+
+                      <div className="pl-2">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h2 className="font-display text-2xl uppercase text-white">{student.name}</h2>
+                              <span
+                                className={`rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                                  isActive
+                                    ? 'bg-gold-400/20 text-gold-300 border border-gold-400/30'
+                                    : 'bg-zinc-700 text-zinc-400'
+                                }`}
+                              >
+                                {isActive ? 'Ativo' : 'Inativo'}
+                              </span>
+                            </div>
+                            <p className="mt-1 text-sm text-zinc-300 font-medium">Código: {student.code}</p>
+                            <p className="text-sm text-zinc-300 font-medium">Senha: {student.password}</p>
+
+                            <div className="mt-2.5 flex items-center gap-1.5 text-xs text-zinc-400 font-medium">
+                              <Clock size={13} className="text-gold-400" />
+                              <span>{formatTimeAgo(student.updatedAt)}</span>
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={() => removeStudent(student.id)}
+                            className="text-zinc-400 hover:text-red-400 transition"
+                            title="Excluir aluno"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
+
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          <button
+                            onClick={() => toggleStudent(student.id)}
+                            className="rounded-lg border border-white/15 bg-ink-700 px-3.5 py-1.5 text-xs font-bold uppercase tracking-wide text-zinc-200 hover:bg-ink-600 transition"
+                          >
+                            {isActive ? 'Desativar' : 'Ativar'}
+                          </button>
+                          <button
+                            onClick={() => {
+                              setSelectedStudentId(student.id)
+                              setTab('workouts')
+                            }}
+                            className="rounded-lg bg-ink-700 px-3.5 py-1.5 text-xs font-bold uppercase tracking-wide text-zinc-200 hover:bg-ink-600 transition"
+                          >
+                            Editar treinos
+                          </button>
+                          <button
+                            onClick={() => {
+                              setEvaluatingStudent(student)
+                              setEvaluationForm(emptyEvaluationForm())
+                              setShowEvaluationModal(true)
+                            }}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-gold-400/20 border border-gold-400/30 px-3.5 py-1.5 text-xs font-bold uppercase tracking-wide text-gold-300 hover:bg-gold-400/30 transition"
+                          >
+                            <Activity size={14} />
+                            Avaliação Física
+                          </button>
+                          <button
+                            onClick={() => copyCredentials(student)}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-ink-700 px-3.5 py-1.5 text-xs font-bold uppercase tracking-wide text-zinc-200 hover:bg-ink-600 transition"
+                          >
+                            <Copy size={14} />
+                            Copiar acesso
+                          </button>
+                        </div>
+                      </div>
+                    </article>
+                  )
+                })
               )}
             </div>
           </section>
         )}
       </main>
 
-      {/* MODAL DE CADASTRO DE AVALIAÇÃO FÍSICA NO ADMIN */}
+      {/* MODAL DE AVALIAÇÃO FÍSICA */}
       {showEvaluationModal && evaluatingStudent && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm"
@@ -1185,11 +1322,10 @@ export default function AdminPanel() {
                 />
               </div>
 
-              {/* BOTÃO DE CÁLCULO AUTOMÁTICO */}
               <div className="rounded-2xl border border-gold-400/30 bg-gold-400/10 p-3.5 flex items-center justify-between">
                 <div>
                   <p className="text-xs uppercase font-bold text-gold-300">Automação</p>
-                  <p className="text-[11px] text-zinc-300">Preencha peso, altura e circunferências e clique em calcular.</p>
+                  <p className="text-[11px] text-zinc-300">Preencha peso e altura e clique em calcular.</p>
                 </div>
                 <button
                   type="button"
@@ -1357,6 +1493,7 @@ export default function AdminPanel() {
         </div>
       )}
 
+      {/* MODAL DE CÓPIA DE FICHA ENTRE ALUNOS */}
       {showCopyStudentWorkoutsModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
@@ -1420,6 +1557,7 @@ export default function AdminPanel() {
         </div>
       )}
 
+      {/* MODAL DA BIBLIOTECA DE EXERCÍCIOS */}
       {libraryOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 backdrop-blur-sm"
@@ -1430,7 +1568,6 @@ export default function AdminPanel() {
           }}
         >
           <div className="flex flex-col h-[85vh] max-h-[700px] w-full max-w-md overflow-hidden rounded-3xl border border-white/15 bg-ink-900 shadow-2xl">
-            
             <div className="shrink-0 flex items-center justify-between border-b border-white/10 px-4 py-4 bg-ink-900 z-30">
               <div>
                 <p className="text-xs uppercase tracking-[0.2em] text-gold-400 font-bold">Biblioteca</p>
@@ -1511,7 +1648,7 @@ export default function AdminPanel() {
                   </div>
                   <div className="space-y-3">
                     <input
-                      value={libraryForm.name}
+            value={libraryForm.name}
                       onChange={(e) => setLibraryForm({ ...libraryForm, name: e.target.value })}
                       placeholder="Nome do exercício"
                       className="w-full rounded-xl border border-white/15 bg-ink-700 px-3.5 py-3 text-base text-white outline-none"
@@ -1620,8 +1757,7 @@ export default function AdminPanel() {
                     </div>
 
                     {exercise.notes && (
-                      <p 
-                        className="mt-3.5 text-sm leading-relaxed text-zinc-300">{exercise.notes}</p>
+                      <p className="mt-3.5 text-sm leading-relaxed text-zinc-300">{exercise.notes}</p>
                     )}
 
                     <button
@@ -1636,7 +1772,6 @@ export default function AdminPanel() {
                 ))
               )}
             </div>
-
           </div>
         </div>
       )}
