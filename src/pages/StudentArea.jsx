@@ -80,7 +80,7 @@ export default function StudentArea() {
 
   const [data, setData] = useState(() => loadData())
   const [isLoadingAuth, setIsLoadingAuth] = useState(true)
-  const [selectedWorkoutDay, setSelectedWorkoutDay] = useState(null) // Pode ser 'A', 'B', 'C', 'D', 'E', 'ALL' ou null
+  const [selectedWorkoutDay, setSelectedWorkoutDay] = useState(null)
   const [syncedAt, setSyncedAt] = useState('')
   const [selectedVideo, setSelectedVideo] = useState(null)
   const [selectedObs, setSelectedObs] = useState(null)
@@ -488,14 +488,13 @@ export default function StudentArea() {
               </div>
             </div>
 
-            {/* BOTÃO PARA VER TODOS OS EXERCÍCIOS DE A A E */}
             <button
               onClick={() => {
                 setSelectedWorkoutDay('ALL')
                 setShowFinishedScreen(false)
                 setActiveRestMenu(false)
               }}
-              className="group relative w-full overflow-hidden rounded-2xl border border-gold-400/50 bg-gradient-to-r from-gold-500/20 to-ink-9oot p-4 text-left transition-all duration-300 hover:border-gold-400 hover:bg-gold-400/10 shadow-lg flex items-center justify-between"
+              className="group relative w-full overflow-hidden rounded-2xl border border-gold-400/50 bg-gradient-to-r from-gold-500/20 to-ink-900 p-4 text-left transition-all duration-300 hover:border-gold-400 hover:bg-gold-400/10 shadow-lg flex items-center justify-between"
             >
               <div className="flex items-center gap-3">
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gold-400 text-ink-950 font-bold shadow-md">
@@ -553,87 +552,128 @@ export default function StudentArea() {
             </div>
           </div>
         ) : selectedWorkoutDay === 'ALL' ? (
-          /* TELA DE TODOS OS EXERCÍCIOS (DE A A E) */
+          /* TELA DE TODOS OS EXERCÍCIOS (BASEADA NO RASCUNHO DA IMAGEM) */
           <div className="space-y-6 animate-fade-in">
             <div>
               <p className="text-[12px] uppercase tracking-[0.2em] text-gold-400 font-bold">Visão Geral</p>
               <h1 className="mt-1 font-display text-2xl uppercase">Todas as Fichas (A a E)</h1>
-              <p className="text-xs text-zinc-400 mt-1">Lista completa de todos os exercícios cadastrados pelo professor.</p>
+              <p className="text-xs text-zinc-400 mt-1">Lista sintética das planilhas de treino.</p>
             </div>
 
-            <div className="space-y-6">
+            <div className="space-y-5">
               {DAYS.map((dKey) => {
                 const wData = workouts[dKey]
                 const exList = wData?.exercises || []
 
                 return (
-                  <div key={dKey} className="rounded-2xl border border-white/10 bg-ink-900 p-4 space-y-3.5 shadow-lg">
+                  <div 
+                    key={dKey} 
+                    className="rounded-2xl border border-gold-400/30 bg-ink-900 p-4 shadow-xl space-y-3"
+                  >
+                    {/* CABEÇALHO DO CARD: [LETRA] [FOCO/TÍTULO] [OBS] */}
                     <div className="flex items-center justify-between border-b border-white/10 pb-3">
-                      <div className="flex items-center gap-2.5">
-                        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gold-400/20 text-gold-400 font-display text-lg font-bold border border-gold-400/30">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold-400 text-ink-950 font-display text-xl font-black shadow-md">
                           {dKey}
-                        </span>
+                        </div>
                         <div>
-                          <h2 className="font-display text-lg uppercase text-white tracking-wide">
+                          <h2 className="font-display text-xl uppercase text-white tracking-wider leading-none">
                             {wData?.title || `Treino ${dKey}`}
                           </h2>
-                          <p className="text-[11px] text-zinc-400">Foco: {wData?.focus || 'Geral'}</p>
+                          {wData?.focus && (
+                            <p className="text-[10px] uppercase font-bold text-gold-400/80 mt-1">
+                              {wData.focus}
+                            </p>
+                          )}
                         </div>
                       </div>
-                      <span className="text-xs font-bold text-gold-400 bg-gold-400/10 px-2.5 py-1 rounded-full border border-gold-400/30">
-                        {exList.length} exercíci{exList.length === 1 ? 'o' : 'os'}
-                      </span>
+
+                      <button
+                        type="button"
+                        onClick={() => setSelectedObs({ 
+                          title: `Treino ${dKey} - ${wData?.title || ''}`, 
+                          notes: wData?.focus ? `Foco: ${wData.focus}` : 'Siga a ordem das séries e repetições indicadas.' 
+                        })}
+                        className="rounded-lg bg-gold-400/10 border border-gold-400/40 px-2.5 py-1 text-[10px] font-bold uppercase text-gold-300 hover:bg-gold-400 hover:text-ink-950 transition"
+                      >
+                        OBS
+                      </button>
                     </div>
 
+                    {/* LISTA SINTÉTICA DE EXERCÍCIOS */}
                     {exList.length === 0 ? (
-                      <p className="text-xs text-zinc-500 italic py-2 text-center">Nenhum exercício cadastrado para o Treino {dKey}.</p>
+                      <p className="text-xs text-zinc-500 italic py-2 text-center">
+                        Nenhum exercício no Treino {dKey}.
+                      </p>
                     ) : (
-                      <div className="space-y-3">
+                      <div className="space-y-2.5">
                         {exList.map((exercise, idx) => {
                           const videoId = youtubeId(exercise.video)
+
                           return (
-                            <div key={exercise.id || idx} className="rounded-xl border border-white/5 bg-ink-800 p-3 space-y-2.5">
-                              <div className="flex items-start justify-between gap-2">
-                                <div>
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="text-[10px] uppercase font-bold text-zinc-400">#{idx + 1}</span>
-                                    {exercise.group && (
-                                      <span className="rounded bg-gold-400/20 px-2 py-0.5 text-[9px] uppercase font-bold text-gold-300 border border-gold-400/30">
-                                        {exercise.group}
-                                      </span>
-                                    )}
-                                    {exercise.muscle && (
-                                      <span className="text-[10px] uppercase text-zinc-400 font-semibold">• {exercise.muscle}</span>
-                                    )}
-                                  </div>
-                                  <h3 className="font-display text-base uppercase text-white mt-0.5">{exercise.name}</h3>
-                                </div>
-                                {exercise.video && (
+                            <div 
+                              key={exercise.id || idx} 
+                              className="flex items-center gap-3.5 rounded-xl border border-white/5 bg-ink-800 p-2.5 transition hover:border-gold-400/30"
+                            >
+                              {/* VÍDEO COM MINIATURA / ÍCONE À ESQUERDA */}
+                              <div className="h-16 w-16 shrink-0 rounded-lg overflow-hidden border border-gold-400/40 bg-black relative">
+                                {exercise.video ? (
                                   <button
                                     type="button"
                                     onClick={() => openVideo(exercise)}
-                                    className="flex items-center gap-1 rounded-lg bg-gold-400/20 border border-gold-400/30 px-2.5 py-1 text-[10px] font-bold uppercase text-gold-300 hover:bg-gold-400 hover:text-ink-950 transition shrink-0"
+                                    className="h-full w-full relative flex items-center justify-center group"
                                   >
-                                    <Play size={12} fill="currentColor" /> Vídeo
+                                    {videoId ? (
+                                      <img
+                                        src={`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`}
+                                        alt={exercise.name}
+                                        className="h-full w-full object-cover opacity-75 group-hover:scale-105 transition"
+                                      />
+                                    ) : (
+                                      <div className="bg-ink-700 h-full w-full flex items-center justify-center text-gold-400">
+                                        <Play size={16} />
+                                      </div>
+                                    )}
+                                    <div className="absolute inset-0 bg-black/30" />
+                                    <div className="absolute flex h-7 w-7 items-center justify-center rounded-full bg-gold-400 text-ink-950 shadow-md">
+                                      <Play size={14} fill="currentColor" className="ml-0.5" />
+                                    </div>
                                   </button>
+                                ) : (
+                                  <div className="h-full w-full flex items-center justify-center text-zinc-600 bg-ink-950">
+                                    <Dumbbell size={18} />
+                                  </div>
                                 )}
                               </div>
 
-                              <div className="grid grid-cols-2 gap-2 pt-1">
-                                <div className="rounded-lg bg-ink-950/60 p-2 text-center border border-white/5">
-                                  <p className="text-[9px] uppercase text-zinc-400">Séries</p>
-                                  <p className="font-display text-sm text-gold-400 font-bold">{exercise.sets || '-'}</p>
+                              {/* INFORMAÇÕES DO EXERCÍCIO */}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  {exercise.group && (
+                                    <span className="rounded bg-gold-400/20 px-1.5 py-0.5 text-[9px] uppercase font-bold text-gold-300 border border-gold-400/30">
+                                      {exercise.group}
+                                    </span>
+                                  )}
                                 </div>
-                                <div className="rounded-lg bg-ink-950/60 p-2 text-center border border-white/5">
-                                  <p className="text-[9px] uppercase text-zinc-400">Repetições</p>
-                                  <p className="font-display text-sm text-gold-400 font-bold">{exercise.reps || '-'}</p>
-                                </div>
+
+                                <h3 className="font-display text-base uppercase text-white tracking-wide truncate">
+                                  {exercise.name}
+                                </h3>
+
+                                <p className="font-display text-sm text-gold-400 font-extrabold mt-0.5">
+                                  {exercise.sets || '-'} <span className="text-zinc-500 font-normal">/</span> {exercise.reps || '-'}
+                                </p>
                               </div>
 
                               {exercise.notes && (
-                                <p className="text-xs text-zinc-300 bg-ink-950/40 p-2 rounded-lg border border-white/5 italic">
-                                  💡 {exercise.notes}
-                                </p>
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedObs({ title: exercise.name, notes: exercise.notes })}
+                                  className="text-gold-400/80 hover:text-gold-300 p-1.5 shrink-0"
+                                  title="Ver observação"
+                                >
+                                  <Lightbulb size={16} />
+                                </button>
                               )}
                             </div>
                           )
