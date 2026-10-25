@@ -361,7 +361,9 @@ function normalizeStudent(student, templateWorkouts) {
     active: student?.active !== false,
     updatedAt: student?.updatedAt || null,
     workouts,
-    evaluations: Array.isArray(student?.evaluations) ? student.evaluations : [],
+    evaluations: Array.isArray(student?.evaluations)
+      ? student.evaluations
+      : [],
   }
 }
 
@@ -448,7 +450,9 @@ export async function fetchData() {
         code: aluno.code || generateAccessCode(),
         password: aluno.password || generatePassword(),
         active: aluno.active !== false,
-        evaluations: Array.isArray(aluno.evaluations) ? aluno.evaluations : [],
+        evaluations: Array.isArray(aluno.evaluations)
+          ? aluno.evaluations
+          : [],
         workouts: aluno.workouts
           ? {
               ...clone(current.workouts),
@@ -458,7 +462,7 @@ export async function fetchData() {
       }))
     }
 
-    // 2. Busca a biblioteca de exercícios na tabela 'config' do Supabase
+    // 2. Busca a biblioteca de exercícios na tabela config
     const { data: configData, error: configError } = await supabase
       .from('config')
       .select('*')
@@ -470,11 +474,10 @@ export async function fetchData() {
     }
 
     return current
-  } catch {
-    // fallback para localStorage caso falhe
+  } catch (error) {
+    console.error('Erro ao buscar dados:', error)
+    return loadData()
   }
-
-  return loadData()
 }
 
 /*
@@ -484,35 +487,55 @@ export async function fetchData() {
 */
 
 export async function saveData(data) {
+  // Mantém uma cópia local.
   localStorage.setItem(
     STORAGE_KEY,
     JSON.stringify(data)
   )
 
   try {
+    // Salva os alunos.
     if (data && Array.isArray(data.students)) {
       for (const aluno of data.students) {
-        await supabase.from('alunos').upsert({
-          id: aluno.id,
-          nome: aluno.name,
-          code: aluno.code,
-          password: aluno.password,
-          active: aluno.active !== false,
-          workouts: aluno.workouts,
-          evaluations: aluno.evaluations || [],
-        })
+        const { error } = await supabase
+          .from('alunos')
+          .upsert({
+            id: aluno.id,
+            nome: aluno.name,
+            code: aluno.code,
+            password: aluno.password,
+            active: aluno.active !== false,
+            workouts: aluno.workouts,
+            evaluations: aluno.evaluations || [],
+          })
+
+        if (error) {
+          console.error(
+            `Erro ao salvar o aluno ${aluno.name}:`,
+            error
+          )
+        }
       }
     }
 
-    // Salva também a biblioteca de exercícios na tabela 'config' do Supabase
+    // Salva a biblioteca de exercícios.
     if (data && Array.isArray(data.exercisesLibrary)) {
-      await supabase.from('config').upsert({
-        id: 'global',
-        exercisesLibrary: data.exercisesLibrary,
-      })
+      const { error } = await supabase
+        .from('config')
+        .upsert({
+          id: 'global',
+          exercisesLibrary: data.exercisesLibrary,
+        })
+
+      if (error) {
+        console.error(
+          'Erro ao salvar a biblioteca de exercícios:',
+          error
+        )
+      }
     }
-  } catch {
-    // mantém cópia local se Supabase falhar
+  } catch (error) {
+    console.error('Erro ao salvar os dados:', error)
   }
 }
 
@@ -657,26 +680,86 @@ export function logoSrc(path) {
   return path
 }
 
+/*
+|--------------------------------------------------------------------------
+| ATUALIZAÇÃO AUTOMÁTICA DOS DADOS
+|--------------------------------------------------------------------------
+*/
+
 export function subscribeData(onChange) {
   let closed = false
+  let inFlight = false
 
   const tick = async () => {
-    if (closed) return
+    if (closed || inFlight) return
 
-    const data = await fetchData()
+    // Não consulta o banco enquanto a página estiver oculta.
+    if (
+      typeof document !== 'undefined' &&
+      document.hidden
+    ) {
+      return
+    }
 
-    onChange(data)
+    inFlight = true
+
+    try {
+      const data = await fetchData()
+
+      if (!closed) {
+        onChange(data)
+      }
+    } catch (error) {
+      console.error(
+        'Erro ao atualizar os dados:',
+        error
+      )
+    } finally {
+      inFlight = false
+    }
   }
 
-  const interval = setInterval(tick, 3000)
+  // Primeira consulta imediata.
+  void tick()
 
-  tick()
+  // Atualiza a cada 15 segundos.
+  const interval = setInterval(() => {
+    void tick()
+  }, 15000)
 
+  // Atualiza quando o usuário volta à página.
+  const handleVisibilityChange = () => {
+    if (!document.hidden) {
+      void tick()
+    }
+  }
+
+  if (typeof document !== 'undefined') {
+    document.addEventListener(
+      'visibilitychange',
+      handleVisibilityChange
+    )
+  }
+
+  // Limpa o intervalo e o evento ao desmontar o componente.
   return () => {
     closed = true
     clearInterval(interval)
+
+    if (typeof document !== 'undefined') {
+      document.removeEventListener(
+        'visibilitychange',
+        handleVisibilityChange
+      )
+    }
   }
 }
+
+/*
+|--------------------------------------------------------------------------
+| FORMATAÇÃO E WHATSAPP
+|--------------------------------------------------------------------------
+*/
 
 export function formatBRL(value) {
   return Number(value || 0).toLocaleString(
