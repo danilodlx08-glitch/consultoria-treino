@@ -322,6 +322,7 @@ export default function AdminPanel() {
       if (item.id === replacingExerciseId) {
         return {
           ...item,
+          libraryId: libEx.id,
           name: libEx.name,
           muscle: libEx.muscle || '',
           sets: libEx.sets || item.sets || '3',
@@ -469,27 +470,97 @@ export default function AdminPanel() {
     persist(next)
   }
 
+  function propagateLibraryExerciseUpdate(currentState, updatedExercise, originalExerciseName) {
+    const updatedStudents = currentState.students.map((student) => {
+      if (!student.workouts) return student
+
+      let studentUpdated = false
+      const nextWorkouts = { ...student.workouts }
+
+      DAYS.forEach((d) => {
+        if (nextWorkouts[d] && nextWorkouts[d].exercises) {
+          const newExercises = nextWorkouts[d].exercises.map((ex) => {
+            const isMatch =
+              (ex.libraryId && ex.libraryId === updatedExercise.id) ||
+              (ex.name && originalExerciseName && ex.name.trim().toLowerCase() === originalExerciseName.trim().toLowerCase())
+
+            if (isMatch) {
+              studentUpdated = true
+              return {
+                ...ex,
+                libraryId: updatedExercise.id,
+                name: updatedExercise.name,
+                muscle: updatedExercise.muscle || ex.muscle,
+                notes: updatedExercise.notes || ex.notes,
+                video: updatedExercise.video,
+                group: updatedExercise.group || ex.group,
+              }
+            }
+            return ex
+          })
+
+          if (studentUpdated) {
+            nextWorkouts[d] = {
+              ...nextWorkouts[d],
+              exercises: newExercises,
+            }
+          }
+        }
+      })
+
+      if (studentUpdated) {
+        return {
+          ...student,
+          workouts: nextWorkouts,
+          updatedAt: new Date().toISOString(),
+        }
+      }
+
+      return student
+    })
+
+    return updatedStudents
+  }
+
   function saveNewLibraryExercise(event) {
     event.preventDefault()
     if (!libraryForm.name.trim()) return
 
     if (editingLibraryId) {
-      const next = updateLibraryExercise(data, editingLibraryId, {
+      const originalLibItem = (data.exercisesLibrary || []).find((e) => e.id === editingLibraryId)
+      const originalName = originalLibItem ? originalLibItem.name : ''
+
+      const updatedLibExercise = {
+        id: editingLibraryId,
         ...libraryForm,
         name: libraryForm.name.trim(),
+      }
+
+      const nextBase = updateLibraryExercise(data, editingLibraryId, updatedLibExercise)
+      const updatedStudents = propagateLibraryExerciseUpdate(
+        nextBase,
+        updatedLibExercise,
+        originalName
+      )
+
+      persist({
+        ...nextBase,
+        students: updatedStudents,
       })
-      persist(next)
+      setSaved('Exercício atualizado na biblioteca e em todos os alunos!')
     } else {
       const next = addExerciseToLibrary(data, {
         ...libraryForm,
         name: libraryForm.name.trim(),
       })
       persist(next)
+      setSaved('Novo exercício salvo na biblioteca!')
     }
 
     setLibraryForm(emptyLibraryExercise())
     setShowNewLibraryExercise(false)
     setEditingLibraryId(null)
+    setTimeout(() => setSaved(''), 2500)
   }
 
   function startEditingLibrary(exercise) {
@@ -521,9 +592,7 @@ export default function AdminPanel() {
     persist(next)
     setSaved('Exercício adicionado ao treino do aluno!')
     setTimeout(() => setSaved(''), 2200)
-  }
-
-  function addStudent(event) {
+  }function addStudent(event) {
     event.preventDefault()
     if (!studentForm.name) return
 
@@ -695,7 +764,6 @@ export default function AdminPanel() {
           </section>
         )}
 
-        {/* ABA DA BIBLIOTECA DE EXERCÍCIOS GERAL */}
         {tab === 'library' && (
           <section className="space-y-4">
             <div className="flex items-center justify-between">
@@ -727,7 +795,6 @@ export default function AdminPanel() {
               />
             </div>
 
-            {/* Filtro rápido por músculo */}
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
               {availableMuscles.map((muscle) => (
                 <button
@@ -944,7 +1011,6 @@ export default function AdminPanel() {
               </button>
             </div>
 
-            {/* LISTA DE EXERCÍCIOS */}
             <div className="flex-1 overflow-y-auto space-y-3 pt-4 pb-20">
               {(currentWorkout.exercises || []).map((exercise, index, arr) => {
                 const isExpanded = expandedExercises[exercise.id] !== false
@@ -982,7 +1048,6 @@ export default function AdminPanel() {
                       </div>
 
                       <div className="flex items-center gap-1 shrink-0">
-                        {/* BOTÃO DE SUBSTITUIR EXERCÍCIO DIRETAMENTE */}
                         <button
                           type="button"
                           onClick={() => {
@@ -1180,7 +1245,6 @@ export default function AdminPanel() {
               />
             </div>
 
-            {/* LISTA DE ALUNOS COM OPÇÃO DE EDITAR LOGIN */}
             <div className="mt-4.5 space-y-3.5">
               {filteredStudents.length === 0 ? (
                 <div className="rounded-2xl border border-white/10 bg-ink-800 p-6 text-center">
@@ -1217,7 +1281,6 @@ export default function AdminPanel() {
                               </button>
                             </div>
 
-                            {/* SE ESTIVER EDITANDO CREDENCIAIS */}
                             {isEditingThis ? (
                               <div className="mt-3 space-y-2.5 rounded-xl border border-gold-400/40 bg-ink-900 p-3">
                                 <p className="text-xs uppercase font-bold text-gold-400">Editar Código e Senha</p>
@@ -1320,7 +1383,6 @@ export default function AdminPanel() {
         )}
       </main>
 
-      {/* MODAL DE SELEÇÃO RÁPIDA DA BIBLIOTECA (DENTRO DE TREINOS) */}
       {libraryOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 backdrop-blur-sm"
@@ -1384,7 +1446,6 @@ export default function AdminPanel() {
         </div>
       )}
 
-      {/* MODAL DE SUBSTITUIÇÃO DE EXERCÍCIO */}
       {replaceModalOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 backdrop-blur-sm"
@@ -1429,7 +1490,6 @@ export default function AdminPanel() {
         </div>
       )}
 
-      {/* MODAL DE AVALIAÇÃO FÍSICA */}
       {showEvaluationModal && evaluatingStudent && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm"
