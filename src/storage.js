@@ -1,35 +1,47 @@
 import { supabase } from './services/supabase'
 
 const STORAGE_KEY = 'dl_consultoria_v1'
+const CONFIG_ID = 'global'
+const SYNC_INTERVAL = 30000
 
 export const ADMIN_PASSWORD = 'admin17249'
 export const WHATSAPP_NUMBER = '5527996247906'
+
+/*
+|--------------------------------------------------------------------------
+| UTILITÁRIOS
+|--------------------------------------------------------------------------
+*/
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value))
 }
 
-const defaultExercises = (list) =>
-  list.map((item, index) => ({
+function fingerprint(value) {
+  return JSON.stringify(value)
+}
+
+function createDefaultExercises(list) {
+  return list.map((item, index) => ({
     id: `${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}`,
     ...item,
   }))
+}
 
 export function createId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 }
 
-export function cloneWorkouts(source) {
-  return clone(source || defaultData.workouts)
-}
-
 export function generateAccessCode() {
-  const token = Math.random().toString(36).slice(2, 6).toUpperCase()
-  return `DL${token}`
+  return `DL${Math.random().toString(36).slice(2, 6).toUpperCase()}`
 }
 
 export function generatePassword() {
   return Math.random().toString(36).slice(2, 8)
+}
+
+export function cloneWorkouts(source) {
+  return clone(source || defaultData.workouts)
 }
 
 /*
@@ -63,6 +75,7 @@ const defaultData = {
       code: 'ALUNO01',
       password: 'treino123',
       active: true,
+      updatedAt: null,
       evaluations: [],
     },
   ],
@@ -71,7 +84,7 @@ const defaultData = {
     A: {
       title: 'Treino A - Peito e Triceps',
       focus: 'Empurrar / Superior',
-      exercises: defaultExercises([
+      exercises: createDefaultExercises([
         {
           name: 'Supino reto com barra',
           sets: '4',
@@ -118,7 +131,7 @@ const defaultData = {
     B: {
       title: 'Treino B - Costas e Biceps',
       focus: 'Puxar / Superior',
-      exercises: defaultExercises([
+      exercises: createDefaultExercises([
         {
           name: 'Barra fixa ou puxada frontal',
           sets: '4',
@@ -165,7 +178,7 @@ const defaultData = {
     C: {
       title: 'Treino C - Pernas',
       focus: 'Inferiores',
-      exercises: defaultExercises([
+      exercises: createDefaultExercises([
         {
           name: 'Agachamento livre',
           sets: '4',
@@ -212,7 +225,7 @@ const defaultData = {
     D: {
       title: 'Treino D - Ombros e Core',
       focus: 'Deltoides / Abdome',
-      exercises: defaultExercises([
+      exercises: createDefaultExercises([
         {
           name: 'Desenvolvimento com halteres',
           sets: '4',
@@ -259,7 +272,7 @@ const defaultData = {
     E: {
       title: 'Treino E - Full Body / Condicionamento',
       focus: 'Forca geral',
-      exercises: defaultExercises([
+      exercises: createDefaultExercises([
         {
           name: 'Levantamento terra rumeno',
           sets: '4',
@@ -339,63 +352,102 @@ defaultData.exercisesLibrary = buildInitialLibrary()
 
 /*
 |--------------------------------------------------------------------------
-| NORMALIZAÇÃO DOS ALUNOS
+| NORMALIZAÇÃO
 |--------------------------------------------------------------------------
 */
 
-function normalizeStudent(student, templateWorkouts) {
-  const workouts = student?.workouts
-    ? {
-        ...clone(templateWorkouts),
-        ...clone(student.workouts),
-      }
-    : clone(templateWorkouts)
+function normalizeWorkout(workout, fallback = {}) {
+  const source = workout || {}
 
   return {
-    id: student?.id || createId(),
-    name: student?.name || 'Aluno',
+    ...fallback,
+    ...source,
+    title: source.title ?? fallback.title ?? '',
+    focus: source.focus ?? fallback.focus ?? '',
+    exercises: Array.isArray(source.exercises)
+      ? source.exercises
+      : Array.isArray(fallback.exercises)
+        ? clone(fallback.exercises)
+        : [],
+  }
+}
+
+function normalizeStudent(student, templateWorkouts) {
+  const source = student || {}
+  const sourceWorkouts = source.workouts || {}
+
+  const workouts = {}
+
+  for (const day of ['A', 'B', 'C', 'D', 'E']) {
+    workouts[day] = normalizeWorkout(
+      sourceWorkouts[day],
+      templateWorkouts[day]
+    )
+  }
+
+  for (const [day, workout] of Object.entries(sourceWorkouts)) {
+    if (!workouts[day]) {
+      workouts[day] = normalizeWorkout(workout)
+    }
+  }
+
+  return {
+    id: source.id || createId(),
+    name: source.name || source.nome || 'Aluno',
     code: String(
-      student?.code || generateAccessCode()
+      source.code || generateAccessCode()
     ).toUpperCase(),
-    password: student?.password || generatePassword(),
-    active: student?.active !== false,
-    updatedAt: student?.updatedAt || null,
+    password: String(source.password || generatePassword()),
+    active: source.active !== false,
+    updatedAt: source.updatedAt || source.updated_at || null,
     workouts,
-    evaluations: Array.isArray(student?.evaluations)
-      ? student.evaluations
+    evaluations: Array.isArray(source.evaluations)
+      ? source.evaluations
       : [],
   }
 }
 
 /*
 |--------------------------------------------------------------------------
-| MERGE DOS DADOS
+| MESCLAGEM DOS DADOS
 |--------------------------------------------------------------------------
 */
 
 export function mergeData(parsed) {
+  const source = parsed || {}
+
   const workouts = {
     ...clone(defaultData.workouts),
-    ...(parsed?.workouts || {}),
+    ...(source.workouts || {}),
   }
 
-  const studentsSource = Array.isArray(parsed?.students)
-    ? parsed.students
+  for (const day of ['A', 'B', 'C', 'D', 'E']) {
+    workouts[day] = normalizeWorkout(
+      source.workouts?.[day],
+      defaultData.workouts[day]
+    )
+  }
+
+  const studentsSource = Array.isArray(source.students)
+    ? source.students
     : clone(defaultData.students)
 
-  const exercisesLibrary = Array.isArray(parsed?.exercisesLibrary)
-    ? parsed.exercisesLibrary
+  const exercisesLibrary = Array.isArray(source.exercisesLibrary)
+    ? source.exercisesLibrary
     : clone(defaultData.exercisesLibrary)
 
   return {
     brand: {
       ...defaultData.brand,
-      ...(parsed?.brand || {}),
+      ...(source.brand || {}),
     },
 
     plan: {
       ...defaultData.plan,
-      ...(parsed?.plan || {}),
+      ...(source.plan || {}),
+      includes: Array.isArray(source.plan?.includes)
+        ? source.plan.includes
+        : clone(defaultData.plan.includes),
     },
 
     students: studentsSource.map((student) =>
@@ -416,6 +468,10 @@ export function mergeData(parsed) {
 
 export function loadData() {
   try {
+    if (typeof localStorage === 'undefined') {
+      return clone(defaultData)
+    }
+
     const raw = localStorage.getItem(STORAGE_KEY)
 
     if (!raw) {
@@ -423,46 +479,127 @@ export function loadData() {
     }
 
     return mergeData(JSON.parse(raw))
-  } catch {
+  } catch (error) {
+    console.error('Erro ao carregar os dados locais:', error)
     return clone(defaultData)
+  }
+}
+
+function saveLocalData(data) {
+  try {
+    if (typeof localStorage === 'undefined') return true
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+    return true
+  } catch (error) {
+    console.error('Erro ao salvar os dados localmente:', error)
+    return false
   }
 }
 
 /*
 |--------------------------------------------------------------------------
-| SUPABASE E CONTROLE DE ALTERAÇÕES
+| CONVERSÃO PARA O SUPABASE
 |--------------------------------------------------------------------------
 */
 
-function fingerprint(value) {
-  return JSON.stringify(value)
-}
-
-function studentToRow(aluno) {
+function studentToRow(student) {
   return {
-    id: aluno.id,
-    nome: aluno.name,
-    code: aluno.code,
-    password: aluno.password,
-    active: aluno.active !== false,
-    workouts: aluno.workouts,
-    evaluations: aluno.evaluations || [],
+    id: student.id,
+    nome: student.name,
+    code: student.code,
+    password: student.password,
+    active: student.active !== false,
+    workouts: student.workouts || {},
+    evaluations: Array.isArray(student.evaluations)
+      ? student.evaluations
+      : [],
   }
 }
 
-let persistedStudents = new Map()
+function rowToStudent(row, templateWorkouts) {
+  return normalizeStudent(
+    {
+      id: row.id,
+      name: row.nome || row.name || 'Aluno',
+      code: row.code,
+      password: row.password,
+      active: row.active,
+      workouts: row.workouts,
+      evaluations: row.evaluations,
+      updatedAt:
+        row.updatedAt ||
+        row.updated_at ||
+        row.updated_at_client ||
+        null,
+    },
+    templateWorkouts
+  )
+}
+
+/*
+|--------------------------------------------------------------------------
+| CONTROLE DA SINCRONIZAÇÃO
+|--------------------------------------------------------------------------
+|
+| pendingStudentWrites guarda as últimas versões locais que ainda precisam
+| ser confirmadas no Supabase.
+|
+| pendingStudentDeletes impede que alunos excluídos reapareçam durante
+| uma atualização automática.
+|
+*/
+
+const persistedStudents = new Map()
+const remoteStudentIds = new Set()
+const pendingStudentWrites = new Map()
+const pendingStudentDeletes = new Set()
+
 let studentsBaselineReady = false
 
 let persistedLibraryFingerprint = null
 let libraryBaselineReady = false
+let pendingLibrary = null
 
 let saveQueue = Promise.resolve()
 let saveInProgress = false
 
-export async function fetchData() {
-  try {
-    const current = loadData()
+function getStudentFingerprint(student) {
+  return fingerprint(studentToRow(student))
+}
 
+function getRowFingerprint(row) {
+  return fingerprint({
+    id: row.id,
+    nome: row.nome,
+    code: row.code,
+    password: row.password,
+    active: row.active !== false,
+    workouts: row.workouts || {},
+    evaluations: row.evaluations || [],
+  })
+}
+
+function enqueueSave(operation) {
+  saveQueue = saveQueue
+    .catch((error) => {
+      console.error('Erro anterior na fila de salvamento:', error)
+    })
+    .then(operation)
+
+  return saveQueue
+}
+
+/*
+|--------------------------------------------------------------------------
+| BUSCAR DADOS REMOTOS
+|--------------------------------------------------------------------------
+*/
+
+export async function fetchData() {
+  const localData = loadData()
+
+  try {
     const {
       data: alunosData,
       error: alunosError,
@@ -474,44 +611,52 @@ export async function fetchData() {
       throw alunosError
     }
 
-    const rows = alunosData || []
+    const rows = Array.isArray(alunosData) ? alunosData : []
 
-    if (!saveInProgress) {
-      persistedStudents = new Map(
-        rows.map((aluno) => [
-          aluno.id,
-          fingerprint({
-            id: aluno.id,
-            nome: aluno.nome,
-            code: aluno.code,
-            password: aluno.password,
-            active: aluno.active !== false,
-            workouts: aluno.workouts,
-            evaluations: aluno.evaluations || [],
-          }),
-        ])
-      )
+    // Atualiza a fotografia remota sem descartar alterações pendentes.
+    persistedStudents.clear()
+    remoteStudentIds.clear()
 
-      studentsBaselineReady = true
+    for (const row of rows) {
+      if (!row?.id) continue
+
+      remoteStudentIds.add(row.id)
+      persistedStudents.set(row.id, getRowFingerprint(row))
     }
 
-    if (rows.length > 0) {
-      current.students = rows.map((aluno) => ({
-        id: aluno.id,
-        name: aluno.nome,
-        code: aluno.code || generateAccessCode(),
-        password: aluno.password || generatePassword(),
-        active: aluno.active !== false,
-        evaluations: Array.isArray(aluno.evaluations)
-          ? aluno.evaluations
-          : [],
-        workouts: aluno.workouts
-          ? {
-              ...clone(current.workouts),
-              ...aluno.workouts,
-            }
-          : clone(current.workouts),
-      }))
+    studentsBaselineReady = true
+
+    const remoteStudents = new Map()
+
+    for (const row of rows) {
+      if (!row?.id || pendingStudentDeletes.has(row.id)) continue
+
+      remoteStudents.set(
+        row.id,
+        rowToStudent(row, localData.workouts)
+      )
+    }
+
+    // Sobrepõe a versão local pendente à versão remota.
+    for (const [studentId, pendingStudent] of pendingStudentWrites) {
+      if (pendingStudentDeletes.has(studentId)) continue
+
+      remoteStudents.set(
+        studentId,
+        normalizeStudent(pendingStudent, localData.workouts)
+      )
+    }
+
+    // Mantém os alunos locais se o Supabase ainda estiver vazio.
+    if (rows.length === 0 && remoteStudents.size === 0) {
+      for (const student of localData.students) {
+        if (pendingStudentDeletes.has(student.id)) continue
+
+        remoteStudents.set(
+          student.id,
+          normalizeStudent(student, localData.workouts)
+        )
+      }
     }
 
     const {
@@ -520,147 +665,296 @@ export async function fetchData() {
     } = await supabase
       .from('config')
       .select('*')
-      .eq('id', 'global')
-      .single()
+      .eq('id', CONFIG_ID)
+      .maybeSingle()
 
-    if (!configError && configData) {
-      if (Array.isArray(configData.exercisesLibrary)) {
-        current.exercisesLibrary = configData.exercisesLibrary
+    let exercisesLibrary = localData.exercisesLibrary
+
+    if (configError) {
+      console.error('Erro ao buscar a biblioteca de exercícios:', configError)
+    } else if (
+      configData &&
+      Array.isArray(configData.exercisesLibrary)
+    ) {
+      persistedLibraryFingerprint = fingerprint(
+        configData.exercisesLibrary
+      )
+
+      libraryBaselineReady = true
+
+      // Não substitui alterações que ainda aguardam gravação.
+      exercisesLibrary = pendingLibrary
+        ? clone(pendingLibrary)
+        : configData.exercisesLibrary
+    } else {
+      // Se ainda não existe configuração remota, mantém a biblioteca local.
+      if (!libraryBaselineReady && !pendingLibrary) {
+        pendingLibrary = clone(localData.exercisesLibrary)
       }
 
-      if (!saveInProgress) {
-        const library = Array.isArray(configData.exercisesLibrary)
-          ? configData.exercisesLibrary
-          : []
-
-        persistedLibraryFingerprint = fingerprint(library)
-        libraryBaselineReady = true
+      if (pendingLibrary) {
+        exercisesLibrary = clone(pendingLibrary)
       }
     }
 
-    return current
+    return mergeData({
+      ...localData,
+      students: Array.from(remoteStudents.values()),
+      exercisesLibrary,
+    })
   } catch (error) {
-    console.error('Erro ao buscar dados:', error)
-    return loadData()
+    console.error('Erro ao buscar dados no Supabase:', error)
+
+    // Uma falha de rede não deve apagar o estado local.
+    return mergeData({
+      ...localData,
+      students: localData.students.filter(
+        (student) => !pendingStudentDeletes.has(student.id)
+      ),
+      exercisesLibrary: pendingLibrary || localData.exercisesLibrary,
+    })
   }
 }
 
 /*
 |--------------------------------------------------------------------------
-| SALVAR SOMENTE OS DADOS ALTERADOS
+| SALVAR DADOS
 |--------------------------------------------------------------------------
 */
 
 export async function saveData(data) {
-  try {
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify(data)
-    )
-  } catch (error) {
-    console.error('Erro ao salvar os dados localmente:', error)
-  }
-
   let snapshot
 
   try {
     snapshot = clone(data)
   } catch (error) {
     console.error('Erro ao preparar os dados para salvar:', error)
-    return
+
+    return {
+      success: false,
+      localSaved: false,
+      error,
+    }
   }
 
-  saveQueue = saveQueue.then(async () => {
+  const localSaved = saveLocalData(snapshot)
+
+  // Registra as versões mais recentes imediatamente, antes de iniciar
+  // a fila remota. Assim, a atualização automática pode preservá-las.
+  if (Array.isArray(snapshot.students)) {
+    const snapshotIds = new Set()
+
+    for (const student of snapshot.students) {
+      if (!student?.id) continue
+
+      snapshotIds.add(student.id)
+
+      if (pendingStudentDeletes.has(student.id)) {
+        pendingStudentDeletes.delete(student.id)
+      }
+
+      pendingStudentWrites.set(
+        student.id,
+        normalizeStudent(student, snapshot.workouts || defaultData.workouts)
+      )
+    }
+
+    // Detecta exclusões apenas de IDs conhecidos como existentes no remoto.
+    for (const remoteId of remoteStudentIds) {
+      if (!snapshotIds.has(remoteId)) {
+        pendingStudentWrites.delete(remoteId)
+        pendingStudentDeletes.add(remoteId)
+      }
+    }
+  }
+
+  if (Array.isArray(snapshot.exercisesLibrary)) {
+    const nextLibraryFingerprint = fingerprint(snapshot.exercisesLibrary)
+
+    if (
+      !libraryBaselineReady ||
+      nextLibraryFingerprint !== persistedLibraryFingerprint
+    ) {
+      pendingLibrary = clone(snapshot.exercisesLibrary)
+    }
+  }
+
+  return enqueueSave(async () => {
     saveInProgress = true
 
+    let remoteSuccess = true
+    const errors = []
+
     try {
-      if (Array.isArray(snapshot.students)) {
-        for (const aluno of snapshot.students) {
-          const row = studentToRow(aluno)
-          const currentFingerprint = fingerprint(row)
-          const previousFingerprint = persistedStudents.get(aluno.id)
+      /*
+       * EXCLUSÕES
+       *
+       * Exclui apenas IDs previamente conhecidos no banco.
+       * Se a exclusão falhar, o ID permanece pendente para nova tentativa.
+       */
+      for (const studentId of Array.from(pendingStudentDeletes)) {
+        const { error } = await supabase
+          .from('alunos')
+          .delete()
+          .eq('id', studentId)
+
+        if (error) {
+          remoteSuccess = false
+          errors.push(error)
+          console.error(`Erro ao excluir o aluno ${studentId}:`, error)
+          continue
+        }
+
+        pendingStudentDeletes.delete(studentId)
+        pendingStudentWrites.delete(studentId)
+        persistedStudents.delete(studentId)
+        remoteStudentIds.delete(studentId)
+      }
+
+      /*
+       * ALUNOS
+       *
+       * A fila consulta o estado pendente mais recente de cada aluno,
+       * evitando salvar uma cópia antiga quando houve edição durante a fila.
+       */
+      for (const [studentId, student] of Array.from(
+        pendingStudentWrites.entries()
+      )) {
+        if (pendingStudentDeletes.has(studentId)) continue
+
+        const row = studentToRow(student)
+        const currentFingerprint = fingerprint(row)
+        const previousFingerprint = persistedStudents.get(studentId)
+
+        if (
+          studentsBaselineReady &&
+          previousFingerprint === currentFingerprint
+        ) {
+          const latestPending = pendingStudentWrites.get(studentId)
 
           if (
-            studentsBaselineReady &&
-            previousFingerprint === currentFingerprint
+            latestPending &&
+            getStudentFingerprint(latestPending) === currentFingerprint
           ) {
-            continue
+            pendingStudentWrites.delete(studentId)
           }
 
-          const { error } = await supabase
-            .from('alunos')
-            .upsert(row)
+          continue
+        }
 
-          if (error) {
-            console.error(
-              `Erro ao salvar o aluno ${aluno.name}:`,
-              error
-            )
-            continue
-          }
+        const { error } = await supabase
+          .from('alunos')
+          .upsert(row, { onConflict: 'id' })
 
-          persistedStudents.set(
-            aluno.id,
-            currentFingerprint
-          )
+        if (error) {
+          remoteSuccess = false
+          errors.push(error)
+          console.error(`Erro ao salvar o aluno ${student.name}:`, error)
+          continue
+        }
 
-          studentsBaselineReady = true
+        persistedStudents.set(studentId, currentFingerprint)
+        remoteStudentIds.add(studentId)
+        studentsBaselineReady = true
+
+        const latestPending = pendingStudentWrites.get(studentId)
+
+        // Só remove a pendência se ninguém tiver editado o aluno novamente.
+        if (
+          latestPending &&
+          getStudentFingerprint(latestPending) === currentFingerprint
+        ) {
+          pendingStudentWrites.delete(studentId)
         }
       }
 
-      if (Array.isArray(snapshot.exercisesLibrary)) {
-        const currentLibraryFingerprint = fingerprint(
-          snapshot.exercisesLibrary
-        )
+      /*
+       * BIBLIOTECA DE EXERCÍCIOS
+       */
+      if (pendingLibrary) {
+        const librarySnapshot = clone(pendingLibrary)
+        const librarySnapshotFingerprint = fingerprint(librarySnapshot)
 
         if (
           !libraryBaselineReady ||
-          currentLibraryFingerprint !== persistedLibraryFingerprint
+          librarySnapshotFingerprint !== persistedLibraryFingerprint
         ) {
           const { error } = await supabase
             .from('config')
-            .upsert({
-              id: 'global',
-              exercisesLibrary: snapshot.exercisesLibrary,
-            })
+            .upsert(
+              {
+                id: CONFIG_ID,
+                exercisesLibrary: librarySnapshot,
+              },
+              { onConflict: 'id' }
+            )
 
           if (error) {
+            remoteSuccess = false
+            errors.push(error)
             console.error(
               'Erro ao salvar a biblioteca de exercícios:',
               error
             )
           } else {
-            persistedLibraryFingerprint = currentLibraryFingerprint
+            persistedLibraryFingerprint = librarySnapshotFingerprint
             libraryBaselineReady = true
+
+            // Não apaga uma alteração mais recente feita durante o salvamento.
+            if (
+              pendingLibrary &&
+              fingerprint(pendingLibrary) === librarySnapshotFingerprint
+            ) {
+              pendingLibrary = null
+            }
           }
+        } else {
+          pendingLibrary = null
         }
       }
+
+      return {
+        success: localSaved && remoteSuccess,
+        localSaved,
+        remoteSaved: remoteSuccess,
+        pending:
+          pendingStudentWrites.size > 0 ||
+          pendingStudentDeletes.size > 0 ||
+          pendingLibrary !== null,
+        errors,
+      }
     } catch (error) {
-      console.error('Erro ao salvar os dados:', error)
+      console.error('Erro inesperado durante o salvamento:', error)
+
+      return {
+        success: false,
+        localSaved,
+        remoteSaved: false,
+        pending: true,
+        errors: [...errors, error],
+      }
     } finally {
       saveInProgress = false
     }
   })
-
-  return saveQueue
 }
 
 /*
 |--------------------------------------------------------------------------
-| FUNÇÕES DA BIBLIOTECA
+| FUNÇÕES DA BIBLIOTECA DE EXERCÍCIOS
 |--------------------------------------------------------------------------
 */
 
 export function createLibraryExercise(exercise) {
   return {
     id: createId(),
-    name: exercise.name || 'Novo exercício',
-    muscle: exercise.muscle || '',
-    sets: exercise.sets || '3',
-    reps: exercise.reps || '10-12',
-    notes: exercise.notes || '',
-    video: exercise.video || '',
-    group: exercise.group || '',
+    name: exercise?.name || 'Novo exercício',
+    muscle: exercise?.muscle || '',
+    sets: exercise?.sets || '3',
+    reps: exercise?.reps || '10-12',
+    notes: exercise?.notes || '',
+    video: exercise?.video || '',
+    group: exercise?.group || '',
   }
 }
 
@@ -671,9 +965,7 @@ export function addExerciseToLibrary(data, exercise) {
     next.exercisesLibrary = []
   }
 
-  const newExercise = createLibraryExercise(exercise)
-
-  next.exercisesLibrary.push(newExercise)
+  next.exercisesLibrary.push(createLibraryExercise(exercise))
 
   return next
 }
@@ -681,9 +973,7 @@ export function addExerciseToLibrary(data, exercise) {
 export function updateLibraryExercise(data, exerciseId, changes) {
   const next = clone(data)
 
-  next.exercisesLibrary = (
-    next.exercisesLibrary || []
-  ).map((exercise) =>
+  next.exercisesLibrary = (next.exercisesLibrary || []).map((exercise) =>
     exercise.id === exerciseId
       ? {
           ...exercise,
@@ -698,9 +988,9 @@ export function updateLibraryExercise(data, exerciseId, changes) {
 export function removeLibraryExercise(data, exerciseId) {
   const next = clone(data)
 
-  next.exercisesLibrary = (
-    next.exercisesLibrary || []
-  ).filter((exercise) => exercise.id !== exerciseId)
+  next.exercisesLibrary = (next.exercisesLibrary || []).filter(
+    (exercise) => exercise.id !== exerciseId
+  )
 
   return next
 }
@@ -709,7 +999,7 @@ export const removeExerciseFromLibrary = removeLibraryExercise
 
 /*
 |--------------------------------------------------------------------------
-| ADICIONAR EXERCÍCIO DA BIBLIOTECA AO ALUNO
+| ADICIONAR EXERCÍCIO DA BIBLIOTECA AO TREINO DO ALUNO
 |--------------------------------------------------------------------------
 */
 
@@ -721,20 +1011,20 @@ export function addLibraryExerciseToWorkout(
 ) {
   const next = clone(data)
 
-  const student = next.students.find(
+  const student = (next.students || []).find(
     (item) => item.id === studentId
   )
 
   if (!student) return next
 
-  const libraryExercise = (
-    next.exercisesLibrary || []
-  ).find((item) => item.id === exerciseId)
+  const libraryExercise = (next.exercisesLibrary || []).find(
+    (item) => item.id === exerciseId
+  )
 
   if (!libraryExercise) return next
 
   if (!student.workouts) {
-    student.workouts = clone(next.workouts)
+    student.workouts = clone(next.workouts || defaultData.workouts)
   }
 
   if (!student.workouts[day]) {
@@ -749,12 +1039,10 @@ export function addLibraryExerciseToWorkout(
     student.workouts[day].exercises = []
   }
 
-  const copiedExercise = {
+  student.workouts[day].exercises.push({
     ...clone(libraryExercise),
     id: createId(),
-  }
-
-  student.workouts[day].exercises.push(copiedExercise)
+  })
 
   student.updatedAt = new Date().toISOString()
 
@@ -763,8 +1051,12 @@ export function addLibraryExerciseToWorkout(
 
 /*
 |--------------------------------------------------------------------------
-| OUTRAS FUNÇÕES
+| LOGOMARCA
 |--------------------------------------------------------------------------
+|
+| Mantém o comportamento anterior: a logo é armazenada como data URL
+| no armazenamento local. Não depende de uma tabela ou bucket novo.
+|
 */
 
 export async function uploadLogo(dataUrl) {
@@ -777,8 +1069,10 @@ export function logoSrc(path) {
   if (!path) return ''
 
   if (
-    path.startsWith('http') ||
-    path.startsWith('data:')
+    typeof path === 'string' &&
+    (path.startsWith('http://') ||
+      path.startsWith('https://') ||
+      path.startsWith('data:'))
   ) {
     return path
   }
@@ -788,7 +1082,7 @@ export function logoSrc(path) {
 
 /*
 |--------------------------------------------------------------------------
-| ATUALIZAÇÃO AUTOMÁTICA DOS DADOS
+| ATUALIZAÇÃO AUTOMÁTICA
 |--------------------------------------------------------------------------
 */
 
@@ -811,7 +1105,7 @@ export function subscribeData(onChange) {
     try {
       const data = await fetchData()
 
-      if (!closed) {
+      if (!closed && typeof onChange === 'function') {
         onChange(data)
       }
     } catch (error) {
@@ -823,12 +1117,18 @@ export function subscribeData(onChange) {
 
   void tick()
 
-  const interval = setInterval(() => {
-    void tick()
-  }, 15000)
+  const interval =
+    typeof setInterval === 'function'
+      ? setInterval(() => {
+          void tick()
+        }, SYNC_INTERVAL)
+      : null
 
   const handleVisibilityChange = () => {
-    if (!document.hidden) {
+    if (
+      typeof document !== 'undefined' &&
+      !document.hidden
+    ) {
       void tick()
     }
   }
@@ -842,7 +1142,10 @@ export function subscribeData(onChange) {
 
   return () => {
     closed = true
-    clearInterval(interval)
+
+    if (interval !== null) {
+      clearInterval(interval)
+    }
 
     if (typeof document !== 'undefined') {
       document.removeEventListener(
@@ -860,19 +1163,18 @@ export function subscribeData(onChange) {
 */
 
 export function formatBRL(value) {
-  return Number(value || 0).toLocaleString(
-    'pt-BR',
-    {
-      style: 'currency',
-      currency: 'BRL',
-    }
-  )
+  return Number(value || 0).toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  })
 }
 
 export function whatsappLink(plan) {
+  const safePlan = plan || defaultData.plan
+
   const message =
     `Ola Danilo! Quero garantir minha vaga na consultoria de treino online ` +
-    `(${plan.name} - ${formatBRL(plan.price)}).`
+    `(${safePlan.name} - ${formatBRL(safePlan.price)}).`
 
   return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`
 }
