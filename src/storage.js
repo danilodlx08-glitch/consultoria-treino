@@ -430,21 +430,73 @@ export function loadData() {
 
 /*
 |--------------------------------------------------------------------------
-| SUPABASE
+| SUPABASE E CONTROLE DE ALTERAÇÕES
 |--------------------------------------------------------------------------
 */
+
+function fingerprint(value) {
+  return JSON.stringify(value)
+}
+
+function studentToRow(aluno) {
+  return {
+    id: aluno.id,
+    nome: aluno.name,
+    code: aluno.code,
+    password: aluno.password,
+    active: aluno.active !== false,
+    workouts: aluno.workouts,
+    evaluations: aluno.evaluations || [],
+  }
+}
+
+let persistedStudents = new Map()
+let studentsBaselineReady = false
+
+let persistedLibraryFingerprint = null
+let libraryBaselineReady = false
+
+let saveQueue = Promise.resolve()
+let saveInProgress = false
 
 export async function fetchData() {
   try {
     const current = loadData()
 
-    // 1. Busca os alunos
-    const { data: alunosData, error: alunosError } = await supabase
+    const {
+      data: alunosData,
+      error: alunosError,
+    } = await supabase
       .from('alunos')
       .select('*')
 
-    if (!alunosError && alunosData && alunosData.length > 0) {
-      current.students = alunosData.map((aluno) => ({
+    if (alunosError) {
+      throw alunosError
+    }
+
+    const rows = alunosData || []
+
+    if (!saveInProgress) {
+      persistedStudents = new Map(
+        rows.map((aluno) => [
+          aluno.id,
+          fingerprint({
+            id: aluno.id,
+            nome: aluno.nome,
+            code: aluno.code,
+            password: aluno.password,
+            active: aluno.active !== false,
+            workouts: aluno.workouts,
+            evaluations: aluno.evaluations || [],
+          }),
+        ])
+      )
+
+      studentsBaselineReady = true
+    }
+
+    if (rows.length > 0) {
+      current.students = rows.map((aluno) => ({
         id: aluno.id,
         name: aluno.nome,
         code: aluno.code || generateAccessCode(),
@@ -462,15 +514,28 @@ export async function fetchData() {
       }))
     }
 
-    // 2. Busca a biblioteca de exercícios na tabela config
-    const { data: configData, error: configError } = await supabase
+    const {
+      data: configData,
+      error: configError,
+    } = await supabase
       .from('config')
       .select('*')
       .eq('id', 'global')
       .single()
 
-    if (!configError && configData && configData.exercisesLibrary) {
-      current.exercisesLibrary = configData.exercisesLibrary
+    if (!configError && configData) {
+      if (Array.isArray(configData.exercisesLibrary)) {
+        current.exercisesLibrary = configData.exercisesLibrary
+      }
+
+      if (!saveInProgress) {
+        const library = Array.isArray(configData.exercisesLibrary)
+          ? configData.exercisesLibrary
+          : []
+
+        persistedLibraryFingerprint = fingerprint(library)
+        libraryBaselineReady = true
+      }
     }
 
     return current
@@ -482,61 +547,102 @@ export async function fetchData() {
 
 /*
 |--------------------------------------------------------------------------
-| SALVAR
+| SALVAR SOMENTE OS DADOS ALTERADOS
 |--------------------------------------------------------------------------
 */
 
 export async function saveData(data) {
-  // Mantém uma cópia local.
-  localStorage.setItem(
-    STORAGE_KEY,
-    JSON.stringify(data)
-  )
+  try {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify(data)
+    )
+  } catch (error) {
+    console.error('Erro ao salvar os dados localmente:', error)
+  }
+
+  let snapshot
 
   try {
-    // Salva os alunos.
-    if (data && Array.isArray(data.students)) {
-      for (const aluno of data.students) {
-        const { error } = await supabase
-          .from('alunos')
-          .upsert({
-            id: aluno.id,
-            nome: aluno.name,
-            code: aluno.code,
-            password: aluno.password,
-            active: aluno.active !== false,
-            workouts: aluno.workouts,
-            evaluations: aluno.evaluations || [],
-          })
+    snapshot = clone(data)
+  } catch (error) {
+    console.error('Erro ao preparar os dados para salvar:', error)
+    return
+  }
 
-        if (error) {
-          console.error(
-            `Erro ao salvar o aluno ${aluno.name}:`,
-            error
+  saveQueue = saveQueue.then(async () => {
+    saveInProgress = true
+
+    try {
+      if (Array.isArray(snapshot.students)) {
+        for (const aluno of snapshot.students) {
+          const row = studentToRow(aluno)
+          const currentFingerprint = fingerprint(row)
+          const previousFingerprint = persistedStudents.get(aluno.id)
+
+          if (
+            studentsBaselineReady &&
+            previousFingerprint === currentFingerprint
+          ) {
+            continue
+          }
+
+          const { error } = await supabase
+            .from('alunos')
+            .upsert(row)
+
+          if (error) {
+            console.error(
+              `Erro ao salvar o aluno ${aluno.name}:`,
+              error
+            )
+            continue
+          }
+
+          persistedStudents.set(
+            aluno.id,
+            currentFingerprint
           )
+
+          studentsBaselineReady = true
         }
       }
-    }
 
-    // Salva a biblioteca de exercícios.
-    if (data && Array.isArray(data.exercisesLibrary)) {
-      const { error } = await supabase
-        .from('config')
-        .upsert({
-          id: 'global',
-          exercisesLibrary: data.exercisesLibrary,
-        })
-
-      if (error) {
-        console.error(
-          'Erro ao salvar a biblioteca de exercícios:',
-          error
+      if (Array.isArray(snapshot.exercisesLibrary)) {
+        const currentLibraryFingerprint = fingerprint(
+          snapshot.exercisesLibrary
         )
+
+        if (
+          !libraryBaselineReady ||
+          currentLibraryFingerprint !== persistedLibraryFingerprint
+        ) {
+          const { error } = await supabase
+            .from('config')
+            .upsert({
+              id: 'global',
+              exercisesLibrary: snapshot.exercisesLibrary,
+            })
+
+          if (error) {
+            console.error(
+              'Erro ao salvar a biblioteca de exercícios:',
+              error
+            )
+          } else {
+            persistedLibraryFingerprint = currentLibraryFingerprint
+            libraryBaselineReady = true
+          }
+        }
       }
+    } catch (error) {
+      console.error('Erro ao salvar os dados:', error)
+    } finally {
+      saveInProgress = false
     }
-  } catch (error) {
-    console.error('Erro ao salvar os dados:', error)
-  }
+  })
+
+  return saveQueue
 }
 
 /*
@@ -693,7 +799,6 @@ export function subscribeData(onChange) {
   const tick = async () => {
     if (closed || inFlight) return
 
-    // Não consulta o banco enquanto a página estiver oculta.
     if (
       typeof document !== 'undefined' &&
       document.hidden
@@ -710,24 +815,18 @@ export function subscribeData(onChange) {
         onChange(data)
       }
     } catch (error) {
-      console.error(
-        'Erro ao atualizar os dados:',
-        error
-      )
+      console.error('Erro ao atualizar os dados:', error)
     } finally {
       inFlight = false
     }
   }
 
-  // Primeira consulta imediata.
   void tick()
 
-  // Atualiza a cada 15 segundos.
   const interval = setInterval(() => {
     void tick()
   }, 15000)
 
-  // Atualiza quando o usuário volta à página.
   const handleVisibilityChange = () => {
     if (!document.hidden) {
       void tick()
@@ -741,7 +840,6 @@ export function subscribeData(onChange) {
     )
   }
 
-  // Limpa o intervalo e o evento ao desmontar o componente.
   return () => {
     closed = true
     clearInterval(interval)
