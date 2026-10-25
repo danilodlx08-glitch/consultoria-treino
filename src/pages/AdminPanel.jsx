@@ -22,6 +22,7 @@ import {
   ArrowUp,
   ArrowDown,
   Clock,
+  RefreshCw,
 } from 'lucide-react'
 import { useAuth } from '../auth.jsx'
 import { supabase } from '../services/supabase'
@@ -87,7 +88,6 @@ const emptyEvaluationForm = () => ({
   calf: '',
 })
 
-// Função para cálculo automático de Composição Corporal e Metabolismo
 function calculateEvaluationMetrics({ weight, height, age = 30, gender = 'male', neck = 40, waist = 80, hips = 100 }) {
   const w = Number(weight) || 0
   const hCm = (Number(height) || 0) < 3 ? (Number(height) || 0) * 100 : (Number(height) || 0)
@@ -98,14 +98,10 @@ function calculateEvaluationMetrics({ weight, height, age = 30, gender = 'male',
 
   if (!w || !hCm) return null
 
-  // 1. TMB (Mifflin-St Jeor)
   let tmb = (10 * w) + (6.25 * hCm) - (5 * a)
   tmb = gender === 'female' ? tmb - 161 : tmb + 5
-
-  // 2. GET (Gasto Energético Total - Fator moderado padrão 1.55)
   const get = tmb * 1.55
 
-  // 3. % de Gordura (Método da Marinha dos EUA)
   let bodyFat = 15
   if (gender === 'male' && wa > n) {
     bodyFat = 495 / (1.03324 - 0.19077 * Math.log10(wa - n) + 0.15456 * Math.log10(hCm)) - 450
@@ -113,8 +109,6 @@ function calculateEvaluationMetrics({ weight, height, age = 30, gender = 'male',
     bodyFat = 495 / (1.29579 - 0.35004 * Math.log10(wa + hi - n) + 0.22100 * Math.log10(hCm)) - 450
   }
   bodyFat = Math.max(3, Math.min(50, bodyFat))
-
-  // 4. Massa Magra
   const leanMass = w - (w * (bodyFat / 100))
 
   return {
@@ -125,7 +119,6 @@ function calculateEvaluationMetrics({ weight, height, age = 30, gender = 'male',
   }
 }
 
-// Função auxiliar para exibir tempo relativo da ficha do aluno
 function formatTimeAgo(dateString) {
   if (!dateString) return 'Nunca atualizada'
   const diffDays = Math.floor((new Date() - new Date(dateString)) / (1000 * 60 * 60 * 24))
@@ -142,21 +135,39 @@ export default function AdminPanel() {
   const { logoutAdmin } = useAuth()
   const navigate = useNavigate()
 
-  const [data, setData] = useState(() => loadData())
+  const [data, setData] = useState(() => {
+    const loaded = loadData()
+    // Garante o valor padrão de 149.99 se estiver zerado ou padrão antigo
+    if (!loaded.plan || !loaded.plan.price || loaded.plan.price === 97) {
+      loaded.plan = {
+        ...(loaded.plan || {}),
+        price: 149.99,
+        name: loaded.plan?.name || 'Consultoria Online Danilo Lopes',
+      }
+    }
+    return loaded
+  })
+
   const [tab, setTab] = useState('brand')
   const [day, setDay] = useState('A')
   const [saved, setSaved] = useState('')
   const [logoError, setLogoError] = useState('')
   const [selectedStudentId, setSelectedStudentId] = useState('')
 
-  // Estado para controlar o Acordeão dos exercícios (quais estão abertos/fechados)
   const [expandedExercises, setExpandedExercises] = useState({})
-
   const [showCopyStudentWorkoutsModal, setShowCopyStudentWorkoutsModal] = useState(false)
   const [sourceStudentIdForCopy, setSourceStudentIdForCopy] = useState('')
   const [studentSearch, setStudentSearch] = useState('')
 
-  // Estados para o modal de Avaliação Física no Admin
+  // Estados para Edição de Credenciais do Aluno
+  const [editingStudentCredsId, setEditingStudentCredsId] = useState(null)
+  const [editStudentForm, setEditStudentForm] = useState({ code: '', password: '' })
+
+  // Estados para Substituição Direta de Exercício
+  const [replacingExerciseId, setReplacingExerciseId] = useState(null)
+  const [replaceModalOpen, setReplaceModalOpen] = useState(false)
+
+  // Estados para o modal de Avaliação Física
   const [showEvaluationModal, setShowEvaluationModal] = useState(false)
   const [evaluatingStudent, setEvaluatingStudent] = useState(null)
   const [evaluationForm, setEvaluationForm] = useState(emptyEvaluationForm())
@@ -172,7 +183,6 @@ export default function AdminPanel() {
   const [selectedMuscleFilter, setSelectedMuscleFilter] = useState('TODOS')
   const [showNewLibraryExercise, setShowNewLibraryExercise] = useState(false)
   const [editingLibraryId, setEditingLibraryId] = useState(null)
-
   const [libraryForm, setLibraryForm] = useState(emptyLibraryExercise())
 
   useEffect(() => {
@@ -214,7 +224,7 @@ export default function AdminPanel() {
   function persist(next) {
     setData(next)
     saveData(next)
-    setSaved('Salvo na nuvem. Os alunos recebem a atualização automaticamente.')
+    setSaved('Salvo na nuvem com sucesso!')
     setTimeout(() => setSaved(''), 2200)
   }
 
@@ -261,9 +271,7 @@ export default function AdminPanel() {
   async function resetLogo() {
     persist({
       ...data,
-      brand: {
-        logo: '/logo.png',
-      },
+      brand: { logo: '/logo.png' },
     })
     setLogoError('')
   }
@@ -283,10 +291,7 @@ export default function AdminPanel() {
     includes[index] = value
     persist({
       ...data,
-      plan: {
-        ...data.plan,
-        includes,
-      },
+      plan: { ...data.plan, includes },
     })
   }
 
@@ -345,18 +350,12 @@ export default function AdminPanel() {
     const workouts = studentWorkouts()
     const exercises = workouts[day].exercises.map((item) =>
       item.id === exerciseId
-        ? {
-            ...item,
-            [field]: value,
-          }
+        ? { ...item, [field]: value }
         : item
     )
     persistStudentWorkouts({
       ...workouts,
-      [day]: {
-        ...workouts[day],
-        exercises,
-      },
+      [day]: { ...workouts[day], exercises },
     })
   }
 
@@ -382,12 +381,10 @@ export default function AdminPanel() {
     })
   }
 
-  // Função para reordenar os exercícios (Subir / Descer)
   function moveExercise(index, direction) {
     const workouts = studentWorkouts()
     const exercises = [...workouts[day].exercises]
     const targetIndex = direction === 'up' ? index - 1 : index + 1
-
     if (targetIndex < 0 || targetIndex >= exercises.length) return
 
     const temp = exercises[index]
@@ -396,11 +393,42 @@ export default function AdminPanel() {
 
     persistStudentWorkouts({
       ...workouts,
-      [day]: {
-        ...workouts[day],
-        exercises,
-      },
+      [day]: { ...workouts[day], exercises },
     })
+  }
+
+  // NOVA FUNÇÃO: Substituir exercício existente mantendo a posição exata
+  function replaceExerciseWithLibrary(libraryExerciseId) {
+    if (!replacingExerciseId || !selectedStudent) return
+    const libEx = (data.exercisesLibrary || []).find((e) => e.id === libraryExerciseId)
+    if (!libEx) return
+
+    const workouts = studentWorkouts()
+    const exercises = workouts[day].exercises.map((item) => {
+      if (item.id === replacingExerciseId) {
+        return {
+          ...item,
+          name: libEx.name,
+          muscle: libEx.muscle || '',
+          sets: libEx.sets || item.sets || '3',
+          reps: libEx.reps || item.reps || '10-12',
+          notes: libEx.notes || item.notes || '',
+          video: libEx.video || item.video || '',
+          group: libEx.group || item.group || '',
+        }
+      }
+      return item
+    })
+
+    persistStudentWorkouts({
+      ...workouts,
+      [day]: { ...workouts[day], exercises },
+    })
+
+    setReplaceModalOpen(false)
+    setReplacingExerciseId(null)
+    setSaved('Exercício substituído com sucesso na mesma posição!')
+    setTimeout(() => setSaved(''), 2200)
   }
 
   function toggleExerciseExpand(id) {
@@ -421,9 +449,7 @@ export default function AdminPanel() {
       return
     }
 
-    const confirmed = window.confirm(
-      `Deseja copiar todos os exercícios e dados do Treino ${sourceDay} para o Treino ${day}?`
-    )
+    const confirmed = window.confirm(`Deseja copiar todos os exercícios do Treino ${sourceDay} para o Treino ${day}?`)
     if (!confirmed) return
 
     const clonedExercises = sourceWorkout.exercises.map((ex) => ({
@@ -449,9 +475,7 @@ export default function AdminPanel() {
     const sourceStudent = data.students.find((s) => s.id === sourceStudentIdForCopy)
     if (!sourceStudent) return
 
-    const confirmed = window.confirm(
-      `Deseja substituir todas as fichas de ${selectedStudent.name} pelas fichas de ${sourceStudent.name}?`
-    )
+    const confirmed = window.confirm(`Deseja substituir todas as fichas de ${selectedStudent.name} pelas fichas de ${sourceStudent.name}?`)
     if (!confirmed) return
 
     const sourceWorkouts = sourceStudent.workouts || cloneWorkouts(data.workouts)
@@ -463,10 +487,7 @@ export default function AdminPanel() {
         clonedWorkouts[d] = {
           title: dayData.title || '',
           focus: dayData.focus || '',
-          exercises: (dayData.exercises || []).map((ex) => ({
-            ...ex,
-            id: createId(),
-          })),
+          exercises: (dayData.exercises || []).map((ex) => ({ ...ex, id: createId() })),
         }
       }
     })
@@ -478,7 +499,7 @@ export default function AdminPanel() {
     setTimeout(() => setSaved(''), 2200)
   }
 
-  // Salvar Avaliação Física do Aluno
+  // Salvar Avaliação Física
   function handleSaveEvaluation(e) {
     e.preventDefault()
     if (!evaluatingStudent) return
@@ -505,24 +526,18 @@ export default function AdminPanel() {
       if (student.id === evaluatingStudent.id) {
         return {
           ...student,
-          evaluations: [newEvaluation],
+          evaluations: [...(student.evaluations || []), newEvaluation],
           updatedAt: new Date().toISOString(),
         }
       }
       return student
     })
 
-    const nextData = {
-      ...data,
-      students: updatedStudents,
-    }
-
-    persist(nextData)
-
+    persist({ ...data, students: updatedStudents })
     setShowEvaluationModal(false)
     setEvaluatingStudent(null)
     setEvaluationForm(emptyEvaluationForm())
-    setSaved('Avaliação física salva e sincronizada com sucesso!')
+    setSaved('Avaliação física salva com sucesso!')
     setTimeout(() => setSaved(''), 2200)
   }
 
@@ -610,10 +625,8 @@ export default function AdminPanel() {
   function deleteLibraryExercise(exerciseId) {
     const exercise = libraryExercises.find((item) => item.id === exerciseId)
     if (!exercise) return
-
     const confirmed = window.confirm(`Excluir "${exercise.name}" da biblioteca?`)
     if (!confirmed) return
-
     const next = removeExerciseFromLibrary(data, exerciseId)
     persist(next)
   }
@@ -627,17 +640,14 @@ export default function AdminPanel() {
 
   function saveWorkoutExerciseToLibrary(exercise) {
     if (!exercise.name?.trim()) return
-
     const alreadyExists = libraryExercises.some(
       (item) => item.name.trim().toLowerCase() === exercise.name.trim().toLowerCase()
     )
-
     if (alreadyExists) {
       setSaved('Esse exercício já está na biblioteca.')
       setTimeout(() => setSaved(''), 2200)
       return
     }
-
     addCurrentExerciseToLibrary(exercise)
     setSaved('Exercício salvo na biblioteca com sucesso!')
     setTimeout(() => setSaved(''), 2200)
@@ -649,7 +659,6 @@ export default function AdminPanel() {
 
     const code = (studentForm.code || generateAccessCode()).toUpperCase()
     const password = studentForm.password || generatePassword()
-
     if (data.students.some((item) => item.code === code)) return
 
     const nextStudent = {
@@ -677,6 +686,24 @@ export default function AdminPanel() {
     setTab('workouts')
   }
 
+  // NOVA FUNÇÃO: Salvar alteração de código e senha do aluno
+  function saveStudentCredentials(studentId) {
+    const newCode = editStudentForm.code.trim().toUpperCase()
+    const newPass = editStudentForm.password.trim()
+    if (!newCode || !newPass) return
+
+    const updatedStudents = data.students.map((st) =>
+      st.id === studentId
+        ? { ...st, code: newCode, password: newPass, updatedAt: new Date().toISOString() }
+        : st
+    )
+
+    persist({ ...data, students: updatedStudents })
+    setEditingStudentCredsId(null)
+    setSaved('Credenciais do aluno atualizadas!')
+    setTimeout(() => setSaved(''), 2200)
+  }
+
   function toggleStudent(id) {
     persist({
       ...data,
@@ -690,11 +717,7 @@ export default function AdminPanel() {
     const confirmed = window.confirm('Deseja realmente excluir este aluno?')
     if (!confirmed) return
 
-    const { error } = await supabase
-      .from('alunos')
-      .delete()
-      .eq('id', id)
-
+    const { error } = await supabase.from('alunos').delete().eq('id', id)
     if (error) {
       console.error('Erro ao excluir aluno no Supabase:', error)
       alert('Erro ao excluir aluno na base de dados.')
@@ -702,15 +725,11 @@ export default function AdminPanel() {
     }
 
     const next = data.students.filter((item) => item.id !== id)
-    persist({
-      ...data,
-      students: next,
-    })
+    persist({ ...data, students: next })
 
     if (selectedStudentId === id) {
       setSelectedStudentId(next[0]?.id || '')
     }
-
     setSaved('Aluno excluído com sucesso!')
     setTimeout(() => setSaved(''), 2200)
   }
@@ -813,7 +832,7 @@ export default function AdminPanel() {
             <label className="block text-xs uppercase tracking-[0.18em] text-gold-400 font-bold">
               Nome do plano
               <input
-                value={data.plan.name}
+                value={data.plan?.name || ''}
                 onChange={(e) => updatePlan('name', e.target.value)}
                 className="mt-2 w-full rounded-xl border border-white/15 bg-ink-800 px-4 py-3.5 text-base text-white outline-none focus:border-gold-400/50"
               />
@@ -822,7 +841,8 @@ export default function AdminPanel() {
               Valor (R$)
               <input
                 type="number"
-                value={data.plan.price}
+                step="0.01"
+                value={data.plan?.price ?? 149.99}
                 onChange={(e) => updatePlan('price', Number(e.target.value))}
                 className="mt-2 w-full rounded-xl border border-white/15 bg-ink-800 px-4 py-3.5 text-base text-white outline-none focus:border-gold-400/50"
               />
@@ -830,7 +850,7 @@ export default function AdminPanel() {
             <label className="block text-xs uppercase tracking-[0.18em] text-gold-400 font-bold">
               Descrição
               <textarea
-                value={data.plan.description}
+                value={data.plan?.description || ''}
                 onChange={(e) => updatePlan('description', e.target.value)}
                 rows={4}
                 className="mt-2 w-full rounded-xl border border-white/15 bg-ink-800 px-4 py-3.5 text-base text-white outline-none focus:border-gold-400/50"
@@ -954,7 +974,7 @@ export default function AdminPanel() {
               </button>
             </div>
 
-            {/* LISTA DE EXERCÍCIOS COM ACORDEÃO E SETAS DE REORDENAÇÃO */}
+            {/* LISTA DE EXERCÍCIOS */}
             <div className="flex-1 overflow-y-auto space-y-3 pt-4 pb-20">
               {(currentWorkout.exercises || []).map((exercise, index, arr) => {
                 const isExpanded = expandedExercises[exercise.id] !== false
@@ -992,6 +1012,18 @@ export default function AdminPanel() {
                       </div>
 
                       <div className="flex items-center gap-1 shrink-0">
+                        {/* BOTÃO DE SUBSTITUIR EXERCÍCIO DIRETAMENTE */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setReplacingExerciseId(exercise.id)
+                            setReplaceModalOpen(true)
+                          }}
+                          className="p-1.5 text-gold-400 hover:text-gold-300 transition"
+                          title="Substituir por outro da biblioteca"
+                        >
+                          <RefreshCw size={16} />
+                        </button>
                         {index > 0 && (
                           <button
                             type="button"
@@ -1032,7 +1064,6 @@ export default function AdminPanel() {
                           type="button"
                           onClick={() => toggleExerciseExpand(exercise.id)}
                           className="p-1.5 text-zinc-300 hover:text-gold-400 transition ml-1"
-                          title={isExpanded ? 'Recolher' : 'Expandir'}
                         >
                           {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
                         </button>
@@ -1047,24 +1078,21 @@ export default function AdminPanel() {
                           placeholder="Nome do exercício"
                           className="w-full rounded-xl border border-white/15 bg-ink-700 px-3.5 py-2.5 text-sm text-white outline-none focus:border-gold-400/50"
                         />
-
                         <div className="relative">
                           <Link2 size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gold-400" />
                           <input
                             value={exercise.group || ''}
                             onChange={(e) => updateExercise(exercise.id, 'group', e.target.value)}
-                            placeholder="Conjugação / Grupo (Ex: Bi-set A, Trí-set)"
+                            placeholder="Conjugação / Grupo (Ex: Bi-set A)"
                             className="w-full rounded-xl border border-gold-400/30 bg-ink-700 py-2.5 pl-10 pr-3.5 text-xs font-semibold text-gold-300 placeholder:text-zinc-400 outline-none"
                           />
                         </div>
-
                         <input
                           value={exercise.muscle || ''}
                           onChange={(e) => updateExercise(exercise.id, 'muscle', e.target.value)}
                           placeholder="Grupo muscular (ex: Peito)"
                           className="w-full rounded-xl border border-white/15 bg-ink-700 px-3.5 py-2.5 text-sm text-white outline-none focus:border-gold-400/50"
                         />
-
                         <div className="grid grid-cols-2 gap-2.5">
                           <input
                             value={exercise.sets}
@@ -1079,7 +1107,6 @@ export default function AdminPanel() {
                             className="rounded-xl border border-white/15 bg-ink-700 px-3.5 py-2.5 text-sm text-white outline-none focus:border-gold-400/50"
                           />
                         </div>
-
                         <textarea
                           value={exercise.notes}
                           onChange={(e) => updateExercise(exercise.id, 'notes', e.target.value)}
@@ -1087,11 +1114,10 @@ export default function AdminPanel() {
                           rows={2}
                           className="w-full rounded-xl border border-white/15 bg-ink-700 px-3.5 py-2.5 text-sm text-white outline-none focus:border-gold-400/50"
                         />
-
                         <input
                           value={exercise.video}
                           onChange={(e) => updateExercise(exercise.id, 'video', e.target.value)}
-                          placeholder="Cole o link do vídeo (YouTube)"
+                          placeholder="Link do vídeo (YouTube)"
                           className="w-full rounded-xl border border-white/15 bg-ink-700 px-3.5 py-2.5 text-sm text-white outline-none focus:border-gold-400/50"
                         />
                       </div>
@@ -1179,7 +1205,7 @@ export default function AdminPanel() {
               />
             </div>
 
-            {/* LISTA DE ALUNOS COM BARRA LATERAL DE STATUS E TEMPO DA FICHA */}
+            {/* LISTA DE ALUNOS COM OPÇÃO DE EDITAR LOGIN */}
             <div className="mt-4.5 space-y-3.5">
               {filteredStudents.length === 0 ? (
                 <div className="rounded-2xl border border-white/10 bg-ink-800 p-6 text-center">
@@ -1188,49 +1214,90 @@ export default function AdminPanel() {
               ) : (
                 filteredStudents.map((student) => {
                   const isActive = student.active !== false
+                  const isEditingThis = editingStudentCredsId === student.id
 
                   return (
                     <article
                       key={student.id}
                       className="relative overflow-hidden rounded-2xl border border-white/10 bg-ink-800 p-4.5 transition-all"
                     >
-                      <div
-                        className={`absolute left-0 top-0 bottom-0 w-1.5 ${
-                          isActive ? 'bg-gold-400' : 'bg-zinc-600'
-                        }`}
-                      />
+                      <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${isActive ? 'bg-gold-400' : 'bg-zinc-600'}`} />
 
                       <div className="pl-2">
                         <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <h2 className="font-display text-2xl uppercase text-white">{student.name}</h2>
-                              <span
-                                className={`rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                                  isActive
-                                    ? 'bg-gold-400/20 text-gold-300 border border-gold-400/30'
-                                    : 'bg-zinc-700 text-zinc-400'
-                                }`}
+                          <div className="w-full">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <h2 className="font-display text-2xl uppercase text-white">{student.name}</h2>
+                                <span className={`rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${isActive ? 'bg-gold-400/20 text-gold-300 border border-gold-400/30' : 'bg-zinc-700 text-zinc-400'}`}>
+                                  {isActive ? 'Ativo' : 'Inativo'}
+                                </span>
+                              </div>
+                              <button
+                                onClick={() => removeStudent(student.id)}
+                                className="text-zinc-400 hover:text-red-400 transition"
+                                title="Excluir aluno"
                               >
-                                {isActive ? 'Ativo' : 'Inativo'}
-                              </span>
+                                <Trash2 size={18} />
+                              </button>
                             </div>
-                            <p className="mt-1 text-sm text-zinc-300 font-medium">Código: {student.code}</p>
-                            <p className="text-sm text-zinc-300 font-medium">Senha: {student.password}</p>
+
+                            {/* SE ESTIVER EDITANDO CREDENCIAIS */}
+                            {isEditingThis ? (
+                              <div className="mt-3 space-y-2.5 rounded-xl border border-gold-400/40 bg-ink-900 p-3">
+                                <p className="text-xs uppercase font-bold text-gold-400">Editar Código e Senha</p>
+                                <input
+                                  value={editStudentForm.code}
+                                  onChange={(e) => setEditStudentForm({ ...editStudentForm, code: e.target.value.toUpperCase() })}
+                                  placeholder="Novo código"
+                                  className="w-full rounded-lg border border-white/15 bg-ink-800 px-3 py-2 text-sm text-white outline-none"
+                                />
+                                <input
+                                  value={editStudentForm.password}
+                                  onChange={(e) => setEditStudentForm({ ...editStudentForm, password: e.target.value })}
+                                  placeholder="Nova senha"
+                                  className="w-full rounded-lg border border-white/15 bg-ink-800 px-3 py-2 text-sm text-white outline-none"
+                                />
+                                <div className="flex gap-2 pt-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditingStudentCredsId(null)}
+                                    className="w-1/2 rounded-lg border border-white/15 py-2 text-xs font-bold uppercase text-zinc-300"
+                                  >
+                                    Cancelar
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => saveStudentCredentials(student.id)}
+                                    className="w-1/2 rounded-lg bg-gold-400 py-2 text-xs font-bold uppercase text-ink-950 font-bold"
+                                  >
+                                    Salvar Acesso
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="mt-1 flex items-center justify-between">
+                                <div>
+                                  <p className="text-sm text-zinc-300 font-medium">Código: <span className="text-white font-bold">{student.code}</span></p>
+                                  <p className="text-sm text-zinc-300 font-medium">Senha: <span className="text-white font-bold">{student.password}</span></p>
+                                </div>
+                                <button
+                                  onClick={() => {
+                                    setEditingStudentCredsId(student.id)
+                                    setEditStudentForm({ code: student.code, password: student.password })
+                                  }}
+                                  className="text-xs font-bold text-gold-400 hover:text-gold-300 underline"
+                                >
+                                  Editar Acesso
+                                </button>
+                              </div>
+                            )}
 
                             <div className="mt-2.5 flex items-center gap-1.5 text-xs text-zinc-400 font-medium">
                               <Clock size={13} className="text-gold-400" />
                               <span>{formatTimeAgo(student.updatedAt)}</span>
                             </div>
                           </div>
-
-                          <button
-                            onClick={() => removeStudent(student.id)}
-                            className="text-zinc-400 hover:text-red-400 transition"
-                            title="Excluir aluno"
-                          >
-                            <Trash2 size={18} />
-                          </button>
                         </div>
 
                         <div className="mt-4 flex flex-wrap gap-2">
@@ -1278,14 +1345,57 @@ export default function AdminPanel() {
         )}
       </main>
 
+      {/* MODAL DE SUBSTITUIÇÃO DE EXERCÍCIO */}
+      {replaceModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 backdrop-blur-sm"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setReplaceModalOpen(false)
+          }}
+        >
+          <div className="flex flex-col h-[75vh] max-h-[600px] w-full max-w-md overflow-hidden rounded-3xl border border-gold-400/40 bg-ink-900 shadow-2xl p-5">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3 mb-3">
+              <div>
+                <p className="text-xs uppercase tracking-widest text-gold-400 font-bold">Substituição</p>
+                <h3 className="font-display text-xl uppercase">Escolha o novo exercício</h3>
+              </div>
+              <button
+                onClick={() => setReplaceModalOpen(false)}
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 text-zinc-300 hover:text-white"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-2.5">
+              {libraryExercises.length === 0 ? (
+                <p className="text-center text-sm text-zinc-400 py-8">Sua biblioteca está vazia.</p>
+              ) : (
+                libraryExercises.map((libEx) => (
+                  <div
+                    key={libEx.id}
+                    onClick={() => replaceExerciseWithLibrary(libEx.id)}
+                    className="cursor-pointer rounded-xl border border-white/10 bg-ink-800 p-3.5 hover:border-gold-400/50 hover:bg-ink-750 transition"
+                  >
+                    <p className="font-display text-base uppercase text-white">{libEx.name}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      {libEx.muscle && <span className="text-xs text-gold-400 font-semibold uppercase">{libEx.muscle}</span>}
+                      {libEx.sets && libEx.reps && <span className="text-xs text-zinc-400">({libEx.sets}x{libEx.reps})</span>}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MODAL DE AVALIAÇÃO FÍSICA */}
       {showEvaluationModal && evaluatingStudent && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm"
           onMouseDown={(event) => {
-            if (event.target === event.currentTarget) {
-              setShowEvaluationModal(false)
-            }
+            if (event.target === event.currentTarget) setShowEvaluationModal(false)
           }}
         >
           <div className="w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-3xl border border-gold-400/40 bg-ink-900 p-6 shadow-2xl text-white">
@@ -1302,7 +1412,7 @@ export default function AdminPanel() {
               <button
                 type="button"
                 onClick={() => setShowEvaluationModal(false)}
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-zinc-300 hover:text-gold-400 hover:border-gold-400/40 transition"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-zinc-300 hover:text-gold-400"
               >
                 <X size={18} />
               </button>
@@ -1317,7 +1427,7 @@ export default function AdminPanel() {
                   type="text"
                   value={evaluationForm.date}
                   onChange={(e) => setEvaluationForm({ ...evaluationForm, date: e.target.value })}
-                  className="w-full rounded-xl border border-white/15 bg-ink-800 px-4 py-3 text-base text-white outline-none focus:border-gold-400/50"
+                  className="w-full rounded-xl border border-white/15 bg-ink-800 px-4 py-3 text-base text-white outline-none"
                   required
                 />
               </div>
@@ -1343,15 +1453,15 @@ export default function AdminPanel() {
                         tmb: metrics.tmb,
                         get: metrics.get,
                       }))
-                      setSaved('Métricas calculadas com sucesso!')
+                      setSaved('Métricas calculadas!')
                       setTimeout(() => setSaved(''), 2200)
                     } else {
-                      window.alert('Informe pelo menos o Peso e a Altura para calcular.')
+                      window.alert('Informe pelo menos o Peso e a Altura.')
                     }
                   }}
-                  className="rounded-xl bg-gold-400 px-4 py-2.5 text-xs font-bold uppercase text-ink-950 shadow hover:bg-gold-300 transition shrink-0"
+                  className="rounded-xl bg-gold-400 px-4 py-2.5 text-xs font-bold uppercase text-ink-950 transition hover:bg-gold-300 shrink-0"
                 >
-                  ⚡ Calcular Dados
+                  ⚡ Calcular
                 </button>
               </div>
 
@@ -1363,29 +1473,28 @@ export default function AdminPanel() {
                   <input
                     type="number"
                     step="0.1"
-                    placeholder="Peso Total (kg)"
+                    placeholder="Peso (kg)"
                     value={evaluationForm.weight}
                     onChange={(e) => setEvaluationForm({ ...evaluationForm, weight: e.target.value })}
-                    className="rounded-xl border border-white/15 bg-ink-800 px-3.5 py-3 text-sm text-white outline-none focus:border-gold-400/50"
+                    className="rounded-xl border border-white/15 bg-ink-800 px-3.5 py-3 text-sm text-white outline-none"
                     required
                   />
                   <input
                     type="number"
                     step="0.01"
-                    placeholder="Altura (m, ex: 1.78)"
+                    placeholder="Altura (m)"
                     value={evaluationForm.height}
                     onChange={(e) => setEvaluationForm({ ...evaluationForm, height: e.target.value })}
-                    className="rounded-xl border border-white/15 bg-ink-800 px-3.5 py-3 text-sm text-white outline-none focus:border-gold-400/50"
+                    className="rounded-xl border border-white/15 bg-ink-800 px-3.5 py-3 text-sm text-white outline-none"
                     required
                   />
                   <input
                     type="number"
                     step="0.1"
-                    placeholder="% de Gordura (%BF)"
+                    placeholder="% Gordura"
                     value={evaluationForm.fatPercentage}
                     onChange={(e) => setEvaluationForm({ ...evaluationForm, fatPercentage: e.target.value })}
-                    className="rounded-xl border border-white/15 bg-ink-800 px-3.5 py-3 text-sm text-white outline-none focus:border-gold-400/50"
-                    required
+                    className="rounded-xl border border-white/15 bg-ink-800 px-3.5 py-3 text-sm text-white outline-none"
                   />
                   <input
                     type="number"
@@ -1393,82 +1502,7 @@ export default function AdminPanel() {
                     placeholder="Massa Magra (kg)"
                     value={evaluationForm.leanMass}
                     onChange={(e) => setEvaluationForm({ ...evaluationForm, leanMass: e.target.value })}
-                    className="rounded-xl border border-white/15 bg-ink-800 px-3.5 py-3 text-sm text-white outline-none focus:border-gold-400/50"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <p className="text-xs uppercase font-bold tracking-widest text-gold-400 mb-2">Metabolismo & Calorias</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <input
-                    type="number"
-                    placeholder="TMB (kcal)"
-                    value={evaluationForm.tmb}
-                    onChange={(e) => setEvaluationForm({ ...evaluationForm, tmb: e.target.value })}
-                    className="rounded-xl border border-white/15 bg-ink-800 px-3.5 py-3 text-sm text-white outline-none focus:border-gold-400/50"
-                  />
-                  <input
-                    type="number"
-                    placeholder="GET (kcal)"
-                    value={evaluationForm.get}
-                    onChange={(e) => setEvaluationForm({ ...evaluationForm, get: e.target.value })}
-                    className="rounded-xl border border-white/15 bg-ink-800 px-3.5 py-3 text-sm text-white outline-none focus:border-gold-400/50"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <p className="text-xs uppercase font-bold tracking-widest text-gold-400 mb-2">Circunferências (cm)</p>
-                <div className="grid grid-cols-3 gap-2">
-                  <input
-                    type="number"
-                    step="0.1"
-                    placeholder="Tórax"
-                    value={evaluationForm.chest}
-                    onChange={(e) => setEvaluationForm({ ...evaluationForm, chest: e.target.value })}
-                    className="rounded-xl border border-white/15 bg-ink-800 px-3 py-2.5 text-xs text-white outline-none"
-                  />
-                  <input
-                    type="number"
-                    step="0.1"
-                    placeholder="Braço"
-                    value={evaluationForm.arm}
-                    onChange={(e) => setEvaluationForm({ ...evaluationForm, arm: e.target.value })}
-                    className="rounded-xl border border-white/15 bg-ink-800 px-3 py-2.5 text-xs text-white outline-none"
-                  />
-                  <input
-                    type="number"
-                    step="0.1"
-                    placeholder="Cintura"
-                    value={evaluationForm.waist}
-                    onChange={(e) => setEvaluationForm({ ...evaluationForm, waist: e.target.value })}
-                    className="rounded-xl border border-white/15 bg-ink-800 px-3 py-2.5 text-xs text-white outline-none"
-                  />
-                  <input
-                    type="number"
-                    step="0.1"
-                    placeholder="Quadril"
-                    value={evaluationForm.hips}
-                    onChange={(e) => setEvaluationForm({ ...evaluationForm, hips: e.target.value })}
-                    className="rounded-xl border border-white/15 bg-ink-800 px-3 py-2.5 text-xs text-white outline-none"
-                  />
-                  <input
-                    type="number"
-                    step="0.1"
-                    placeholder="Coxa"
-                    value={evaluationForm.thigh}
-                    onChange={(e) => setEvaluationForm({ ...evaluationForm, thigh: e.target.value })}
-                    className="rounded-xl border border-white/15 bg-ink-800 px-3 py-2.5 text-xs text-white outline-none"
-                  />
-                  <input
-                    type="number"
-                    step="0.1"
-                    placeholder="Panturrilha"
-                    value={evaluationForm.calf}
-                    onChange={(e) => setEvaluationForm({ ...evaluationForm, calf: e.target.value })}
-                    className="rounded-xl border border-white/15 bg-ink-800 px-3 py-2.5 text-xs text-white outline-none"
+                    className="rounded-xl border border-white/15 bg-ink-800 px-3.5 py-3 text-sm text-white outline-none"
                   />
                 </div>
               </div>
@@ -1477,13 +1511,13 @@ export default function AdminPanel() {
                 <button
                   type="button"
                   onClick={() => setShowEvaluationModal(false)}
-                  className="w-1/2 rounded-xl border border-white/15 py-3 text-xs font-bold uppercase text-zinc-300 hover:bg-white/5"
+                  className="w-1/2 rounded-xl border border-white/15 py-3 text-xs font-bold uppercase text-zinc-300"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="w-1/2 rounded-xl bg-gold-400 py-3 text-xs font-bold uppercase text-ink-950 transition hover:bg-gold-300 shadow-lg"
+                  className="w-1/2 rounded-xl bg-gold-400 py-3 text-xs font-bold uppercase text-ink-950 font-bold hover:bg-gold-300 transition"
                 >
                   Salvar Avaliação
                 </button>
@@ -1493,78 +1527,12 @@ export default function AdminPanel() {
         </div>
       )}
 
-      {/* MODAL DE CÓPIA DE FICHA ENTRE ALUNOS */}
-      {showCopyStudentWorkoutsModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) {
-              setShowCopyStudentWorkoutsModal(false)
-            }
-          }}
-        >
-          <div className="w-full max-w-sm rounded-3xl border border-white/15 bg-ink-900 p-5.5 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <div>
-                <p className="text-xs uppercase tracking-[0.2em] text-gold-400 font-bold">Duplicação</p>
-                <h2 className="mt-0.5 font-display text-xl uppercase text-white">Copiar Ficha de Aluno</h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowCopyStudentWorkoutsModal(false)}
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 text-zinc-300 hover:text-white"
-              >
-                <X size={18} />
-              </button>
-            </div>
-            <p className="mt-3.5 text-sm leading-relaxed text-zinc-300">
-              Selecione abaixo o aluno modelo cujas fichas (A a E) você deseja copiar para <strong className="text-white">{selectedStudent?.name}</strong>:
-            </p>
-            <div className="mt-4 space-y-3.5">
-              <select
-                value={sourceStudentIdForCopy}
-                onChange={(e) => setSourceStudentIdForCopy(e.target.value)}
-                className="w-full rounded-xl border border-white/15 bg-ink-800 px-4 py-3.5 text-base text-white outline-none"
-              >
-                <option value="" disabled>Selecione o aluno de origem...</option>
-                {data.students
-                  .filter((s) => s.id !== selectedStudent?.id)
-                  .map((student) => (
-                    <option key={student.id} value={student.id} className="bg-ink-900 text-white">
-                      {student.name} ({student.code})
-                    </option>
-                  ))}
-              </select>
-              <div className="grid grid-cols-2 gap-2.5 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowCopyStudentWorkoutsModal(false)}
-                  className="rounded-xl border border-white/15 py-3 text-xs font-bold uppercase tracking-wide text-zinc-300 hover:bg-white/5"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  disabled={!sourceStudentIdForCopy}
-                  onClick={executeCopyWorkoutsFromStudent}
-                  className="rounded-xl bg-gold-400 py-3 text-xs font-bold uppercase tracking-wide text-ink-950 disabled:opacity-50"
-                >
-                  Copiar Fichas
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* MODAL DA BIBLIOTECA DE EXERCÍCIOS */}
       {libraryOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 backdrop-blur-sm"
           onMouseDown={(event) => {
-            if (event.target === event.currentTarget) {
-              setLibraryOpen(false)
-            }
+            if (event.target === event.currentTarget) setLibraryOpen(false)
           }}
         >
           <div className="flex flex-col h-[85vh] max-h-[700px] w-full max-w-md overflow-hidden rounded-3xl border border-white/15 bg-ink-900 shadow-2xl">
@@ -1576,7 +1544,7 @@ export default function AdminPanel() {
               <button
                 type="button"
                 onClick={() => setLibraryOpen(false)}
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/15 text-zinc-300 hover:text-white transition"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/15 text-zinc-300 hover:text-white"
               >
                 <X size={20} />
               </button>
@@ -1589,28 +1557,9 @@ export default function AdminPanel() {
                   value={librarySearch}
                   onChange={(e) => setLibrarySearch(e.target.value)}
                   placeholder="Buscar exercício..."
-                  className="w-full rounded-xl border border-white/15 bg-ink-800 py-3.5 pl-11 pr-3.5 text-base text-white outline-none focus:border-gold-400/50"
+                  className="w-full rounded-xl border border-white/15 bg-ink-800 py-3.5 pl-11 pr-3.5 text-base text-white outline-none"
                 />
               </div>
-
-              {availableMuscles.length > 1 && (
-                <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-                  {availableMuscles.map((muscle) => (
-                    <button
-                      key={muscle}
-                      type="button"
-                      onClick={() => setSelectedMuscleFilter(muscle)}
-                      className={`shrink-0 rounded-lg px-3.5 py-2 text-xs font-bold uppercase tracking-wider transition ${
-                        selectedMuscleFilter === muscle
-                          ? 'bg-gold-400 text-ink-950 shadow-sm'
-                          : 'bg-ink-800 border border-white/15 text-zinc-300 hover:text-white'
-                      }`}
-                    >
-                      {muscle}
-                    </button>
-                  ))}
-                </div>
-              )}
 
               {!showNewLibraryExercise ? (
                 <button
@@ -1626,12 +1575,9 @@ export default function AdminPanel() {
                   Novo exercício na biblioteca
                 </button>
               ) : (
-                <form
-                  onSubmit={saveNewLibraryExercise}
-                  className="rounded-2xl border border-gold-400/30 bg-ink-800 p-4.5"
-                >
-                  <div className="mb-3.5 flex items-center justify-between">
-                    <p className="text-xs uppercase tracking-[0.18em] text-gold-400 font-bold">
+                <form onSubmit={saveNewLibraryExercise} className="rounded-2xl border border-gold-400/30 bg-ink-800 p-4.5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs uppercase tracking-widest text-gold-400 font-bold">
                       {editingLibraryId ? 'Editar exercício' : 'Novo exercício'}
                     </p>
                     <button
@@ -1639,138 +1585,70 @@ export default function AdminPanel() {
                       onClick={() => {
                         setShowNewLibraryExercise(false)
                         setEditingLibraryId(null)
-                        setLibraryForm(emptyLibraryExercise())
                       }}
                       className="text-zinc-400 hover:text-white"
                     >
                       <X size={18} />
                     </button>
                   </div>
-                  <div className="space-y-3">
-                    <input
-            value={libraryForm.name}
-                      onChange={(e) => setLibraryForm({ ...libraryForm, name: e.target.value })}
-                      placeholder="Nome do exercício"
-                      className="w-full rounded-xl border border-white/15 bg-ink-700 px-3.5 py-3 text-base text-white outline-none"
-                    />
-                    <input
-                      value={libraryForm.group || ''}
-                      onChange={(e) => setLibraryForm({ ...libraryForm, group: e.target.value })}
-                      placeholder="Conjugação / Grupo (Ex: Bi-set A)"
-                      className="w-full rounded-xl border border-gold-400/30 bg-ink-700 px-3.5 py-3 text-xs font-semibold text-gold-300 placeholder:text-zinc-400 outline-none"
-                    />
-                    <input
-                      value={libraryForm.muscle}
-                      onChange={(e) => setLibraryForm({ ...libraryForm, muscle: e.target.value })}
-                      placeholder="Grupo muscular (ex: Peito)"
-                      className="w-full rounded-xl border border-white/15 bg-ink-700 px-3.5 py-3 text-base text-white outline-none"
-                    />
-                    <div className="grid grid-cols-2 gap-2.5">
-                      <input
-                        value={libraryForm.sets}
-                        onChange={(e) => setLibraryForm({ ...libraryForm, sets: e.target.value })}
-                        placeholder="Séries"
-                        className="rounded-xl border border-white/15 bg-ink-700 px-3.5 py-3 text-base text-white outline-none"
-                      />
-                      <input
-                        value={libraryForm.reps}
-                        onChange={(e) => setLibraryForm({ ...libraryForm, reps: e.target.value })}
-                        placeholder="Repetições"
-                        className="rounded-xl border border-white/15 bg-ink-700 px-3.5 py-3 text-base text-white outline-none"
-                      />
-                    </div>
-                    <textarea
-                      value={libraryForm.notes}
-                      onChange={(e) => setLibraryForm({ ...libraryForm, notes: e.target.value })}
-                      placeholder="Observações"
-                      rows={2}
-                      className="w-full rounded-xl border border-white/15 bg-ink-700 px-3.5 py-3 text-base text-white outline-none"
-                    />
-                    <input
-                      value={libraryForm.video}
-                      onChange={(e) => setLibraryForm({ ...libraryForm, video: e.target.value })}
-                      placeholder="Link do YouTube"
-                      className="w-full rounded-xl border border-white/15 bg-ink-700 px-3.5 py-3 text-base text-white outline-none"
-                    />
-                    <button
-                      type="submit"
-                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-gold-400 py-3.5 text-sm font-bold uppercase text-ink-950 shadow-md hover:bg-gold-300 transition"
-                    >
-                      <Plus size={18} />
-                      {editingLibraryId ? 'Salvar alterações' : 'Salvar na biblioteca'}
-                    </button>
-                  </div>
+                  <input
+                    value={libraryForm.name}
+                    onChange={(e) => setLibraryForm({ ...libraryForm, name: e.target.value })}
+                    placeholder="Nome do exercício"
+                    className="w-full rounded-xl border border-white/15 bg-ink-700 px-3.5 py-3 text-sm text-white outline-none"
+                    required
+                  />
+                  <input
+                    value={libraryForm.muscle}
+                    onChange={(e) => setLibraryForm({ ...libraryForm, muscle: e.target.value })}
+                    placeholder="Grupo muscular (Ex: Peito)"
+                    className="w-full rounded-xl border border-white/15 bg-ink-700 px-3.5 py-3 text-sm text-white outline-none"
+                  />
+                  <button
+                    type="submit"
+                    className="w-full rounded-xl bg-gold-400 py-3.5 text-xs font-bold uppercase tracking-wide text-ink-950 font-bold hover:bg-gold-300 transition"
+                  >
+                    {editingLibraryId ? 'Salvar alterações' : 'Adicionar à biblioteca'}
+                  </button>
                 </form>
               )}
             </div>
 
-            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3.5">
-              {filteredLibrary.length === 0 ? (
-                <div className="rounded-2xl border border-white/10 bg-ink-800 p-6 text-center">
-                  <Dumbbell size={32} className="mx-auto text-zinc-500" />
-                  <p className="mt-3 text-base text-zinc-300">Nenhum exercício encontrado.</p>
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {filteredLibrary.map((exercise) => (
+                <div key={exercise.id} className="group rounded-2xl border border-white/10 bg-ink-800 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h4 className="font-display text-base uppercase text-white">{exercise.name}</h4>
+                      <p className="text-xs text-gold-400 font-semibold uppercase">{exercise.muscle}</p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => startEditingLibrary(exercise)}
+                        className="rounded-xl border border-white/15 p-2 text-zinc-300 hover:text-gold-400"
+                      >
+                        <Pencil size={15} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => deleteLibraryExercise(exercise.id)}
+                        className="rounded-xl border border-white/15 p-2 text-zinc-300 hover:text-red-400"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => addFromLibrary(exercise.id)}
+                    className="mt-3.5 flex w-full items-center justify-center gap-2 rounded-xl bg-gold-400/20 border border-gold-400/30 py-2.5 text-xs font-bold uppercase tracking-wider text-gold-300 hover:bg-gold-400/30 transition"
+                  >
+                    <Plus size={16} />
+                    Adicionar ao treino atual ({day})
+                  </button>
                 </div>
-              ) : (
-                filteredLibrary.map((exercise) => (
-                  <article key={exercise.id} className="rounded-2xl border border-white/10 bg-ink-800 p-4.5">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <h3 className="font-display text-xl uppercase leading-tight text-white">{exercise.name}</h3>
-                        {exercise.group && (
-                          <span className="mt-1.5 inline-block rounded-md bg-gold-400/20 px-2.5 py-1 text-xs uppercase font-bold text-gold-300 border border-gold-400/30">
-                            {exercise.group}
-                          </span>
-                        )}
-                        {exercise.muscle && (
-                          <p className="mt-1.5 text-xs uppercase tracking-wider text-zinc-300 font-semibold">{exercise.muscle}</p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => startEditingLibrary(exercise)}
-                          className="text-zinc-400 hover:text-gold-300 transition"
-                          title="Editar exercício na biblioteca"
-                        >
-                          <Pencil size={18} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => deleteLibraryExercise(exercise.id)}
-                          className="text-zinc-400 hover:text-red-400 transition"
-                          title="Excluir da biblioteca"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="mt-3.5 grid grid-cols-2 gap-2.5">
-                      <div className="rounded-xl bg-ink-700 px-3.5 py-2.5">
-                        <p className="text-xs uppercase tracking-widest text-zinc-400 font-semibold">Séries</p>
-                        <p className="font-display text-xl text-gold-400 mt-0.5">{exercise.sets || '-'}</p>
-                      </div>
-                      <div className="rounded-xl bg-ink-700 px-3.5 py-2.5">
-                        <p className="text-xs uppercase tracking-widest text-zinc-400 font-semibold">Repetições</p>
-                        <p className="font-display text-xl text-gold-400 mt-0.5">{exercise.reps || '-'}</p>
-                      </div>
-                    </div>
-
-                    {exercise.notes && (
-                      <p className="mt-3.5 text-sm leading-relaxed text-zinc-300">{exercise.notes}</p>
-                    )}
-
-                    <button
-                      type="button"
-                      onClick={() => addFromLibrary(exercise.id)}
-                      className="mt-3.5 flex w-full items-center justify-center gap-2 rounded-xl bg-gold-400 py-3 text-xs font-bold uppercase tracking-wide text-ink-950 hover:bg-gold-300 transition shadow-sm"
-                    >
-                      <Plus size={16} />
-                      Adicionar ao treino {day}
-                    </button>
-                  </article>
-                ))
-              )}
+              ))}
             </div>
           </div>
         </div>
