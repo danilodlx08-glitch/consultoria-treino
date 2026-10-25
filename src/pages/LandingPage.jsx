@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   BadgeCheck,
@@ -12,7 +11,6 @@ import {
 } from 'lucide-react'
 import Logo from '../components/Logo.jsx'
 import BrandFrame from '../components/BrandFrame.jsx'
-import { formatBRL, loadData, subscribeData, whatsappLink } from '../storage'
 
 const benefits = [
   { icon: Dumbbell, title: 'Treino A a E', text: 'Planilha completa, objetiva e pronta para usar na academia.' },
@@ -21,13 +19,22 @@ const benefits = [
   { icon: ShieldCheck, title: 'Acompanhamento real', text: 'Ajustes e suporte direto com o personal via WhatsApp.' },
 ]
 
-export default function LandingPage() {
-  const [plan, setPlan] = useState(() => loadData().plan)
+const fixedPlan = {
+  name: 'Plano Mensal',
+  price: 149.99,
+  description: 'Consultoria individual de treino online com periodização, ajustes semanais e acompanhamento direto com Danilo Lopes.',
+  includes: [
+    'Planilhas personalizadas de A a E',
+    'Ajustes conforme evolução',
+    'Vídeos ilustrativos de cada movimento',
+    'Suporte direto via WhatsApp',
+  ],
+}
 
-  useEffect(() => {
-    const stop = subscribeData((data) => setPlan(data.plan))
-    return stop
-  }, [])
+export default function LandingPage() {
+  const whatsappUrl = `https://wa.me/5527996247906?text=${encodeURIComponent(
+    'Olá Danilo! Tenho interesse na consultoria online de treino.'
+  )}`
 
   return (
     <div className="min-h-dvh bg-ink-950 text-zinc-100">
@@ -81,19 +88,19 @@ export default function LandingPage() {
         <section className="mt-8 w-full text-left">
           <BrandFrame className="p-5 shadow-gold">
             <p className="text-[11px] uppercase tracking-[0.24em] text-gold-400">Investimento</p>
-            <h2 className="mt-2 font-display text-3xl uppercase text-white">{plan.name}</h2>
-            <p className="mt-3 text-sm leading-6 text-zinc-400">{plan.description}</p>
-            <p className="mt-5 font-display text-5xl text-gold-400">{formatBRL(plan.price)}</p>
+            <h2 className="mt-2 font-display text-3xl uppercase text-white">{fixedPlan.name}</h2>
+            <p className="mt-3 text-sm leading-6 text-zinc-400">{fixedPlan.description}</p>
+            <p className="mt-5 font-display text-5xl text-gold-400">R$ 149,99</p>
             <ul className="mt-5 space-y-2">
-              {(plan.includes || []).map((item) => (
-                <li key={item} className="flex items-start gap-2 text-sm text-zinc-300">
+              {fixedPlan.includes.map((item) => (
+                <li key={item} className="flex items-start gap-2 text-sm text-zinc-350">
                   <span className="mt-1 h-1.5 w-1.5 rounded-full bg-gold-400 shrink-0" />
                   <span>{item}</span>
                 </li>
               ))}
             </ul>
             <a
-              href={whatsappLink(plan)}
+              href={whatsappUrl}
               target="_blank"
               rel="noreferrer"
               className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-gold-400 px-4 py-3.5 text-sm font-semibold uppercase tracking-wide text-ink-950"
