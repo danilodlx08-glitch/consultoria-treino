@@ -46,7 +46,7 @@ const DAYS = ['A', 'B', 'C', 'D', 'E']
 
 const TABS = [
   { id: 'brand', label: 'Marca' },
-  { id: 'sales', label: 'Vendas' },
+  { id: 'library', label: 'Biblioteca' },
   { id: 'workouts', label: 'Treinos' },
   { id: 'students', label: 'Alunos' },
 ]
@@ -88,37 +88,6 @@ const emptyEvaluationForm = () => ({
   calf: '',
 })
 
-function calculateEvaluationMetrics({ weight, height, age = 30, gender = 'male', neck = 40, waist = 80, hips = 100 }) {
-  const w = Number(weight) || 0
-  const hCm = (Number(height) || 0) < 3 ? (Number(height) || 0) * 100 : (Number(height) || 0)
-  const a = Number(age) || 30
-  const n = Number(neck) || 40
-  const wa = Number(waist) || 80
-  const hi = Number(hips) || 100
-
-  if (!w || !hCm) return null
-
-  let tmb = (10 * w) + (6.25 * hCm) - (5 * a)
-  tmb = gender === 'female' ? tmb - 161 : tmb + 5
-  const get = tmb * 1.55
-
-  let bodyFat = 15
-  if (gender === 'male' && wa > n) {
-    bodyFat = 495 / (1.03324 - 0.19077 * Math.log10(wa - n) + 0.15456 * Math.log10(hCm)) - 450
-  } else if (gender === 'female' && (wa + hi) > n) {
-    bodyFat = 495 / (1.29579 - 0.35004 * Math.log10(wa + hi - n) + 0.22100 * Math.log10(hCm)) - 450
-  }
-  bodyFat = Math.max(3, Math.min(50, bodyFat))
-  const leanMass = w - (w * (bodyFat / 100))
-
-  return {
-    fatPercentage: Number(bodyFat.toFixed(1)),
-    leanMass: Number(leanMass.toFixed(1)),
-    tmb: Math.round(tmb),
-    get: Math.round(get),
-  }
-}
-
 function formatTimeAgo(dateString) {
   if (!dateString) return 'Nunca atualizada'
   const diffDays = Math.floor((new Date() - new Date(dateString)) / (1000 * 60 * 60 * 24))
@@ -135,19 +104,7 @@ export default function AdminPanel() {
   const { logoutAdmin } = useAuth()
   const navigate = useNavigate()
 
-  const [data, setData] = useState(() => {
-    const loaded = loadData()
-    // Garante o valor padrão de 149.99 se estiver zerado ou padrão antigo
-    if (!loaded.plan || !loaded.plan.price || loaded.plan.price === 97) {
-      loaded.plan = {
-        ...(loaded.plan || {}),
-        price: 149.99,
-        name: loaded.plan?.name || 'Consultoria Online Danilo Lopes',
-      }
-    }
-    return loaded
-  })
-
+  const [data, setData] = useState(() => loadData())
   const [tab, setTab] = useState('brand')
   const [day, setDay] = useState('A')
   const [saved, setSaved] = useState('')
@@ -159,15 +116,12 @@ export default function AdminPanel() {
   const [sourceStudentIdForCopy, setSourceStudentIdForCopy] = useState('')
   const [studentSearch, setStudentSearch] = useState('')
 
-  // Estados para Edição de Credenciais do Aluno
   const [editingStudentCredsId, setEditingStudentCredsId] = useState(null)
   const [editStudentForm, setEditStudentForm] = useState({ code: '', password: '' })
 
-  // Estados para Substituição Direta de Exercício
   const [replacingExerciseId, setReplacingExerciseId] = useState(null)
   const [replaceModalOpen, setReplaceModalOpen] = useState(false)
 
-  // Estados para o modal de Avaliação Física
   const [showEvaluationModal, setShowEvaluationModal] = useState(false)
   const [evaluatingStudent, setEvaluatingStudent] = useState(null)
   const [evaluationForm, setEvaluationForm] = useState(emptyEvaluationForm())
@@ -232,7 +186,7 @@ export default function AdminPanel() {
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
       reader.onload = () => resolve(reader.result)
-      reader.onerror = () => reject(new Error('Falha ao ler o arquivo'))
+      reader.onerror = () => reject(new Error('Falha ao ler o ficheiro'))
       reader.readAsDataURL(file)
     })
   }
@@ -243,7 +197,7 @@ export default function AdminPanel() {
     if (!file) return
 
     if (!file.type.startsWith('image/')) {
-      setLogoError('Envie um arquivo de imagem (PNG, JPG, WEBP ou SVG).')
+      setLogoError('Envie um ficheiro de imagem (PNG, JPG, WEBP ou SVG).')
       return
     }
 
@@ -264,7 +218,7 @@ export default function AdminPanel() {
       })
       setLogoError('')
     } catch {
-      setLogoError('Não foi possível carregar a imagem. Tente outro arquivo.')
+      setLogoError('Não foi possível carregar a imagem. Tente outro ficheiro.')
     }
   }
 
@@ -274,45 +228,6 @@ export default function AdminPanel() {
       brand: { logo: '/logo.png' },
     })
     setLogoError('')
-  }
-
-  function updatePlan(field, value) {
-    persist({
-      ...data,
-      plan: {
-        ...data.plan,
-        [field]: value,
-      },
-    })
-  }
-
-  function updateInclude(index, value) {
-    const includes = [...(data.plan.includes || [])]
-    includes[index] = value
-    persist({
-      ...data,
-      plan: { ...data.plan, includes },
-    })
-  }
-
-  function addInclude() {
-    persist({
-      ...data,
-      plan: {
-        ...data.plan,
-        includes: [...(data.plan.includes || []), 'Novo item'],
-      },
-    })
-  }
-
-  function removeInclude(index) {
-    persist({
-      ...data,
-      plan: {
-        ...data.plan,
-        includes: (data.plan.includes || []).filter((_, i) => i !== index),
-      },
-    })
   }
 
   function studentWorkouts() {
@@ -397,7 +312,6 @@ export default function AdminPanel() {
     })
   }
 
-  // NOVA FUNÇÃO: Substituir exercício existente mantendo a posição exata
   function replaceExerciseWithLibrary(libraryExerciseId) {
     if (!replacingExerciseId || !selectedStudent) return
     const libEx = (data.exercisesLibrary || []).find((e) => e.id === libraryExerciseId)
@@ -470,36 +384,6 @@ export default function AdminPanel() {
     setTimeout(() => setSaved(''), 2200)
   }
 
-  function executeCopyWorkoutsFromStudent() {
-    if (!sourceStudentIdForCopy || !selectedStudent) return
-    const sourceStudent = data.students.find((s) => s.id === sourceStudentIdForCopy)
-    if (!sourceStudent) return
-
-    const confirmed = window.confirm(`Deseja substituir todas as fichas de ${selectedStudent.name} pelas fichas de ${sourceStudent.name}?`)
-    if (!confirmed) return
-
-    const sourceWorkouts = sourceStudent.workouts || cloneWorkouts(data.workouts)
-    const clonedWorkouts = {}
-
-    DAYS.forEach((d) => {
-      const dayData = sourceWorkouts[d]
-      if (dayData) {
-        clonedWorkouts[d] = {
-          title: dayData.title || '',
-          focus: dayData.focus || '',
-          exercises: (dayData.exercises || []).map((ex) => ({ ...ex, id: createId() })),
-        }
-      }
-    })
-
-    persistStudentWorkouts(clonedWorkouts)
-    setShowCopyStudentWorkoutsModal(false)
-    setSourceStudentIdForCopy('')
-    setSaved(`Fichas copiadas de ${sourceStudent.name} com sucesso!`)
-    setTimeout(() => setSaved(''), 2200)
-  }
-
-  // Salvar Avaliação Física
   function handleSaveEvaluation(e) {
     e.preventDefault()
     if (!evaluatingStudent) return
@@ -631,25 +515,11 @@ export default function AdminPanel() {
     persist(next)
   }
 
-  function addFromLibrary(exerciseId) {
+  function addFromLibraryToCurrentStudent(exerciseId) {
     if (!selectedStudent) return
     const next = addLibraryExerciseToWorkout(data, selectedStudent.id, day, exerciseId)
     persist(next)
-    setLibraryOpen(false)
-  }
-
-  function saveWorkoutExerciseToLibrary(exercise) {
-    if (!exercise.name?.trim()) return
-    const alreadyExists = libraryExercises.some(
-      (item) => item.name.trim().toLowerCase() === exercise.name.trim().toLowerCase()
-    )
-    if (alreadyExists) {
-      setSaved('Esse exercício já está na biblioteca.')
-      setTimeout(() => setSaved(''), 2200)
-      return
-    }
-    addCurrentExerciseToLibrary(exercise)
-    setSaved('Exercício salvo na biblioteca com sucesso!')
+    setSaved('Exercício adicionado ao treino do aluno!')
     setTimeout(() => setSaved(''), 2200)
   }
 
@@ -686,7 +556,6 @@ export default function AdminPanel() {
     setTab('workouts')
   }
 
-  // NOVA FUNÇÃO: Salvar alteração de código e senha do aluno
   function saveStudentCredentials(studentId) {
     const newCode = editStudentForm.code.trim().toUpperCase()
     const newPass = editStudentForm.password.trim()
@@ -826,62 +695,174 @@ export default function AdminPanel() {
           </section>
         )}
 
-        {tab === 'sales' && (
+        {/* ABA DA BIBLIOTECA DE EXERCÍCIOS GERAL */}
+        {tab === 'library' && (
           <section className="space-y-4">
-            <h1 className="font-display text-3xl uppercase">Gestão de Vendas</h1>
-            <label className="block text-xs uppercase tracking-[0.18em] text-gold-400 font-bold">
-              Nome do plano
-              <input
-                value={data.plan?.name || ''}
-                onChange={(e) => updatePlan('name', e.target.value)}
-                className="mt-2 w-full rounded-xl border border-white/15 bg-ink-800 px-4 py-3.5 text-base text-white outline-none focus:border-gold-400/50"
-              />
-            </label>
-            <label className="block text-xs uppercase tracking-[0.18em] text-gold-400 font-bold">
-              Valor (R$)
-              <input
-                type="number"
-                step="0.01"
-                value={data.plan?.price ?? 149.99}
-                onChange={(e) => updatePlan('price', Number(e.target.value))}
-                className="mt-2 w-full rounded-xl border border-white/15 bg-ink-800 px-4 py-3.5 text-base text-white outline-none focus:border-gold-400/50"
-              />
-            </label>
-            <label className="block text-xs uppercase tracking-[0.18em] text-gold-400 font-bold">
-              Descrição
-              <textarea
-                value={data.plan?.description || ''}
-                onChange={(e) => updatePlan('description', e.target.value)}
-                rows={4}
-                className="mt-2 w-full rounded-xl border border-white/15 bg-ink-800 px-4 py-3.5 text-base text-white outline-none focus:border-gold-400/50"
-              />
-            </label>
-            <div>
-              <p className="text-xs uppercase tracking-[0.18em] text-gold-400 font-bold">Itens inclusos</p>
-              <div className="mt-2.5 space-y-2.5">
-                {(data.plan.includes || []).map((item, index) => (
-                  <div key={`${index}-${item}`} className="flex gap-2">
-                    <input
-                      value={item}
-                      onChange={(e) => updateInclude(index, e.target.value)}
-                      className="w-full rounded-xl border border-white/15 bg-ink-800 px-4 py-3.5 text-base text-white outline-none focus:border-gold-400/50"
-                    />
-                    <button
-                      onClick={() => removeInclude(index)}
-                      className="rounded-xl border border-white/15 px-3.5 text-zinc-300 hover:text-red-400 transition"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  </div>
-                ))}
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="font-display text-3xl uppercase">Biblioteca</h1>
+                <p className="text-xs text-zinc-300">Gerencie todos os exercícios cadastrados.</p>
               </div>
               <button
-                onClick={addInclude}
-                className="mt-3.5 inline-flex items-center gap-2 text-sm font-semibold text-gold-300 hover:text-gold-200"
+                type="button"
+                onClick={() => {
+                  setEditingLibraryId(null)
+                  setLibraryForm(emptyLibraryExercise())
+                  setShowNewLibraryExercise(!showNewLibraryExercise)
+                }}
+                className="flex items-center gap-1.5 rounded-xl bg-gold-400 px-3.5 py-2.5 text-xs font-bold uppercase tracking-wide text-ink-950 shadow-md hover:bg-gold-300 transition"
               >
-                <Plus size={18} />
-                Adicionar item
+                <Plus size={16} />
+                Novo
               </button>
+            </div>
+
+            <div className="relative">
+              <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
+              <input
+                value={librarySearch}
+                onChange={(e) => setLibrarySearch(e.target.value)}
+                placeholder="Pesquisar exercício..."
+                className="w-full rounded-xl border border-white/15 bg-ink-800 py-3.5 pl-11 pr-3.5 text-base text-white outline-none focus:border-gold-400/50"
+              />
+            </div>
+
+            {/* Filtro rápido por músculo */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+              {availableMuscles.map((muscle) => (
+                <button
+                  key={muscle}
+                  type="button"
+                  onClick={() => setSelectedMuscleFilter(muscle)}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-bold uppercase transition shrink-0 ${
+                    selectedMuscleFilter === muscle
+                      ? 'bg-gold-400 text-ink-950 shadow'
+                      : 'border border-white/10 bg-ink-800 text-zinc-300 hover:border-gold-400/40'
+                  }`}
+                >
+                  {muscle}
+                </button>
+              ))}
+            </div>
+
+            {showNewLibraryExercise && (
+              <form onSubmit={saveNewLibraryExercise} className="rounded-2xl border border-gold-400/40 bg-ink-800 p-4.5 space-y-3.5">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs uppercase tracking-widest text-gold-400 font-bold">
+                    {editingLibraryId ? 'Editar exercício' : 'Novo exercício'}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowNewLibraryExercise(false)
+                      setEditingLibraryId(null)
+                    }}
+                    className="text-zinc-400 hover:text-white"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+                <input
+                  value={libraryForm.name}
+                  onChange={(e) => setLibraryForm({ ...libraryForm, name: e.target.value })}
+                  placeholder="Nome do exercício"
+                  className="w-full rounded-xl border border-white/15 bg-ink-700 px-3.5 py-3 text-sm text-white outline-none focus:border-gold-400/50"
+                  required
+                />
+                <input
+                  value={libraryForm.muscle}
+                  onChange={(e) => setLibraryForm({ ...libraryForm, muscle: e.target.value })}
+                  placeholder="Grupo muscular (Ex: Peito)"
+                  className="w-full rounded-xl border border-white/15 bg-ink-700 px-3.5 py-3 text-sm text-white outline-none focus:border-gold-400/50"
+                />
+                <div className="grid grid-cols-2 gap-2.5">
+                  <input
+                    value={libraryForm.sets}
+                    onChange={(e) => setLibraryForm({ ...libraryForm, sets: e.target.value })}
+                    placeholder="Séries padrão"
+                    className="rounded-xl border border-white/15 bg-ink-700 px-3.5 py-3 text-sm text-white outline-none"
+                  />
+                  <input
+                    value={libraryForm.reps}
+                    onChange={(e) => setLibraryForm({ ...libraryForm, reps: e.target.value })}
+                    placeholder="Reps padrão"
+                    className="rounded-xl border border-white/15 bg-ink-700 px-3.5 py-3 text-sm text-white outline-none"
+                  />
+                </div>
+                <textarea
+                  value={libraryForm.notes}
+                  onChange={(e) => setLibraryForm({ ...libraryForm, notes: e.target.value })}
+                  placeholder="Observações padrão"
+                  rows={2}
+                  className="w-full rounded-xl border border-white/15 bg-ink-700 px-3.5 py-3 text-sm text-white outline-none"
+                />
+                <input
+                  value={libraryForm.video}
+                  onChange={(e) => setLibraryForm({ ...libraryForm, video: e.target.value })}
+                  placeholder="Link do vídeo (YouTube)"
+                  className="w-full rounded-xl border border-white/15 bg-ink-700 px-3.5 py-3 text-sm text-white outline-none"
+                />
+                <button
+                  type="submit"
+                  className="w-full rounded-xl bg-gold-400 py-3.5 text-xs font-bold uppercase tracking-wide text-ink-950 shadow-md hover:bg-gold-300 transition"
+                >
+                  {editingLibraryId ? 'Salvar alterações' : 'Adicionar à biblioteca'}
+                </button>
+              </form>
+            )}
+
+            <div className="space-y-3 pt-2">
+              {filteredLibrary.length === 0 ? (
+                <div className="rounded-2xl border border-white/10 bg-ink-800 p-6 text-center">
+                  <p className="text-sm text-zinc-400">Nenhum exercício encontrado na biblioteca.</p>
+                </div>
+              ) : (
+                filteredLibrary.map((exercise) => (
+                  <div key={exercise.id} className="rounded-2xl border border-white/10 bg-ink-800 p-4 space-y-2">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h4 className="font-display text-base uppercase text-white">{exercise.name}</h4>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          {exercise.muscle && (
+                            <span className="text-xs text-gold-400 font-semibold uppercase">{exercise.muscle}</span>
+                          )}
+                          {exercise.sets && exercise.reps && (
+                            <span className="text-xs text-zinc-400">({exercise.sets}x{exercise.reps})</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => startEditingLibrary(exercise)}
+                          className="rounded-xl border border-white/15 p-2 text-zinc-300 hover:text-gold-400 transition"
+                          title="Editar"
+                        >
+                          <Pencil size={15} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => deleteLibraryExercise(exercise.id)}
+                          className="rounded-xl border border-white/15 p-2 text-zinc-300 hover:text-red-400 transition"
+                          title="Excluir"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    </div>
+                    {selectedStudent && (
+                      <button
+                        type="button"
+                        onClick={() => addFromLibraryToCurrentStudent(exercise.id)}
+                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-gold-400/10 border border-gold-400/30 py-2.5 text-xs font-bold uppercase tracking-wider text-gold-300 hover:bg-gold-400/20 transition"
+                      >
+                        <Plus size={16} />
+                        Enviar para o treino atual de {selectedStudent.name} ({day})
+                      </button>
+                    )}
+                  </div>
+                ))
+              )}
             </div>
           </section>
         )}
@@ -905,17 +886,6 @@ export default function AdminPanel() {
                   </option>
                 ))}
               </select>
-
-              {data.students.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => setShowCopyStudentWorkoutsModal(true)}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-gold-400/30 bg-ink-800 py-2.5 text-xs font-bold uppercase tracking-wide text-gold-300 hover:bg-gold-400/10 transition shadow-sm"
-                >
-                  <CopyCheck size={16} />
-                  Copiar ficha completa de outro aluno
-                </button>
-              )}
 
               <div className="grid grid-cols-5 gap-2">
                 {DAYS.map((item) => (
@@ -970,7 +940,7 @@ export default function AdminPanel() {
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-gold-400 py-3.5 text-sm font-bold uppercase tracking-wide text-ink-950 shadow-lg hover:bg-gold-300 transition"
               >
                 <Library size={18} />
-                Biblioteca de exercícios
+                Selecionar da biblioteca rápida
               </button>
             </div>
 
@@ -1046,7 +1016,12 @@ export default function AdminPanel() {
                         )}
                         <button
                           type="button"
-                          onClick={() => saveWorkoutExerciseToLibrary(exercise)}
+                          onClick={() => {
+                            if (!exercise.name?.trim()) return
+                            addCurrentExerciseToLibrary(exercise)
+                            setSaved('Exercício salvo na biblioteca!')
+                            setTimeout(() => setSaved(''), 2200)
+                          }}
                           className="p-1.5 text-gold-300 hover:text-white transition"
                           title="Salvar na biblioteca"
                         >
@@ -1345,6 +1320,70 @@ export default function AdminPanel() {
         )}
       </main>
 
+      {/* MODAL DE SELEÇÃO RÁPIDA DA BIBLIOTECA (DENTRO DE TREINOS) */}
+      {libraryOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 backdrop-blur-sm"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setLibraryOpen(false)
+          }}
+        >
+          <div className="flex flex-col h-[85vh] max-h-[700px] w-full max-w-md overflow-hidden rounded-3xl border border-white/15 bg-ink-900 shadow-2xl">
+            <div className="shrink-0 flex items-center justify-between border-b border-white/10 px-4 py-4 bg-ink-900 z-30">
+              <div>
+                <p className="text-xs uppercase tracking-[0.2em] text-gold-400 font-bold">Seleção Rápida</p>
+                <h2 className="mt-0.5 font-display text-2xl uppercase text-white">Biblioteca</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setLibraryOpen(false)}
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/15 text-zinc-300 hover:text-white"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="shrink-0 px-4 pt-4 pb-3 bg-ink-900 border-b border-white/5 z-20 space-y-3">
+              <div className="relative">
+                <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
+                <input
+                  value={librarySearch}
+                  onChange={(e) => setLibrarySearch(e.target.value)}
+                  placeholder="Pesquisar..."
+                  className="w-full rounded-xl border border-white/15 bg-ink-800 py-3.5 pl-11 pr-3.5 text-base text-white outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {filteredLibrary.map((exercise) => (
+                <div key={exercise.id} className="group rounded-2xl border border-white/10 bg-ink-800 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h4 className="font-display text-base uppercase text-white">{exercise.name}</h4>
+                      <p className="text-xs text-gold-400 font-semibold uppercase">{exercise.muscle}</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!selectedStudent) return
+                      const next = addLibraryExerciseToWorkout(data, selectedStudent.id, day, exercise.id)
+                      persist(next)
+                      setLibraryOpen(false)
+                    }}
+                    className="mt-3.5 flex w-full items-center justify-center gap-2 rounded-xl bg-gold-400/20 border border-gold-400/30 py-2.5 text-xs font-bold uppercase tracking-wider text-gold-300 hover:bg-gold-400/30 transition"
+                  >
+                    <Plus size={16} />
+                    Adicionar ao treino atual ({day})
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MODAL DE SUBSTITUIÇÃO DE EXERCÍCIO */}
       {replaceModalOpen && (
         <div
@@ -1369,7 +1408,7 @@ export default function AdminPanel() {
 
             <div className="flex-1 overflow-y-auto space-y-2.5">
               {libraryExercises.length === 0 ? (
-                <p className="text-center text-sm text-zinc-400 py-8">Sua biblioteca está vazia.</p>
+                <p className="text-center text-sm text-zinc-400 py-8">A sua biblioteca está vazia.</p>
               ) : (
                 libraryExercises.map((libEx) => (
                   <div
@@ -1432,39 +1471,6 @@ export default function AdminPanel() {
                 />
               </div>
 
-              <div className="rounded-2xl border border-gold-400/30 bg-gold-400/10 p-3.5 flex items-center justify-between">
-                <div>
-                  <p className="text-xs uppercase font-bold text-gold-300">Automação</p>
-                  <p className="text-[11px] text-zinc-300">Preencha peso e altura e clique em calcular.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const metrics = calculateEvaluationMetrics({
-                      weight: evaluationForm.weight,
-                      height: evaluationForm.height,
-                      waist: evaluationForm.waist,
-                    })
-                    if (metrics) {
-                      setEvaluationForm((prev) => ({
-                        ...prev,
-                        fatPercentage: metrics.fatPercentage,
-                        leanMass: metrics.leanMass,
-                        tmb: metrics.tmb,
-                        get: metrics.get,
-                      }))
-                      setSaved('Métricas calculadas!')
-                      setTimeout(() => setSaved(''), 2200)
-                    } else {
-                      window.alert('Informe pelo menos o Peso e a Altura.')
-                    }
-                  }}
-                  className="rounded-xl bg-gold-400 px-4 py-2.5 text-xs font-bold uppercase text-ink-950 transition hover:bg-gold-300 shrink-0"
-                >
-                  ⚡ Calcular
-                </button>
-              </div>
-
               <div>
                 <p className="text-xs uppercase font-bold tracking-widest text-gold-400 mb-2 flex items-center gap-1.5">
                   <Scale size={14} /> Composição Corporal
@@ -1523,133 +1529,6 @@ export default function AdminPanel() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL DA BIBLIOTECA DE EXERCÍCIOS */}
-      {libraryOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 backdrop-blur-sm"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) setLibraryOpen(false)
-          }}
-        >
-          <div className="flex flex-col h-[85vh] max-h-[700px] w-full max-w-md overflow-hidden rounded-3xl border border-white/15 bg-ink-900 shadow-2xl">
-            <div className="shrink-0 flex items-center justify-between border-b border-white/10 px-4 py-4 bg-ink-900 z-30">
-              <div>
-                <p className="text-xs uppercase tracking-[0.2em] text-gold-400 font-bold">Biblioteca</p>
-                <h2 className="mt-0.5 font-display text-2xl uppercase text-white">Exercícios</h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => setLibraryOpen(false)}
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/15 text-zinc-300 hover:text-white"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            <div className="shrink-0 px-4 pt-4 pb-3 bg-ink-900 border-b border-white/5 z-20 space-y-3">
-              <div className="relative">
-                <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
-                <input
-                  value={librarySearch}
-                  onChange={(e) => setLibrarySearch(e.target.value)}
-                  placeholder="Buscar exercício..."
-                  className="w-full rounded-xl border border-white/15 bg-ink-800 py-3.5 pl-11 pr-3.5 text-base text-white outline-none"
-                />
-              </div>
-
-              {!showNewLibraryExercise ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditingLibraryId(null)
-                    setLibraryForm(emptyLibraryExercise())
-                    setShowNewLibraryExercise(true)
-                  }}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-gold-400/40 py-3.5 text-sm font-bold uppercase tracking-wide text-gold-300 hover:bg-gold-400/10 transition"
-                >
-                  <Plus size={18} />
-                  Novo exercício na biblioteca
-                </button>
-              ) : (
-                <form onSubmit={saveNewLibraryExercise} className="rounded-2xl border border-gold-400/30 bg-ink-800 p-4.5 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs uppercase tracking-widest text-gold-400 font-bold">
-                      {editingLibraryId ? 'Editar exercício' : 'Novo exercício'}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowNewLibraryExercise(false)
-                        setEditingLibraryId(null)
-                      }}
-                      className="text-zinc-400 hover:text-white"
-                    >
-                      <X size={18} />
-                    </button>
-                  </div>
-                  <input
-                    value={libraryForm.name}
-                    onChange={(e) => setLibraryForm({ ...libraryForm, name: e.target.value })}
-                    placeholder="Nome do exercício"
-                    className="w-full rounded-xl border border-white/15 bg-ink-700 px-3.5 py-3 text-sm text-white outline-none"
-                    required
-                  />
-                  <input
-                    value={libraryForm.muscle}
-                    onChange={(e) => setLibraryForm({ ...libraryForm, muscle: e.target.value })}
-                    placeholder="Grupo muscular (Ex: Peito)"
-                    className="w-full rounded-xl border border-white/15 bg-ink-700 px-3.5 py-3 text-sm text-white outline-none"
-                  />
-                  <button
-                    type="submit"
-                    className="w-full rounded-xl bg-gold-400 py-3.5 text-xs font-bold uppercase tracking-wide text-ink-950 font-bold hover:bg-gold-300 transition"
-                  >
-                    {editingLibraryId ? 'Salvar alterações' : 'Adicionar à biblioteca'}
-                  </button>
-                </form>
-              )}
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {filteredLibrary.map((exercise) => (
-                <div key={exercise.id} className="group rounded-2xl border border-white/10 bg-ink-800 p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <h4 className="font-display text-base uppercase text-white">{exercise.name}</h4>
-                      <p className="text-xs text-gold-400 font-semibold uppercase">{exercise.muscle}</p>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => startEditingLibrary(exercise)}
-                        className="rounded-xl border border-white/15 p-2 text-zinc-300 hover:text-gold-400"
-                      >
-                        <Pencil size={15} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => deleteLibraryExercise(exercise.id)}
-                        className="rounded-xl border border-white/15 p-2 text-zinc-300 hover:text-red-400"
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => addFromLibrary(exercise.id)}
-                    className="mt-3.5 flex w-full items-center justify-center gap-2 rounded-xl bg-gold-400/20 border border-gold-400/30 py-2.5 text-xs font-bold uppercase tracking-wider text-gold-300 hover:bg-gold-400/30 transition"
-                  >
-                    <Plus size={16} />
-                    Adicionar ao treino atual ({day})
-                  </button>
-                </div>
-              ))}
-            </div>
           </div>
         </div>
       )}
