@@ -37,3 +37,18 @@ textarea:focus,
 select:focus {
   outline: none;
 }
+
+/* Controle de zoom em dispositivos móveis */
+@media (max-width: 768px) {
+  html,
+  body {
+    touch-action: pan-x pan-y;
+    overscroll-behavior-y: contain;
+  }
+
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
