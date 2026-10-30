@@ -1492,99 +1492,109 @@ export default function AdminPanel() {
 
       {showEvaluationModal && evaluatingStudent && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/85 p-2 sm:p-4 backdrop-blur-sm"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) setShowEvaluationModal(false)
           }}
         >
-          <div className="w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-3xl border border-gold-400/40 bg-ink-900 p-6 shadow-2xl text-white">
+          <div
+            className="w-full max-w-lg max-h-[calc(100dvh-1rem)] sm:max-h-[85vh] overflow-y-auto overscroll-contain rounded-3xl border border-gold-400/40 bg-ink-900 p-4 sm:p-6 shadow-2xl text-white"
+            style={{ WebkitOverflowScrolling: 'touch' }}
+          >
             <div className="flex items-center justify-between border-b border-white/10 pb-4 mb-4">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gold-400/20 text-gold-400 border border-gold-400/30">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold-400/20 text-gold-400 border border-gold-400/30">
                   <Activity size={22} />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-[10px] uppercase tracking-widest text-gold-400 font-bold">Nova Avaliação</p>
-                  <h3 className="font-display text-xl uppercase tracking-wide">{evaluatingStudent.name}</h3>
+                  <h3 className="font-display text-xl uppercase tracking-wide truncate">{evaluatingStudent.name}</h3>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setShowEvaluationModal(false)}
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-zinc-300 hover:text-gold-400"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 text-zinc-300 hover:text-gold-400"
               >
                 <X size={18} />
               </button>
             </div>
 
-            <form onSubmit={handleSaveEvaluation} className="space-y-4">
+            <form onSubmit={handleSaveEvaluation} className="space-y-5">
               <div>
-                <label className="block text-xs uppercase tracking-[0.18em] text-gold-400 font-bold mb-1">
-                  Data da Avaliação
-                </label>
+                <label className="block text-xs uppercase tracking-[0.18em] text-gold-400 font-bold mb-1">Data da Avaliação</label>
                 <input
                   type="text"
                   value={evaluationForm.date}
                   onChange={(e) => setEvaluationForm({ ...evaluationForm, date: e.target.value })}
-                  className="w-full rounded-xl border border-white/15 bg-ink-800 px-4 py-3 text-base text-white outline-none"
+                  className="w-full min-w-0 rounded-xl border border-white/15 bg-ink-800 px-4 py-3 text-base text-white outline-none"
                   required
                 />
               </div>
 
               <div>
-                <p className="text-xs uppercase font-bold tracking-widest text-gold-400 mb-2 flex items-center gap-1.5">
+                <p className="text-xs uppercase font-bold tracking-widest text-gold-400 mb-3 flex items-center gap-1.5">
                   <Scale size={14} /> Composição Corporal
                 </p>
                 <div className="grid grid-cols-2 gap-3">
-                  <input
-                    type="number"
-                    step="0.1"
-                    placeholder="Peso (kg)"
-                    value={evaluationForm.weight}
+                  <input type="number" step="0.1" inputMode="decimal" placeholder="Peso (kg)" value={evaluationForm.weight}
                     onChange={(e) => setEvaluationForm({ ...evaluationForm, weight: e.target.value })}
-                    className="rounded-xl border border-white/15 bg-ink-800 px-3.5 py-3 text-sm text-white outline-none"
-                    required
-                  />
-                  <input
-                    type="number"
-                    step="0.01"
-                    placeholder="Altura (m)"
-                    value={evaluationForm.height}
+                    className="w-full min-w-0 rounded-xl border border-white/15 bg-ink-800 px-3 py-3 text-base text-white outline-none" required />
+                  <input type="number" step="0.01" inputMode="decimal" placeholder="Altura (m)" value={evaluationForm.height}
                     onChange={(e) => setEvaluationForm({ ...evaluationForm, height: e.target.value })}
-                    className="rounded-xl border border-white/15 bg-ink-800 px-3.5 py-3 text-sm text-white outline-none"
-                    required
-                  />
-                  <input
-                    type="number"
-                    step="0.1"
-                    placeholder="% Gordura"
-                    value={evaluationForm.fatPercentage}
+                    className="w-full min-w-0 rounded-xl border border-white/15 bg-ink-800 px-3 py-3 text-base text-white outline-none" required />
+                  <input type="number" step="0.1" inputMode="decimal" placeholder="% Gordura" value={evaluationForm.fatPercentage}
                     onChange={(e) => setEvaluationForm({ ...evaluationForm, fatPercentage: e.target.value })}
-                    className="rounded-xl border border-white/15 bg-ink-800 px-3.5 py-3 text-sm text-white outline-none"
-                  />
-                  <input
-                    type="number"
-                    step="0.1"
-                    placeholder="Massa Magra (kg)"
-                    value={evaluationForm.leanMass}
+                    className="w-full min-w-0 rounded-xl border border-white/15 bg-ink-800 px-3 py-3 text-base text-white outline-none" />
+                  <input type="number" step="0.1" inputMode="decimal" placeholder="Massa Magra (kg)" value={evaluationForm.leanMass}
                     onChange={(e) => setEvaluationForm({ ...evaluationForm, leanMass: e.target.value })}
-                    className="rounded-xl border border-white/15 bg-ink-800 px-3.5 py-3 text-sm text-white outline-none"
-                  />
+                    className="w-full min-w-0 rounded-xl border border-white/15 bg-ink-800 px-3 py-3 text-base text-white outline-none" />
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs uppercase font-bold tracking-widest text-gold-400 mb-3">Metabolismo</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <input type="number" step="1" inputMode="numeric" placeholder="TMB (kcal/dia)" value={evaluationForm.tmb}
+                    onChange={(e) => setEvaluationForm({ ...evaluationForm, tmb: e.target.value })}
+                    className="w-full min-w-0 rounded-xl border border-white/15 bg-ink-800 px-3 py-3 text-base text-white outline-none" />
+                  <input type="number" step="1" inputMode="numeric" placeholder="GET (kcal/dia)" value={evaluationForm.get}
+                    onChange={(e) => setEvaluationForm({ ...evaluationForm, get: e.target.value })}
+                    className="w-full min-w-0 rounded-xl border border-white/15 bg-ink-800 px-3 py-3 text-base text-white outline-none" />
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs uppercase font-bold tracking-widest text-gold-400 mb-3">Circunferências (cm)</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <input type="number" step="0.1" inputMode="decimal" placeholder="Peitoral (cm)" value={evaluationForm.chest}
+                    onChange={(e) => setEvaluationForm({ ...evaluationForm, chest: e.target.value })}
+                    className="w-full min-w-0 rounded-xl border border-white/15 bg-ink-800 px-3 py-3 text-base text-white outline-none" />
+                  <input type="number" step="0.1" inputMode="decimal" placeholder="Braço (cm)" value={evaluationForm.arm}
+                    onChange={(e) => setEvaluationForm({ ...evaluationForm, arm: e.target.value })}
+                    className="w-full min-w-0 rounded-xl border border-white/15 bg-ink-800 px-3 py-3 text-base text-white outline-none" />
+                  <input type="number" step="0.1" inputMode="decimal" placeholder="Cintura (cm)" value={evaluationForm.waist}
+                    onChange={(e) => setEvaluationForm({ ...evaluationForm, waist: e.target.value })}
+                    className="w-full min-w-0 rounded-xl border border-white/15 bg-ink-800 px-3 py-3 text-base text-white outline-none" />
+                  <input type="number" step="0.1" inputMode="decimal" placeholder="Quadril (cm)" value={evaluationForm.hips}
+                    onChange={(e) => setEvaluationForm({ ...evaluationForm, hips: e.target.value })}
+                    className="w-full min-w-0 rounded-xl border border-white/15 bg-ink-800 px-3 py-3 text-base text-white outline-none" />
+                  <input type="number" step="0.1" inputMode="decimal" placeholder="Coxa (cm)" value={evaluationForm.thigh}
+                    onChange={(e) => setEvaluationForm({ ...evaluationForm, thigh: e.target.value })}
+                    className="w-full min-w-0 rounded-xl border border-white/15 bg-ink-800 px-3 py-3 text-base text-white outline-none" />
+                  <input type="number" step="0.1" inputMode="decimal" placeholder="Panturrilha (cm)" value={evaluationForm.calf}
+                    onChange={(e) => setEvaluationForm({ ...evaluationForm, calf: e.target.value })}
+                    className="w-full min-w-0 rounded-xl border border-white/15 bg-ink-800 px-3 py-3 text-base text-white outline-none" />
                 </div>
               </div>
 
               <div className="pt-3 flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowEvaluationModal(false)}
-                  className="w-1/2 rounded-xl border border-white/15 py-3 text-xs font-bold uppercase text-zinc-300"
-                >
+                <button type="button" onClick={() => setShowEvaluationModal(false)}
+                  className="w-1/2 rounded-xl border border-white/15 py-3 text-xs font-bold uppercase text-zinc-300">
                   Cancelar
                 </button>
-                <button
-                  type="submit"
-                  className="w-1/2 rounded-xl bg-gold-400 py-3 text-xs font-bold uppercase text-ink-950 font-bold hover:bg-gold-300 transition"
-                >
+                <button type="submit"
+                  className="w-1/2 rounded-xl bg-gold-400 py-3 text-xs font-bold uppercase text-ink-950 hover:bg-gold-300 transition">
                   Salvar Avaliação
                 </button>
               </div>
