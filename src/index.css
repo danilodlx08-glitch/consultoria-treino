@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -10,11 +11,23 @@ html,
 body,
 #root {
   min-height: 100%;
+  width: 100%;
+  max-width: 100%;
+}
+
+html {
+  overflow-x: clip;
 }
 
 body {
   background: #070707;
-  overflow-x: hidden;
+  overflow-x: clip;
+  position: relative;
+  margin: 0;
+}
+
+#root {
+  overflow-x: clip;
 }
 
 .gold-line {
@@ -38,17 +51,25 @@ select:focus {
   outline: none;
 }
 
-/* Controle de zoom em dispositivos móveis */
+/* Ajustes específicos para celulares */
 @media (max-width: 768px) {
   html,
-  body {
-    touch-action: pan-x pan-y;
-    overscroll-behavior-y: contain;
+  body,
+  #root {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: clip;
   }
 
   input,
   textarea,
   select {
-    font-size: 16px;
+    font-size: 16px !important;
+  }
+
+  input:focus,
+  textarea:focus,
+  select:focus {
+    font-size: 16px !important;
   }
 }
