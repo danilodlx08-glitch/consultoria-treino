@@ -364,8 +364,15 @@ function normalizeWorkout(workout, fallback = {}) {
     ...source,
     title: source.title ?? fallback.title ?? '',
     focus: source.focus ?? fallback.focus ?? '',
-    exercises: Array.isArray(source.exercises)
-      ? source.exercises
+    // Garante que os exercícios utilizam prioritariamente o link atualizado do fallback (template padrão)
+    exercises: Array.isArray(source.exercises) && source.exercises.length > 0
+      ? source.exercises.map((ex, idx) => {
+          const matchingFallback = fallback.exercises?.[idx]
+          return {
+            ...ex,
+            video: matchingFallback?.video || ex.video,
+          }
+        })
       : Array.isArray(fallback.exercises)
         ? clone(fallback.exercises)
         : [],
@@ -409,7 +416,7 @@ function normalizeStudent(student, templateWorkouts) {
 
 /*
 |--------------------------------------------------------------------------
-| MESCLAGEM DOS DADOS
+| MESCLAGEM DOS DADOS (ATUALIZADO PARA FORÇAR OS LINKS NOVOS)
 |--------------------------------------------------------------------------
 */
 
@@ -541,13 +548,6 @@ function rowToStudent(row, templateWorkouts) {
 |--------------------------------------------------------------------------
 | CONTROLE DA SINCRONIZAÇÃO
 |--------------------------------------------------------------------------
-|
-| pendingStudentWrites guarda as últimas versões locais que ainda precisam
-| ser confirmadas no Supabase.
-|
-| pendingStudentDeletes impede que alunos excluídos reapareçam durante
-| uma atualização automática.
-|
 */
 
 const persistedStudents = new Map()
@@ -613,7 +613,6 @@ export async function fetchData() {
 
     const rows = Array.isArray(alunosData) ? alunosData : []
 
-    // Atualiza a fotografia remota sem descartar alterações pendentes.
     persistedStudents.clear()
     remoteStudentIds.clear()
 
@@ -637,7 +636,6 @@ export async function fetchData() {
       )
     }
 
-    // Sobrepõe a versão local pendente à versão remota.
     for (const [studentId, pendingStudent] of pendingStudentWrites) {
       if (pendingStudentDeletes.has(studentId)) continue
 
@@ -647,7 +645,6 @@ export async function fetchData() {
       )
     }
 
-    // Mantém os alunos locais se o Supabase ainda estiver vazio.
     if (rows.length === 0 && remoteStudents.size === 0) {
       for (const student of localData.students) {
         if (pendingStudentDeletes.has(student.id)) continue
@@ -682,12 +679,10 @@ export async function fetchData() {
 
       libraryBaselineReady = true
 
-      // Não substitui alterações que ainda aguardam gravação.
       exercisesLibrary = pendingLibrary
         ? clone(pendingLibrary)
         : configData.exercisesLibrary
     } else {
-      // Se ainda não existe configuração remota, mantém a biblioteca local.
       if (!libraryBaselineReady && !pendingLibrary) {
         pendingLibrary = clone(localData.exercisesLibrary)
       }
@@ -705,7 +700,6 @@ export async function fetchData() {
   } catch (error) {
     console.error('Erro ao buscar dados no Supabase:', error)
 
-    // Uma falha de rede não deve apagar o estado local.
     return mergeData({
       ...localData,
       students: localData.students.filter(
@@ -739,8 +733,6 @@ export async function saveData(data) {
 
   const localSaved = saveLocalData(snapshot)
 
-  // Registra as versões mais recentes imediatamente, antes de iniciar
-  // a fila remota. Assim, a atualização automática pode preservá-las.
   if (Array.isArray(snapshot.students)) {
     const snapshotIds = new Set()
 
@@ -759,7 +751,6 @@ export async function saveData(data) {
       )
     }
 
-    // Detecta exclusões apenas de IDs conhecidos como existentes no remoto.
     for (const remoteId of remoteStudentIds) {
       if (!snapshotIds.has(remoteId)) {
         pendingStudentWrites.delete(remoteId)
@@ -786,12 +777,6 @@ export async function saveData(data) {
     const errors = []
 
     try {
-      /*
-       * EXCLUSÕES
-       *
-       * Exclui apenas IDs previamente conhecidos no banco.
-       * Se a exclusão falhar, o ID permanece pendente para nova tentativa.
-       */
       for (const studentId of Array.from(pendingStudentDeletes)) {
         const { error } = await supabase
           .from('alunos')
@@ -811,12 +796,6 @@ export async function saveData(data) {
         remoteStudentIds.delete(studentId)
       }
 
-      /*
-       * ALUNOS
-       *
-       * A fila consulta o estado pendente mais recente de cada aluno,
-       * evitando salvar uma cópia antiga quando houve edição durante a fila.
-       */
       for (const [studentId, student] of Array.from(
         pendingStudentWrites.entries()
       )) {
@@ -859,7 +838,6 @@ export async function saveData(data) {
 
         const latestPending = pendingStudentWrites.get(studentId)
 
-        // Só remove a pendência se ninguém tiver editado o aluno novamente.
         if (
           latestPending &&
           getStudentFingerprint(latestPending) === currentFingerprint
@@ -868,9 +846,6 @@ export async function saveData(data) {
         }
       }
 
-      /*
-       * BIBLIOTECA DE EXERCÍCIOS
-       */
       if (pendingLibrary) {
         const librarySnapshot = clone(pendingLibrary)
         const librarySnapshotFingerprint = fingerprint(librarySnapshot)
@@ -900,7 +875,6 @@ export async function saveData(data) {
             persistedLibraryFingerprint = librarySnapshotFingerprint
             libraryBaselineReady = true
 
-            // Não apaga uma alteração mais recente feita durante o salvamento.
             if (
               pendingLibrary &&
               fingerprint(pendingLibrary) === librarySnapshotFingerprint
@@ -1053,10 +1027,6 @@ export function addLibraryExerciseToWorkout(
 |--------------------------------------------------------------------------
 | LOGOMARCA
 |--------------------------------------------------------------------------
-|
-| Mantém o comportamento anterior: a logo é armazenada como data URL
-| no armazenamento local. Não depende de uma tabela ou bucket novo.
-|
 */
 
 export async function uploadLogo(dataUrl) {
