@@ -23,6 +23,7 @@ import {
   ArrowDown,
   Clock,
   RefreshCw,
+  Calculator,
 } from 'lucide-react'
 import { useAuth } from '../auth.jsx'
 import { supabase } from '../services/supabase'
@@ -74,12 +75,16 @@ const emptyLibraryExercise = () => ({
 
 const emptyEvaluationForm = () => ({
   date: new Date().toLocaleDateString('pt-BR'),
+  sex: 'male',
+  age: '',
+  activityFactor: '1.375',
   weight: '',
   height: '',
   fatPercentage: '',
   leanMass: '',
   tmb: '',
   get: '',
+  neck: '',
   chest: '',
   arm: '',
   waist: '',
@@ -385,6 +390,76 @@ export default function AdminPanel() {
     setTimeout(() => setSaved(''), 2200)
   }
 
+  // --- Função de Cálculo Automático da Avaliação Física ---
+  function calculateMetrics() {
+    const weight = parseFloat(evaluationForm.weight)
+    let height = parseFloat(evaluationForm.height)
+    const age = parseInt(evaluationForm.age, 10)
+    const isMale = evaluationForm.sex === 'male'
+    const actFactor = parseFloat(evaluationForm.activityFactor) || 1.375
+
+    if (!weight || !height) {
+      alert('Preencha ao menos o Peso e a Altura para calcular.')
+      return
+    }
+
+    // Se altura for fornecida em metros (ex: 1.75), converte para cm
+    const heightCm = height < 3 ? height * 100 : height
+
+    // 1. TMB - Mifflin-St Jeor Formula
+    let tmbVal = 0
+    if (age) {
+      if (isMale) {
+        tmbVal = 10 * weight + 6.25 * heightCm - 5 * age + 5
+      } else {
+        tmbVal = 10 * weight + 6.25 * heightCm - 5 * age - 161
+      }
+    } else {
+      // Fallback sem idade
+      tmbVal = isMale ? 24 * weight : 22 * weight
+    }
+
+    // 2. GET
+    const getVal = tmbVal * actFactor
+
+    // 3. Percentual de Gordura (%BF)
+    let fatVal = parseFloat(evaluationForm.fatPercentage)
+    const waist = parseFloat(evaluationForm.waist)
+    const neck = parseFloat(evaluationForm.neck)
+    const hips = parseFloat(evaluationForm.hips)
+
+    // US Navy Body Fat Formula (se circunferência da cintura e pescoço/quadril forem preenchidas)
+    if (waist && neck) {
+      if (isMale && waist > neck) {
+        fatVal = 86.010 * Math.log10(waist - neck) - 70.041 * Math.log10(heightCm) + 36.76
+      } else if (!isMale && hips && (waist + hips) > neck) {
+        fatVal = 163.205 * Math.log10(waist + hips - neck) - 97.684 * Math.log10(heightCm) - 78.387
+      }
+    }
+
+    // Fallback por IMC e idade/sexo caso não tenha circunferências necessárias
+    if (!fatVal || isNaN(fatVal) || fatVal <= 0) {
+      const heightM = heightCm / 100
+      const bmi = weight / (heightM * heightM)
+      const userAge = age || 25
+      const sexVal = isMale ? 1 : 0
+      fatVal = (1.20 * bmi) + (0.23 * userAge) - (10.8 * sexVal) - 5.4
+    }
+
+    fatVal = Math.max(3, Math.min(60, fatVal))
+
+    // 4. Massa Magra (kg)
+    const leanMassVal = weight * (1 - fatVal / 100)
+
+    setEvaluationForm((prev) => ({
+      ...prev,
+      tmb: Math.round(tmbVal).toString(),
+      get: Math.round(getVal).toString(),
+      fatPercentage: fatVal.toFixed(1),
+      leanMass: leanMassVal.toFixed(1),
+    }))
+  }
+
   function handleSaveEvaluation(e) {
     e.preventDefault()
     if (!evaluatingStudent) return
@@ -398,6 +473,7 @@ export default function AdminPanel() {
       tmb: Number(evaluationForm.tmb) || 0,
       get: Number(evaluationForm.get) || 0,
       circumferences: {
+        neck: Number(evaluationForm.neck) || 0,
         chest: Number(evaluationForm.chest) || 0,
         arm: Number(evaluationForm.arm) || 0,
         waist: Number(evaluationForm.waist) || 0,
@@ -592,7 +668,9 @@ export default function AdminPanel() {
     persist(next)
     setSaved('Exercício adicionado ao treino do aluno!')
     setTimeout(() => setSaved(''), 2200)
-  }function addStudent(event) {
+  }
+
+  function addStudent(event) {
     event.preventDefault()
     if (!studentForm.name) return
 
@@ -1096,512 +1174,4 @@ export default function AdminPanel() {
                           type="button"
                           onClick={() => removeExercise(exercise.id)}
                           className="p-1.5 text-zinc-400 hover:text-red-400 transition"
-                          title="Excluir do treino"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => toggleExerciseExpand(exercise.id)}
-                          className="p-1.5 text-zinc-300 hover:text-gold-400 transition ml-1"
-                        >
-                          {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-                        </button>
-                      </div>
-                    </div>
-
-                    {isExpanded && (
-                      <div className="mt-3.5 pt-3.5 border-t border-white/10 space-y-2.5 animate-fadeIn">
-                        <input
-                          value={exercise.name}
-                          onChange={(e) => updateExercise(exercise.id, 'name', e.target.value)}
-                          placeholder="Nome do exercício"
-                          className="w-full rounded-xl border border-white/15 bg-ink-700 px-3.5 py-2.5 text-sm text-white outline-none focus:border-gold-400/50"
-                        />
-                        <div className="relative">
-                          <Link2 size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gold-400" />
-                          <input
-                            value={exercise.group || ''}
-                            onChange={(e) => updateExercise(exercise.id, 'group', e.target.value)}
-                            placeholder="Conjugação / Grupo (Ex: Bi-set A)"
-                            className="w-full rounded-xl border border-gold-400/30 bg-ink-700 py-2.5 pl-10 pr-3.5 text-xs font-semibold text-gold-300 placeholder:text-zinc-400 outline-none"
-                          />
-                        </div>
-                        <input
-                          value={exercise.muscle || ''}
-                          onChange={(e) => updateExercise(exercise.id, 'muscle', e.target.value)}
-                          placeholder="Grupo muscular (ex: Peito)"
-                          className="w-full rounded-xl border border-white/15 bg-ink-700 px-3.5 py-2.5 text-sm text-white outline-none focus:border-gold-400/50"
-                        />
-                        <div className="grid grid-cols-2 gap-2.5">
-                          <input
-                            value={exercise.sets}
-                            onChange={(e) => updateExercise(exercise.id, 'sets', e.target.value)}
-                            placeholder="Séries"
-                            className="rounded-xl border border-white/15 bg-ink-700 px-3.5 py-2.5 text-sm text-white outline-none focus:border-gold-400/50"
-                          />
-                          <input
-                            value={exercise.reps}
-                            onChange={(e) => updateExercise(exercise.id, 'reps', e.target.value)}
-                            placeholder="Repetições"
-                            className="rounded-xl border border-white/15 bg-ink-700 px-3.5 py-2.5 text-sm text-white outline-none focus:border-gold-400/50"
-                          />
-                        </div>
-                        <textarea
-                          value={exercise.notes}
-                          onChange={(e) => updateExercise(exercise.id, 'notes', e.target.value)}
-                          placeholder="Observações"
-                          rows={2}
-                          className="w-full rounded-xl border border-white/15 bg-ink-700 px-3.5 py-2.5 text-sm text-white outline-none focus:border-gold-400/50"
-                        />
-                        <input
-                          value={exercise.video}
-                          onChange={(e) => updateExercise(exercise.id, 'video', e.target.value)}
-                          placeholder="Link do vídeo (YouTube)"
-                          className="w-full rounded-xl border border-white/15 bg-ink-700 px-3.5 py-2.5 text-sm text-white outline-none focus:border-gold-400/50"
-                        />
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-
-              <button
-                onClick={addExercise}
-                className="flex w-full items-center justify-center gap-2 rounded-xl border border-gold-400/40 py-3.5 text-sm font-bold uppercase tracking-wide text-gold-300 hover:bg-gold-400/10 transition"
-              >
-                <Plus size={18} />
-                Adicionar exercício manualmente
-              </button>
-            </div>
-          </section>
-        )}
-
-        {tab === 'students' && (
-          <section>
-            <h1 className="font-display text-3xl uppercase">Alunos e acessos</h1>
-            <div className="mt-3.5 grid grid-cols-2 gap-2.5">
-              <div className="rounded-xl border border-white/10 bg-ink-800 p-3.5">
-                <p className="text-xs uppercase tracking-wider text-zinc-400 font-semibold">Total cadastrados</p>
-                <p className="font-display text-2xl text-white mt-1">{studentStats.total}</p>
-              </div>
-              <div className="rounded-xl border border-white/10 bg-ink-800 p-3.5">
-                <p className="text-xs uppercase tracking-wider text-gold-400 font-semibold">Ativos</p>
-                <p className="font-display text-2xl text-gold-300 mt-1">{studentStats.active}</p>
-              </div>
-            </div>
-
-            <form
-              onSubmit={addStudent}
-              className="mt-4.5 space-y-3.5 rounded-2xl border border-white/10 bg-ink-800 p-4.5"
-            >
-              <input
-                value={studentForm.name}
-                onChange={(e) => setStudentForm({ ...studentForm, name: e.target.value })}
-                placeholder="Nome do aluno"
-                className="w-full rounded-xl border border-white/15 bg-ink-700 px-3.5 py-3 text-base text-white outline-none focus:border-gold-400/50"
-              />
-              <input
-                value={studentForm.code}
-                onChange={(e) => setStudentForm({ ...studentForm, code: e.target.value.toUpperCase() })}
-                placeholder="Código único"
-                className="w-full rounded-xl border border-white/15 bg-ink-700 px-3.5 py-3 text-base text-white outline-none focus:border-gold-400/50"
-              />
-              <input
-                value={studentForm.password}
-                onChange={(e) => setStudentForm({ ...studentForm, password: e.target.value })}
-                placeholder="Senha"
-                className="w-full rounded-xl border border-white/15 bg-ink-700 px-3.5 py-3 text-base text-white outline-none focus:border-gold-400/50"
-              />
-              <button
-                type="button"
-                onClick={() =>
-                  setStudentForm({
-                    ...studentForm,
-                    code: generateAccessCode(),
-                    password: generatePassword(),
-                  })
-                }
-                className="w-full rounded-xl border border-gold-400/30 py-2.5 text-xs font-bold uppercase tracking-wide text-gold-300 hover:bg-gold-400/10 transition"
-              >
-                Gerar código e senha
-              </button>
-              <button
-                type="submit"
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-gold-400 py-3.5 text-sm font-bold uppercase tracking-wide text-ink-950 shadow-md hover:bg-gold-300 transition"
-              >
-                <UserPlus size={18} />
-                Cadastrar aluno
-              </button>
-            </form>
-
-            <div className="mt-5 relative">
-              <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
-              <input
-                value={studentSearch}
-                onChange={(e) => setStudentSearch(e.target.value)}
-                placeholder="Pesquisar aluno por nome ou código..."
-                className="w-full rounded-xl border border-white/15 bg-ink-800 py-3.5 pl-11 pr-3.5 text-base text-white outline-none focus:border-gold-400/50"
-              />
-            </div>
-
-            <div className="mt-4.5 space-y-3.5">
-              {filteredStudents.length === 0 ? (
-                <div className="rounded-2xl border border-white/10 bg-ink-800 p-6 text-center">
-                  <p className="text-base text-zinc-300">Nenhum aluno encontrado.</p>
-                </div>
-              ) : (
-                filteredStudents.map((student) => {
-                  const isActive = student.active !== false
-                  const isEditingThis = editingStudentCredsId === student.id
-
-                  return (
-                    <article
-                      key={student.id}
-                      className="relative overflow-hidden rounded-2xl border border-white/10 bg-ink-800 p-4.5 transition-all"
-                    >
-                      <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${isActive ? 'bg-gold-400' : 'bg-zinc-600'}`} />
-
-                      <div className="pl-2">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="w-full">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <h2 className="font-display text-2xl uppercase text-white">{student.name}</h2>
-                                <span className={`rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${isActive ? 'bg-gold-400/20 text-gold-300 border border-gold-400/30' : 'bg-zinc-700 text-zinc-400'}`}>
-                                  {isActive ? 'Ativo' : 'Inativo'}
-                                </span>
-                              </div>
-                              <button
-                                onClick={() => removeStudent(student.id)}
-                                className="text-zinc-400 hover:text-red-400 transition"
-                                title="Excluir aluno"
-                              >
-                                <Trash2 size={18} />
-                              </button>
-                            </div>
-
-                            {isEditingThis ? (
-                              <div className="mt-3 space-y-2.5 rounded-xl border border-gold-400/40 bg-ink-900 p-3">
-                                <p className="text-xs uppercase font-bold text-gold-400">Editar Código e Senha</p>
-                                <input
-                                  value={editStudentForm.code}
-                                  onChange={(e) => setEditStudentForm({ ...editStudentForm, code: e.target.value.toUpperCase() })}
-                                  placeholder="Novo código"
-                                  className="w-full rounded-lg border border-white/15 bg-ink-800 px-3 py-2 text-sm text-white outline-none"
-                                />
-                                <input
-                                  value={editStudentForm.password}
-                                  onChange={(e) => setEditStudentForm({ ...editStudentForm, password: e.target.value })}
-                                  placeholder="Nova senha"
-                                  className="w-full rounded-lg border border-white/15 bg-ink-800 px-3 py-2 text-sm text-white outline-none"
-                                />
-                                <div className="flex gap-2 pt-1">
-                                  <button
-                                    type="button"
-                                    onClick={() => setEditingStudentCredsId(null)}
-                                    className="w-1/2 rounded-lg border border-white/15 py-2 text-xs font-bold uppercase text-zinc-300"
-                                  >
-                                    Cancelar
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => saveStudentCredentials(student.id)}
-                                    className="w-1/2 rounded-lg bg-gold-400 py-2 text-xs font-bold uppercase text-ink-950 font-bold"
-                                  >
-                                    Salvar Acesso
-                                  </button>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="mt-1 flex items-center justify-between">
-                                <div>
-                                  <p className="text-sm text-zinc-300 font-medium">Código: <span className="text-white font-bold">{student.code}</span></p>
-                                  <p className="text-sm text-zinc-300 font-medium">Senha: <span className="text-white font-bold">{student.password}</span></p>
-                                </div>
-                                <button
-                                  onClick={() => {
-                                    setEditingStudentCredsId(student.id)
-                                    setEditStudentForm({ code: student.code, password: student.password })
-                                  }}
-                                  className="text-xs font-bold text-gold-400 hover:text-gold-300 underline"
-                                >
-                                  Editar Acesso
-                                </button>
-                              </div>
-                            )}
-
-                            <div className="mt-2.5 flex items-center gap-1.5 text-xs text-zinc-400 font-medium">
-                              <Clock size={13} className="text-gold-400" />
-                              <span>{formatTimeAgo(student.updatedAt)}</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="mt-4 flex flex-wrap gap-2">
-                          <button
-                            onClick={() => toggleStudent(student.id)}
-                            className="rounded-lg border border-white/15 bg-ink-700 px-3.5 py-1.5 text-xs font-bold uppercase tracking-wide text-zinc-200 hover:bg-ink-600 transition"
-                          >
-                            {isActive ? 'Desativar' : 'Ativar'}
-                          </button>
-                          <button
-                            onClick={() => {
-                              setSelectedStudentId(student.id)
-                              setTab('workouts')
-                            }}
-                            className="rounded-lg bg-ink-700 px-3.5 py-1.5 text-xs font-bold uppercase tracking-wide text-zinc-200 hover:bg-ink-600 transition"
-                          >
-                            Editar treinos
-                          </button>
-                          <button
-                            onClick={() => {
-                              setEvaluatingStudent(student)
-                              setEvaluationForm(emptyEvaluationForm())
-                              setShowEvaluationModal(true)
-                            }}
-                            className="inline-flex items-center gap-1.5 rounded-lg bg-gold-400/20 border border-gold-400/30 px-3.5 py-1.5 text-xs font-bold uppercase tracking-wide text-gold-300 hover:bg-gold-400/30 transition"
-                          >
-                            <Activity size={14} />
-                            Avaliação Física
-                          </button>
-                          <button
-                            onClick={() => copyCredentials(student)}
-                            className="inline-flex items-center gap-1.5 rounded-lg bg-ink-700 px-3.5 py-1.5 text-xs font-bold uppercase tracking-wide text-zinc-200 hover:bg-ink-600 transition"
-                          >
-                            <Copy size={14} />
-                            Copiar acesso
-                          </button>
-                        </div>
-                      </div>
-                    </article>
-                  )
-                })
-              )}
-            </div>
-          </section>
-        )}
-      </main>
-
-      {libraryOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 backdrop-blur-sm"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) setLibraryOpen(false)
-          }}
-        >
-          <div className="flex flex-col h-[85vh] max-h-[700px] w-full max-w-md overflow-hidden rounded-3xl border border-white/15 bg-ink-900 shadow-2xl">
-            <div className="shrink-0 flex items-center justify-between border-b border-white/10 px-4 py-4 bg-ink-900 z-30">
-              <div>
-                <p className="text-xs uppercase tracking-[0.2em] text-gold-400 font-bold">Seleção Rápida</p>
-                <h2 className="mt-0.5 font-display text-2xl uppercase text-white">Biblioteca</h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => setLibraryOpen(false)}
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/15 text-zinc-300 hover:text-white"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            <div className="shrink-0 px-4 pt-4 pb-3 bg-ink-900 border-b border-white/5 z-20 space-y-3">
-              <div className="relative">
-                <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
-                <input
-                  value={librarySearch}
-                  onChange={(e) => setLibrarySearch(e.target.value)}
-                  placeholder="Pesquisar..."
-                  className="w-full rounded-xl border border-white/15 bg-ink-800 py-3.5 pl-11 pr-3.5 text-base text-white outline-none"
-                />
-              </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {filteredLibrary.map((exercise) => (
-                <div key={exercise.id} className="group rounded-2xl border border-white/10 bg-ink-800 p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <h4 className="font-display text-base uppercase text-white">{exercise.name}</h4>
-                      <p className="text-xs text-gold-400 font-semibold uppercase">{exercise.muscle}</p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!selectedStudent) return
-                      const next = addLibraryExerciseToWorkout(data, selectedStudent.id, day, exercise.id)
-                      persist(next)
-                      setLibraryOpen(false)
-                    }}
-                    className="mt-3.5 flex w-full items-center justify-center gap-2 rounded-xl bg-gold-400/20 border border-gold-400/30 py-2.5 text-xs font-bold uppercase tracking-wider text-gold-300 hover:bg-gold-400/30 transition"
-                  >
-                    <Plus size={16} />
-                    Adicionar ao treino atual ({day})
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {replaceModalOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 backdrop-blur-sm"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) setReplaceModalOpen(false)
-          }}
-        >
-          <div className="flex flex-col h-[75vh] max-h-[600px] w-full max-w-md overflow-hidden rounded-3xl border border-gold-400/40 bg-ink-900 shadow-2xl p-5">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3 mb-3">
-              <div>
-                <p className="text-xs uppercase tracking-widest text-gold-400 font-bold">Substituição</p>
-                <h3 className="font-display text-xl uppercase">Escolha o novo exercício</h3>
-              </div>
-              <button
-                onClick={() => setReplaceModalOpen(false)}
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 text-zinc-300 hover:text-white"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto space-y-2.5">
-              {libraryExercises.length === 0 ? (
-                <p className="text-center text-sm text-zinc-400 py-8">A sua biblioteca está vazia.</p>
-              ) : (
-                libraryExercises.map((libEx) => (
-                  <div
-                    key={libEx.id}
-                    onClick={() => replaceExerciseWithLibrary(libEx.id)}
-                    className="cursor-pointer rounded-xl border border-white/10 bg-ink-800 p-3.5 hover:border-gold-400/50 hover:bg-ink-750 transition"
-                  >
-                    <p className="font-display text-base uppercase text-white">{libEx.name}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      {libEx.muscle && <span className="text-xs text-gold-400 font-semibold uppercase">{libEx.muscle}</span>}
-                      {libEx.sets && libEx.reps && <span className="text-xs text-zinc-400">({libEx.sets}x{libEx.reps})</span>}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showEvaluationModal && evaluatingStudent && (
-        <div
-          className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/85 p-2 sm:p-4 backdrop-blur-sm"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) setShowEvaluationModal(false)
-          }}
-        >
-          <div
-            className="w-full max-w-lg max-h-[calc(100dvh-1rem)] sm:max-h-[85vh] overflow-y-auto overscroll-contain rounded-3xl border border-gold-400/40 bg-ink-900 p-4 sm:p-6 shadow-2xl text-white"
-            style={{ WebkitOverflowScrolling: 'touch' }}
-          >
-            <div className="flex items-center justify-between border-b border-white/10 pb-4 mb-4">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold-400/20 text-gold-400 border border-gold-400/30">
-                  <Activity size={22} />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[10px] uppercase tracking-widest text-gold-400 font-bold">Nova Avaliação</p>
-                  <h3 className="font-display text-xl uppercase tracking-wide truncate">{evaluatingStudent.name}</h3>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowEvaluationModal(false)}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 text-zinc-300 hover:text-gold-400"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveEvaluation} className="space-y-5">
-              <div>
-                <label className="block text-xs uppercase tracking-[0.18em] text-gold-400 font-bold mb-1">Data da Avaliação</label>
-                <input
-                  type="text"
-                  value={evaluationForm.date}
-                  onChange={(e) => setEvaluationForm({ ...evaluationForm, date: e.target.value })}
-                  className="w-full min-w-0 rounded-xl border border-white/15 bg-ink-800 px-4 py-3 text-base text-white outline-none"
-                  required
-                />
-              </div>
-
-              <div>
-                <p className="text-xs uppercase font-bold tracking-widest text-gold-400 mb-3 flex items-center gap-1.5">
-                  <Scale size={14} /> Composição Corporal
-                </p>
-                <div className="grid grid-cols-2 gap-3">
-                  <input type="number" step="0.1" inputMode="decimal" placeholder="Peso (kg)" value={evaluationForm.weight}
-                    onChange={(e) => setEvaluationForm({ ...evaluationForm, weight: e.target.value })}
-                    className="w-full min-w-0 rounded-xl border border-white/15 bg-ink-800 px-3 py-3 text-base text-white outline-none" required />
-                  <input type="number" step="0.01" inputMode="decimal" placeholder="Altura (m)" value={evaluationForm.height}
-                    onChange={(e) => setEvaluationForm({ ...evaluationForm, height: e.target.value })}
-                    className="w-full min-w-0 rounded-xl border border-white/15 bg-ink-800 px-3 py-3 text-base text-white outline-none" required />
-                  <input type="number" step="0.1" inputMode="decimal" placeholder="% Gordura" value={evaluationForm.fatPercentage}
-                    onChange={(e) => setEvaluationForm({ ...evaluationForm, fatPercentage: e.target.value })}
-                    className="w-full min-w-0 rounded-xl border border-white/15 bg-ink-800 px-3 py-3 text-base text-white outline-none" />
-                  <input type="number" step="0.1" inputMode="decimal" placeholder="Massa Magra (kg)" value={evaluationForm.leanMass}
-                    onChange={(e) => setEvaluationForm({ ...evaluationForm, leanMass: e.target.value })}
-                    className="w-full min-w-0 rounded-xl border border-white/15 bg-ink-800 px-3 py-3 text-base text-white outline-none" />
-                </div>
-              </div>
-
-              <div>
-                <p className="text-xs uppercase font-bold tracking-widest text-gold-400 mb-3">Metabolismo</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <input type="number" step="1" inputMode="numeric" placeholder="TMB (kcal/dia)" value={evaluationForm.tmb}
-                    onChange={(e) => setEvaluationForm({ ...evaluationForm, tmb: e.target.value })}
-                    className="w-full min-w-0 rounded-xl border border-white/15 bg-ink-800 px-3 py-3 text-base text-white outline-none" />
-                  <input type="number" step="1" inputMode="numeric" placeholder="GET (kcal/dia)" value={evaluationForm.get}
-                    onChange={(e) => setEvaluationForm({ ...evaluationForm, get: e.target.value })}
-                    className="w-full min-w-0 rounded-xl border border-white/15 bg-ink-800 px-3 py-3 text-base text-white outline-none" />
-                </div>
-              </div>
-
-              <div>
-                <p className="text-xs uppercase font-bold tracking-widest text-gold-400 mb-3">Circunferências (cm)</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <input type="number" step="0.1" inputMode="decimal" placeholder="Peitoral (cm)" value={evaluationForm.chest}
-                    onChange={(e) => setEvaluationForm({ ...evaluationForm, chest: e.target.value })}
-                    className="w-full min-w-0 rounded-xl border border-white/15 bg-ink-800 px-3 py-3 text-base text-white outline-none" />
-                  <input type="number" step="0.1" inputMode="decimal" placeholder="Braço (cm)" value={evaluationForm.arm}
-                    onChange={(e) => setEvaluationForm({ ...evaluationForm, arm: e.target.value })}
-                    className="w-full min-w-0 rounded-xl border border-white/15 bg-ink-800 px-3 py-3 text-base text-white outline-none" />
-                  <input type="number" step="0.1" inputMode="decimal" placeholder="Cintura (cm)" value={evaluationForm.waist}
-                    onChange={(e) => setEvaluationForm({ ...evaluationForm, waist: e.target.value })}
-                    className="w-full min-w-0 rounded-xl border border-white/15 bg-ink-800 px-3 py-3 text-base text-white outline-none" />
-                  <input type="number" step="0.1" inputMode="decimal" placeholder="Quadril (cm)" value={evaluationForm.hips}
-                    onChange={(e) => setEvaluationForm({ ...evaluationForm, hips: e.target.value })}
-                    className="w-full min-w-0 rounded-xl border border-white/15 bg-ink-800 px-3 py-3 text-base text-white outline-none" />
-                  <input type="number" step="0.1" inputMode="decimal" placeholder="Coxa (cm)" value={evaluationForm.thigh}
-                    onChange={(e) => setEvaluationForm({ ...evaluationForm, thigh: e.target.value })}
-                    className="w-full min-w-0 rounded-xl border border-white/15 bg-ink-800 px-3 py-3 text-base text-white outline-none" />
-                  <input type="number" step="0.1" inputMode="decimal" placeholder="Panturrilha (cm)" value={evaluationForm.calf}
-                    onChange={(e) => setEvaluationForm({ ...evaluationForm, calf: e.target.value })}
-                    className="w-full min-w-0 rounded-xl border border-white/15 bg-ink-800 px-3 py-3 text-base text-white outline-none" />
-                </div>
-              </div>
-
-              <div className="pt-3 flex gap-2">
-                <button type="button" onClick={() => setShowEvaluationModal(false)}
-                  className="w-1/2 rounded-xl border border-white/15 py-3 text-xs font-bold uppercase text-zinc-300">
-                  Cancelar
-                </button>
-                <button type="submit"
-                  className="w-1/2 rounded-xl bg-gold-400 py-3 text-xs font-bold uppercase text-ink-950 hover:bg-gold-300 transition">
-                  Salvar Avaliação
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
+                          title="Excluir do treino
