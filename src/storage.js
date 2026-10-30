@@ -90,7 +90,7 @@ const defaultData = {
           sets: '4',
           reps: '8-10',
           notes: 'Controle a descida. Pause de 1s no peito.',
-          video: 'https://www.youtube.com/watch?v=rT7DgCr-3pg',
+          video: 'https://youtube.com/shorts/S7P7TbZs4vo?si=vbhshFmpd88DC0Xg',
           muscle: 'Peito',
         },
         {
@@ -106,7 +106,7 @@ const defaultData = {
           sets: '3',
           reps: '12-15',
           notes: 'Aperte o peito no final do movimento.',
-          video: 'https://www.youtube.com/watch?v=taNxNMFGJa4',
+          video: 'https://youtube.com/shorts/iRXkEuu5G5Y?si=pxtZ6CBlBaSEeCTD',
           muscle: 'Peito',
         },
         {
@@ -114,7 +114,7 @@ const defaultData = {
           sets: '3',
           reps: '10-12',
           notes: 'Cotovelos fixos. Nao abrir demais.',
-          video: 'https://www.youtube.com/watch?v=IrVOh1eiyA4',
+          video: 'https://youtube.com/shorts/m4GA95QkoZA?si=dpmaB6ue-7fCJD3t',
           muscle: 'Triceps',
         },
         {
@@ -122,7 +122,7 @@ const defaultData = {
           sets: '3',
           reps: '12-15',
           notes: 'Abra a corda no final da extensao.',
-          video: 'https://www.youtube.com/watch?v=vB5OHsJ3EME',
+          video: 'https://youtube.com/shorts/TSnCG5GJYXo?si=69J19-l_WzJha4Ts',
           muscle: 'Triceps',
         },
       ]),
@@ -137,7 +137,7 @@ const defaultData = {
           sets: '4',
           reps: '8-10',
           notes: 'Peito para fora. Puxe ate o queixo.',
-          video: 'https://www.youtube.com/watch?v=eGo4IYlbE5g',
+          video: 'https://youtube.com/shorts/d0K1P8SZGeI?si=pURhPdLfeC9x578o',
           muscle: 'Costas',
         },
         {
@@ -153,7 +153,7 @@ const defaultData = {
           sets: '3',
           reps: '10-12',
           notes: 'Escapulas juntas no final.',
-          video: 'https://www.youtube.com/watch?v=GZbfZ033f74',
+          video: 'https://youtube.com/shorts/gPIULo6iOck?si=IhMcUxQ2LRBhnicv',
           muscle: 'Costas',
         },
         {
@@ -161,7 +161,7 @@ const defaultData = {
           sets: '3',
           reps: '10-12',
           notes: 'Sem balanco. Cotovelos colados.',
-          video: 'https://www.youtube.com/watch?v=ykJmrN5iC10',
+          video: 'https://youtube.com/shorts/-fxBy87Yyps?si=qadpMjtbf2GFy_Fu',
           muscle: 'Biceps',
         },
         {
@@ -169,7 +169,7 @@ const defaultData = {
           sets: '3',
           reps: '12',
           notes: 'Punho neutro o tempo todo.',
-          video: 'https://www.youtube.com/watch?v=zC3nLlEvin4',
+          video: 'https://youtube.com/shorts/NoPnz8h9HL8?si=C7l6y5n7j2OHHHHJ',
           muscle: 'Biceps',
         },
       ]),
@@ -184,7 +184,7 @@ const defaultData = {
           sets: '4',
           reps: '8-10',
           notes: 'Joelhos alinhados. Desca ate 90 graus.',
-          video: 'https://www.youtube.com/watch?v=ultWZbVzH4Y',
+          video: 'https://youtube.com/shorts/Sh7B_-1-ncc?si=ljiHSJ-nWcq4_QdS',
           muscle: 'Quadriceps',
         },
         {
@@ -192,7 +192,7 @@ const defaultData = {
           sets: '4',
           reps: '10-12',
           notes: 'Nao trave os joelhos no topo.',
-          video: 'https://www.youtube.com/watch?v=IZxyjW7MPJQ',
+          video: 'https://youtube.com/shorts/V5jpx0mntn4?si=_eZprK_QoZ73Rmz-',
           muscle: 'Quadriceps',
         },
         {
@@ -200,7 +200,7 @@ const defaultData = {
           sets: '3',
           reps: '12-15',
           notes: 'Pause de 1s no topo.',
-          video: 'https://www.youtube.com/watch?v=YyvSfVjQeL0',
+          video: 'https://youtube.com/shorts/YGW_oBWnWnc?si=_qnBbW4GjZz5C2by',
           muscle: 'Quadriceps',
         },
         {
@@ -208,7 +208,7 @@ const defaultData = {
           sets: '3',
           reps: '12-15',
           notes: 'Quadril colado no banco.',
-          video: 'https://www.youtube.com/watch?v=1Tq3QdYUuHs',
+          video: 'https://youtube.com/shorts/vsMMMXU-VrQ?si=XdIlcXIZ7k_UgSx5',
           muscle: 'Posterior',
         },
         {
@@ -216,7 +216,7 @@ const defaultData = {
           sets: '4',
           reps: '15-20',
           notes: 'Amplitude maxima. Alongue embaixo.',
-          video: 'https://www.youtube.com/watch?v=-M4-G8p8fmc',
+          video: 'https://youtube.com/shorts/tMA4WagIxY4?si=Eqkk7UhsJFlTcvun',
           muscle: 'Panturrilha',
         },
       ]),
@@ -231,7 +231,7 @@ const defaultData = {
           sets: '4',
           reps: '8-10',
           notes: 'Nao arqueie a lombar.',
-          video: 'https://www.youtube.com/watch?v=qEwKCR5JCog',
+          video: 'https://youtube.com/shorts/tgOvSxhCNDg?si=7a9REO_FeZFhYIOh',
           muscle: 'Ombros',
         },
         {
@@ -239,7 +239,7 @@ const defaultData = {
           sets: '3',
           reps: '12-15',
           notes: 'Mindinho para cima. Sem trapesio.',
-          video: 'https://www.youtube.com/watch?v=3VcKaXpzqRo',
+          video: 'https://youtube.com/shorts/eZKQqPTDfSM?si=sLzhM4jKJy6MIVQ7',
           muscle: 'Ombros',
         },
         {
@@ -247,7 +247,7 @@ const defaultData = {
           sets: '3',
           reps: '12',
           notes: 'Ate a linha dos ombros.',
-          video: 'https://www.youtube.com/watch?v=-t7fuZ0KhDA',
+          video: 'https://youtube.com/shorts/aTzdEisR8lc?si=J2Faaamz_yCjOOBA',
           muscle: 'Ombros',
         },
         {
@@ -255,7 +255,7 @@ const defaultData = {
           sets: '3',
           reps: '15',
           notes: 'Puxe em direcao a face. Rotacao externa.',
-          video: 'https://www.youtube.com/watch?v=rep-bN3h4FQ',
+          video: 'https://youtube.com/shorts/JBVQCXHSjc8?si=v7auuljk8QLj_YDR',
           muscle: 'Ombros',
         },
         {
@@ -263,7 +263,7 @@ const defaultData = {
           sets: '3',
           reps: '40-60s',
           notes: 'Quadril alinhado. Respiracao constante.',
-          video: 'https://www.youtube.com/watch?v=ASdvN_XEl_c',
+          video: 'https://youtube.com/shorts/Abz8TaeGe6o?si=QxftcAkkH2L_SJFZ',
           muscle: 'Abdomen',
         },
       ]),
