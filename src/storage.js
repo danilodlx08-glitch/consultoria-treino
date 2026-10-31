@@ -391,6 +391,18 @@ function normalizeStudent(student, templateWorkouts) {
     }
   }
 
+  // Alunos antigos, sem activeDays, continuam com as cinco planilhas.
+  // A validação também impede dias inválidos e mantém a ordem A–E.
+  const validDays = ['A', 'B', 'C', 'D', 'E']
+  const requestedDays = Array.isArray(source.activeDays)
+    ? source.activeDays
+    : Array.isArray(source.active_days)
+      ? source.active_days
+      : null
+  const activeDays = requestedDays
+    ? validDays.filter((day) => requestedDays.includes(day))
+    : [...validDays]
+
   return {
     id: source.id || createId(),
     name: source.name || source.nome || 'Aluno',
@@ -400,6 +412,7 @@ function normalizeStudent(student, templateWorkouts) {
     password: String(source.password || generatePassword()),
     active: source.active !== false,
     updatedAt: source.updatedAt || source.updated_at || null,
+    activeDays: activeDays.length > 0 ? activeDays : [...validDays],
     workouts,
     evaluations: Array.isArray(source.evaluations)
       ? source.evaluations
@@ -510,6 +523,9 @@ function studentToRow(student) {
     code: student.code,
     password: student.password,
     active: student.active !== false,
+    active_days: Array.isArray(student.activeDays)
+      ? student.activeDays
+      : ['A', 'B', 'C', 'D', 'E'],
     workouts: student.workouts || {},
     evaluations: Array.isArray(student.evaluations)
       ? student.evaluations
@@ -525,6 +541,7 @@ function rowToStudent(row, templateWorkouts) {
       code: row.code,
       password: row.password,
       active: row.active,
+      activeDays: row.active_days || row.activeDays,
       workouts: row.workouts,
       evaluations: row.evaluations,
       updatedAt:
@@ -575,6 +592,7 @@ function getRowFingerprint(row) {
     code: row.code,
     password: row.password,
     active: row.active !== false,
+    active_days: row.active_days || row.activeDays || ['A', 'B', 'C', 'D', 'E'],
     workouts: row.workouts || {},
     evaluations: row.evaluations || [],
   })
@@ -588,9 +606,7 @@ function enqueueSave(operation) {
     .then(operation)
 
   return saveQueue
-}
-
-/*
+}/*
 |--------------------------------------------------------------------------
 | BUSCAR DADOS REMOTOS
 |--------------------------------------------------------------------------
