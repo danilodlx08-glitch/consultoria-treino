@@ -122,7 +122,7 @@ export default function AdminPanel() {
   const [studentSearch, setStudentSearch] = useState('')
 
   const [editingStudentCredsId, setEditingStudentCredsId] = useState(null)
-  const [editStudentForm, setEditStudentForm] = useState({ code: '', password: '' })
+  const [editStudentForm, setEditStudentForm] = useState({ code: '', password: '', planCount: '5' })
 
   const [replacingExerciseId, setReplacingExerciseId] = useState(null)
   const [replaceModalOpen, setReplaceModalOpen] = useState(false)
@@ -135,6 +135,7 @@ export default function AdminPanel() {
     name: '',
     code: generateAccessCode(),
     password: generatePassword(),
+    planCount: '5',
   })
 
   const [libraryOpen, setLibraryOpen] = useState(false)
@@ -160,6 +161,20 @@ export default function AdminPanel() {
       data.students[0],
     [data.students, selectedStudentId]
   )
+
+  // Alunos antigos sem activeDays continuam com as cinco planilhas.
+  const selectedStudentDays = useMemo(() => {
+    return selectedStudent?.activeDays?.length
+      ? DAYS.filter((item) => selectedStudent.activeDays.includes(item))
+      : DAYS
+  }, [selectedStudent])
+
+  // Ajuste automático caso o dia atualmente selecionado fique fora do limite do aluno
+  useEffect(() => {
+    if (selectedStudentDays.length > 0 && !selectedStudentDays.includes(day)) {
+      setDay(selectedStudentDays[0])
+    }
+  }, [selectedStudentId, selectedStudentDays, day])
 
   const filteredStudents = useMemo(() => {
     const term = studentSearch.trim().toLowerCase()
@@ -390,7 +405,6 @@ export default function AdminPanel() {
     setTimeout(() => setSaved(''), 2200)
   }
 
-  // --- Função de Cálculo Automático da Avaliação Física ---
   function calculateMetrics() {
     const weight = parseFloat(evaluationForm.weight)
     let height = parseFloat(evaluationForm.height)
@@ -403,10 +417,8 @@ export default function AdminPanel() {
       return
     }
 
-    // Se altura for fornecida em metros (ex: 1.75), converte para cm
     const heightCm = height < 3 ? height * 100 : height
 
-    // 1. TMB - Mifflin-St Jeor Formula
     let tmbVal = 0
     if (age) {
       if (isMale) {
@@ -415,20 +427,16 @@ export default function AdminPanel() {
         tmbVal = 10 * weight + 6.25 * heightCm - 5 * age - 161
       }
     } else {
-      // Fallback sem idade
       tmbVal = isMale ? 24 * weight : 22 * weight
     }
 
-    // 2. GET
     const getVal = tmbVal * actFactor
 
-    // 3. Percentual de Gordura (%BF)
     let fatVal = parseFloat(evaluationForm.fatPercentage)
     const waist = parseFloat(evaluationForm.waist)
     const neck = parseFloat(evaluationForm.neck)
     const hips = parseFloat(evaluationForm.hips)
 
-    // US Navy Body Fat Formula (se circunferência da cintura e pescoço/quadril forem preenchidas)
     if (waist && neck) {
       if (isMale && waist > neck) {
         fatVal = 86.010 * Math.log10(waist - neck) - 70.041 * Math.log10(heightCm) + 36.76
@@ -437,7 +445,6 @@ export default function AdminPanel() {
       }
     }
 
-    // Fallback por IMC e idade/sexo caso não tenha circunferências necessárias
     if (!fatVal || isNaN(fatVal) || fatVal <= 0) {
       const heightM = heightCm / 100
       const bmi = weight / (heightM * heightM)
@@ -447,8 +454,6 @@ export default function AdminPanel() {
     }
 
     fatVal = Math.max(3, Math.min(60, fatVal))
-
-    // 4. Massa Magra (kg)
     const leanMassVal = weight * (1 - fatVal / 100)
 
     setEvaluationForm((prev) => ({
@@ -670,6 +675,20 @@ export default function AdminPanel() {
     setTimeout(() => setSaved(''), 2200)
   }
 
+  function updateStudentPlanCount(studentId, countValue) {
+    const count = Math.max(1, Math.min(5, Number(countValue) || 5))
+    const activeDays = DAYS.slice(0, count)
+    const updatedStudents = data.students.map((student) =>
+      student.id === studentId
+        ? { ...student, activeDays, updatedAt: new Date().toISOString() }
+        : student
+    )
+    persist({ ...data, students: updatedStudents })
+    if (!activeDays.includes(day)) setDay(activeDays[0])
+    setSaved(`Quantidade de planilhas atualizada para ${count}. Os treinos ocultos foram preservados.`)
+    setTimeout(() => setSaved(''), 3000)
+  }
+
   function addStudent(event) {
     event.preventDefault()
     if (!studentForm.name) return
@@ -678,12 +697,15 @@ export default function AdminPanel() {
     const password = studentForm.password || generatePassword()
     if (data.students.some((item) => item.code === code)) return
 
+    const count = Math.max(1, Math.min(5, Number(studentForm.planCount) || 5))
+
     const nextStudent = {
       id: createId(),
       name: studentForm.name,
       code,
       password,
       active: true,
+      activeDays: DAYS.slice(0, count),
       updatedAt: new Date().toISOString(),
       workouts: cloneWorkouts(data.workouts),
       evaluations: [],
@@ -699,6 +721,7 @@ export default function AdminPanel() {
       name: '',
       code: generateAccessCode(),
       password: generatePassword(),
+      planCount: '5',
     })
     setTab('workouts')
   }
@@ -706,17 +729,20 @@ export default function AdminPanel() {
   function saveStudentCredentials(studentId) {
     const newCode = editStudentForm.code.trim().toUpperCase()
     const newPass = editStudentForm.password.trim()
+    const count = Math.max(1, Math.min(5, Number(editStudentForm.planCount) || 5))
+    const activeDays = DAYS.slice(0, count)
+
     if (!newCode || !newPass) return
 
     const updatedStudents = data.students.map((st) =>
       st.id === studentId
-        ? { ...st, code: newCode, password: newPass, updatedAt: new Date().toISOString() }
+        ? { ...st, code: newCode, password: newPass, activeDays, updatedAt: new Date().toISOString() }
         : st
     )
 
     persist({ ...data, students: updatedStudents })
     setEditingStudentCredsId(null)
-    setSaved('Credenciais do aluno atualizadas!')
+    setSaved('Credenciais e planilhas do aluno atualizadas!')
     setTimeout(() => setSaved(''), 2200)
   }
 
@@ -1017,7 +1043,7 @@ export default function AdminPanel() {
             <div className="shrink-0 bg-ink-950 pb-3 z-10 space-y-3 border-b border-white/10">
               <div>
                 <h1 className="font-display text-2xl uppercase">Fichas individuais</h1>
-                <p className="text-xs text-zinc-300">Cada aluno tem as próprias planilhas A a E.</p>
+                <p className="text-xs text-zinc-300">Configure de 1 a 5 planilhas para cada aluno.</p>
               </div>
 
               <select
@@ -1032,8 +1058,28 @@ export default function AdminPanel() {
                 ))}
               </select>
 
-              <div className="grid grid-cols-5 gap-2">
-                {DAYS.map((item) => (
+              {selectedStudent && (
+                <div className="rounded-xl border border-white/10 bg-ink-800 p-3">
+                  <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-gold-400">
+                    Quantidade de planilhas deste aluno
+                  </label>
+                  <select
+                    value={selectedStudentDays.length}
+                    onChange={(e) => updateStudentPlanCount(selectedStudent.id, e.target.value)}
+                    className="w-full rounded-lg border border-white/15 bg-ink-700 px-3 py-3 text-sm text-white outline-none focus:border-gold-400/50"
+                  >
+                    {[1, 2, 3, 4, 5].map((count) => (
+                      <option key={count} value={count}>{count} {count === 1 ? 'planilha' : 'planilhas'}</option>
+                    ))}
+                  </select>
+                  <p className="mt-2 text-[11px] leading-relaxed text-zinc-400">
+                    Ao reduzir, as planilhas excedentes ficam ocultas, mas seus exercícios permanecem salvos. Você pode reativá-las depois.
+                  </p>
+                </div>
+              )}
+
+              <div className={`grid gap-2`} style={{ gridTemplateColumns: `repeat(${selectedStudentDays.length}, minmax(0, 1fr))` }}>
+                {selectedStudentDays.map((item) => (
                   <button
                     key={item}
                     onClick={() => setDay(item)}
@@ -1052,7 +1098,7 @@ export default function AdminPanel() {
                 <span className="text-xs uppercase tracking-wider text-zinc-400 font-semibold shrink-0">
                   Copiar de:
                 </span>
-                {DAYS.filter((d) => d !== day).map((sourceDay) => (
+                {selectedStudentDays.filter((d) => d !== day).map((sourceDay) => (
                   <button
                     key={sourceDay}
                     type="button"
@@ -1291,6 +1337,23 @@ export default function AdminPanel() {
                 placeholder="Senha"
                 className="w-full rounded-xl border border-white/15 bg-ink-700 px-3.5 py-3 text-base text-white outline-none focus:border-gold-400/50"
               />
+              <div>
+                <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-gold-400">
+                  Quantidade de planilhas de treino
+                </label>
+                <select
+                  value={studentForm.planCount}
+                  onChange={(e) => setStudentForm({ ...studentForm, planCount: e.target.value })}
+                  className="w-full rounded-xl border border-white/15 bg-ink-700 px-3.5 py-3 text-base text-white outline-none focus:border-gold-400/50"
+                >
+                  {[1, 2, 3, 4, 5].map((count) => (
+                    <option key={count} value={count}>{count} {count === 1 ? 'planilha' : 'planilhas'}</option>
+                  ))}
+                </select>
+                <p className="mt-1.5 text-xs text-zinc-400">
+                  Você poderá alterar essa quantidade depois, na área de treinos ou edição do aluno.
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={() =>
@@ -1332,6 +1395,7 @@ export default function AdminPanel() {
                 filteredStudents.map((student) => {
                   const isActive = student.active !== false
                   const isEditingThis = editingStudentCredsId === student.id
+                  const activeCount = student.activeDays?.length || 5
 
                   return (
                     <article
@@ -1361,7 +1425,7 @@ export default function AdminPanel() {
 
                             {isEditingThis ? (
                               <div className="mt-3 space-y-2.5 rounded-xl border border-gold-400/40 bg-ink-900 p-3">
-                                <p className="text-xs uppercase font-bold text-gold-400">Editar Código e Senha</p>
+                                <p className="text-xs uppercase font-bold text-gold-400">Editar Código, Senha e Planilhas</p>
                                 <input
                                   value={editStudentForm.code}
                                   onChange={(e) => setEditStudentForm({ ...editStudentForm, code: e.target.value.toUpperCase() })}
@@ -1374,6 +1438,20 @@ export default function AdminPanel() {
                                   placeholder="Nova senha"
                                   className="w-full rounded-lg border border-white/15 bg-ink-800 px-3 py-2 text-sm text-white outline-none"
                                 />
+                                <div>
+                                  <label className="block text-[11px] font-bold uppercase text-zinc-300 mb-1">
+                                    Quantidade de Planilhas
+                                  </label>
+                                  <select
+                                    value={editStudentForm.planCount}
+                                    onChange={(e) => setEditStudentForm({ ...editStudentForm, planCount: e.target.value })}
+                                    className="w-full rounded-lg border border-white/15 bg-ink-800 px-3 py-2 text-sm text-white outline-none"
+                                  >
+                                    {[1, 2, 3, 4, 5].map((count) => (
+                                      <option key={count} value={count}>{count} {count === 1 ? 'planilha' : 'planilhas'}</option>
+                                    ))}
+                                  </select>
+                                </div>
                                 <div className="flex gap-2 pt-1">
                                   <button
                                     type="button"
@@ -1385,7 +1463,7 @@ export default function AdminPanel() {
                                   <button
                                     type="button"
                                     onClick={() => saveStudentCredentials(student.id)}
-                                    className="w-1/2 rounded-lg bg-gold-400 py-2 text-xs font-bold uppercase text-ink-950 font-bold"
+                                    className="w-1/2 rounded-lg bg-gold-400 py-2 text-xs font-bold uppercase text-ink-950"
                                   >
                                     Salvar Acesso
                                   </button>
@@ -1396,11 +1474,12 @@ export default function AdminPanel() {
                                 <div>
                                   <p className="text-sm text-zinc-300 font-medium">Código: <span className="text-white font-bold">{student.code}</span></p>
                                   <p className="text-sm text-zinc-300 font-medium">Senha: <span className="text-white font-bold">{student.password}</span></p>
+                                  <p className="text-xs text-gold-400 font-medium mt-0.5">Planilhas ativas: <span className="font-bold">{activeCount} ({DAYS.slice(0, activeCount).join(', ')})</span></p>
                                 </div>
                                 <button
                                   onClick={() => {
                                     setEditingStudentCredsId(student.id)
-                                    setEditStudentForm({ code: student.code, password: student.password })
+                                    setEditStudentForm({ code: student.code, password: student.password, planCount: String(activeCount) })
                                   }}
                                   className="text-xs font-bold text-gold-400 hover:text-gold-300 underline"
                                 >
@@ -1500,7 +1579,7 @@ export default function AdminPanel() {
                 <div key={exercise.id} className="group rounded-2xl border border-white/10 bg-ink-800 p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <h4 className="font-display text-base uppercase text-white">{exercise.name}</h4>
+                    <h4 className="font-display text-base uppercase text-white">{exercise.name}</h4>
                       <p className="text-xs text-gold-400 font-semibold uppercase">{exercise.muscle}</p>
                     </div>
                   </div>
@@ -1691,7 +1770,6 @@ export default function AdminPanel() {
                 </div>
               </div>
 
-              {/* Botão de Cálculo Automático */}
               <button
                 type="button"
                 onClick={calculateMetrics}
