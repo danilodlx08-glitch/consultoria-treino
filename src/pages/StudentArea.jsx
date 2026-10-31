@@ -178,7 +178,7 @@ export default function StudentArea() {
     return result
   }, [workout.exercises, selectedWorkoutDay])
 
-  // Estrutura agrupada para renderização em blocos (Bi-set / Tri-set)
+  // Estrutura agrupada para blocos (Bi-set / Tri-set)
   const structuredExercises = useMemo(() => {
     const list = sortedExercises
     const blocks = []
@@ -189,7 +189,6 @@ export default function StudentArea() {
       const groupKey = (currentEx.group || '').trim()
 
       if (groupKey) {
-        // Encontra todos os exercícios consecutivos com o mesmo grupo
         const groupItems = [currentEx]
         let j = i + 1
         while (j < list.length && (list[j].group || '').trim().toLowerCase() === groupKey.toLowerCase()) {
@@ -819,11 +818,10 @@ export default function StudentArea() {
               Enviar cargas e feedback no WhatsApp
             </button>
 
-            {/* RENDERIZAÇÃO DOS EXERCÍCIOS / BLOCOS (BI-SET / TRI-SET) */}
+            {/* RENDERIZAÇÃO DOS BLOCOS (VISÃO NORMAL) */}
             <div className="mt-5 space-y-4">
               {structuredExercises.map((block, bIndex) => {
                 if (block.type === 'group') {
-                  // Bloco Conjugado (Bi-set / Tri-set unificado visualmente)
                   return (
                     <div 
                       key={`block-${block.groupName}-${bIndex}`}
@@ -867,8 +865,7 @@ export default function StudentArea() {
                               </div>
 
                               <div className="flex items-stretch gap-3 mb-3">
-                                <div className="w-28 shrink-0 flex flex-col">
-                                  {exercise.video ? (
+                                <div className="w-28 shrink-0 flex flex-col">{exercise.video ? (
                                     <button
                                       type="button"
                                       onClick={() => openVideo(exercise)}
@@ -963,7 +960,6 @@ export default function StudentArea() {
                     </div>
                   )
                 } else {
-                  // Exercício Individual Padrão
                   const exercise = block.exercise
                   const videoId = youtubeId(exercise.video)
                   const totalSets = parseInt(exercise.sets) || 1
@@ -1086,6 +1082,7 @@ export default function StudentArea() {
             </div>
           </div>
         ) : (
+          /* MODO TREINO IMERSIVO (AGORA SUPORTA BLOCOS UNIFICADOS - BI-SET / TRI-SET) */
           <div className="space-y-4 animate-fade-in">
             <div className="flex items-center justify-between rounded-2xl bg-ink-900 border border-gold-400/40 p-3.5">
               <div className="flex items-center gap-2">
@@ -1115,7 +1112,7 @@ export default function StudentArea() {
             </div>
 
             <div className="flex items-center justify-between text-xs font-bold text-zinc-400 px-1">
-              <span>Exercício {workoutActiveIndex + 1} de {totalExercises}</span>
+              <span>Bloco {workoutActiveIndex + 1} de {structuredExercises.length}</span>
               <span className="text-gold-400">{progressPercent}% concluído</span>
             </div>
             <div className="h-2 w-full overflow-hidden rounded-full bg-ink-800 border border-white/5">
@@ -1126,142 +1123,293 @@ export default function StudentArea() {
             </div>
 
             {(() => {
-              const exercise = sortedExercises[workoutActiveIndex]
-              if (!exercise) return null
-              const videoId = youtubeId(exercise.video)
-              const totalSets = parseInt(exercise.sets) || 1
-              const doneSets = exerciseProgress[exercise.id] || 0
-              const isAllDone = doneSets >= totalSets
+              const currentBlock = structuredExercises[workoutActiveIndex]
+              if (!currentBlock) return null
 
-              return (
-                <div className="rounded-2xl border border-gold-400/50 bg-ink-900 p-5 shadow-2xl space-y-4">
-                  <div>
-                    {exercise.group && (
-                      <div className="mb-2 inline-flex items-center gap-1 rounded-md bg-gold-400/15 px-2.5 py-1 text-xs font-bold uppercase tracking-wider text-gold-400 border border-gold-400/30">
-                        <Link2 size={13} />
-                        {exercise.group}
+              if (currentBlock.type === 'group') {
+                // MODO IMERSIVO PARA BI-SET / TRI-SET (EXIBE OS EXERCÍCIOS JUNTOS NO QUADRO)
+                return (
+                  <div className="rounded-3xl border-2 border-gold-400 bg-ink-900 p-5 shadow-2xl space-y-5">
+                    <div className="flex items-center justify-between border-b border-gold-400/30 pb-3">
+                      <div className="flex items-center gap-2 text-gold-400">
+                        <Link2 size={20} />
+                        <h2 className="font-display text-xl uppercase tracking-wider font-extrabold text-gold-300">
+                          {currentBlock.groupName}
+                        </h2>
                       </div>
-                    )}
-                    <h2 className="font-display text-2xl uppercase tracking-wide text-white">
-                      {exercise.name}
-                    </h2>
-                  </div>
+                      <span className="rounded-full bg-gold-400/20 px-3 py-1 text-xs font-bold uppercase tracking-widest text-gold-400 border border-gold-400/30">
+                        Treino Conjugado
+                      </span>
+                    </div>
 
-                  {exercise.video && (
-                    <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-gold-400/30 bg-black">
-                      {videoId ? (
+                    <div className="space-y-5">
+                      {currentBlock.exercises.map((exercise, idx) => {
+                        const videoId = youtubeId(exercise.video)
+                        const totalSets = parseInt(exercise.sets) || 1
+                        const doneSets = exerciseProgress[exercise.id] || 0
+                        const isAllDone = doneSets >= totalSets
+
+                        return (
+                          <div key={exercise.id || `imm-group-${idx}`} className="rounded-2xl border border-white/15 bg-ink-800 p-4 space-y-3">
+                            <div>
+                              <p className="text-[10px] uppercase tracking-wider text-zinc-400 font-bold">
+                                Exercício {idx + 1} do bloco
+                              </p>
+                              <h3 className="font-display text-xl uppercase text-white tracking-wide mt-0.5">
+                                {exercise.name}
+                              </h3>
+                            </div>
+
+                            {exercise.video && (
+                              <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-gold-400/30 bg-black">
+                                {videoId ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => openVideo(exercise)}
+                                    className="group relative h-full w-full flex items-center justify-center"
+                                  >
+                                    <img
+                                      src={`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`}
+                                      alt={exercise.name}
+                                      className="absolute inset-0 h-full w-full object-cover opacity-80 group-hover:scale-105 transition"
+                                    />
+                                    <div className="absolute inset-0 bg-black/40" />
+                                    <div className="relative z-10 flex h-12 w-12 items-center justify-center rounded-full bg-gold-400 text-ink-950 shadow-xl">
+                                      <Play size={24} fill="currentColor" className="ml-0.5" />
+                                    </div>
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => openVideo(exercise)}
+                                    className="h-full w-full flex items-center justify-center text-gold-400 text-xs uppercase font-bold"
+                                  >
+                                    <ExternalLink size={18} className="mr-2" /> Assistir Vídeo
+                                  </button>
+                                )}
+                              </div>
+                            )}
+
+                            <div className="grid grid-cols-2 gap-2.5">
+                              <div className="rounded-xl bg-ink-700 p-2.5 text-center border border-white/5">
+                                <p className="text-[9px] uppercase tracking-wider text-zinc-400 font-bold">Séries</p>
+                                <p className="font-display text-xl text-gold-400 font-extrabold mt-0.5">{exercise.sets}</p>
+                              </div>
+                              <div className="rounded-xl bg-ink-700 p-2.5 text-center border border-white/5">
+                                <p className="text-[9px] uppercase tracking-wider text-zinc-400 font-bold">Repetições</p>
+                                <p className="font-display text-xl text-gold-400 font-extrabold mt-0.5">{exercise.reps}</p>
+                              </div>
+                            </div>
+
+                            {exercise.notes && (
+                              <div className="rounded-xl bg-gold-400/10 border border-gold-400/25 p-2.5 text-xs text-zinc-200">
+                                <div className="flex items-center gap-1.5 text-gold-400 font-bold uppercase text-[10px] tracking-wider mb-1">
+                                  <Lightbulb size={13} /> Execução
+                                </div>
+                                <p>{exercise.notes}</p>
+                              </div>
+                            )}
+
+                            <div className="space-y-1.5 pt-1">
+                              <div className="flex items-center justify-center text-[11px] font-bold uppercase text-zinc-400 gap-1">
+                                <span>Séries ({doneSets}/{totalSets})</span>
+                                {isAllDone && <span className="text-emerald-400 ml-1">✓ Feito</span>}
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                {Array.from({ length: totalSets }).map((_, sIdx) => {
+                                  const isDone = sIdx < doneSets
+                                  return (
+                                    <button
+                                      key={sIdx}
+                                      type="button"
+                                      onClick={() => handleSetClick(exercise, sIdx)}
+                                      className={`flex-1 py-2.5 rounded-xl border text-xs font-display font-extrabold uppercase transition-all flex items-center justify-center gap-1 ${
+                                        isDone
+                                          ? 'bg-emerald-500 text-ink-950 border-emerald-400 shadow-md'
+                                          : 'bg-ink-700 text-gold-300 border-gold-400/40 hover:bg-gold-400 hover:text-ink-950'
+                                      }`}
+                                    >
+                                      {!isDone && getSetIcon(sIdx)}
+                                      <span>S{sIdx + 1}</span>
+                                      {isDone && <CheckCircle2 size={14} />}
+                                    </button>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+
+                    <div className="flex items-center justify-between pt-3 border-t border-white/10">
+                      <button
+                        type="button"
+                        disabled={workoutActiveIndex === 0}
+                        onClick={() => {
+                          setWorkoutActiveIndex((prev) => Math.max(0, prev - 1))
+                          setActiveRestMenu(false)
+                        }}
+                        className="flex items-center gap-1 rounded-xl border border-white/10 bg-ink-800 px-4 py-2.5 text-xs font-bold text-zinc-300 disabled:opacity-30 hover:border-gold-400/40 transition"
+                      >
+                        <ChevronLeft size={16} /> Anterior
+                      </button>
+
+                      {workoutActiveIndex < structuredExercises.length - 1 ? (
                         <button
                           type="button"
-                          onClick={() => openVideo(exercise)}
-                          className="group relative h-full w-full flex items-center justify-center"
+                          onClick={() => {
+                            setWorkoutActiveIndex((prev) => Math.min(structuredExercises.length - 1, prev + 1))
+                            setActiveRestMenu(false)
+                          }}
+                          className="flex items-center gap-1 rounded-xl bg-gold-400 px-5 py-2.5 text-xs font-bold uppercase text-ink-950 hover:bg-gold-300 transition shadow-md"
                         >
-                          <img
-                            src={`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`}
-                            alt={exercise.name}
-                            className="absolute inset-0 h-full w-full object-cover opacity-80 group-hover:scale-105 transition"
-                          />
-                          <div className="absolute inset-0 bg-black/40" />
-                          <div className="relative z-10 flex h-14 w-14 items-center justify-center rounded-full bg-gold-400 text-ink-950 shadow-xl">
-                            <Play size={28} fill="currentColor" className="ml-1" />
-                          </div>
+                          Próximo Bloco <ChevronRight size={16} />
                         </button>
                       ) : (
                         <button
                           type="button"
-                          onClick={() => openVideo(exercise)}
-                          className="h-full w-full flex items-center justify-center text-gold-400 text-xs uppercase font-bold"
+                          onClick={() => setShowFinishedScreen(true)}
+                          className="flex items-center gap-1 rounded-xl bg-emerald-500 px-5 py-2.5 text-xs font-extrabold uppercase text-ink-950 hover:bg-emerald-400 transition shadow-md animate-pulse"
                         >
-                          <ExternalLink size={20} className="mr-2" /> Assistir Vídeo
+                          Finalizar Treino <Trophy size={16} />
                         </button>
                       )}
                     </div>
-                  )}
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="rounded-xl bg-ink-800 p-3 text-center border border-white/5">
-                      <p className="text-[10px] uppercase tracking-wider text-zinc-400 font-bold">Séries</p>
-                      <p className="font-display text-2xl text-gold-400 font-extrabold mt-0.5">{exercise.sets}</p>
-                    </div>
-                    <div className="rounded-xl bg-ink-800 p-3 text-center border border-white/5">
-                      <p className="text-[10px] uppercase tracking-wider text-zinc-400 font-bold">Repetições</p>
-                      <p className="font-display text-2xl text-gold-400 font-extrabold mt-0.5">{exercise.reps}</p>
-                    </div>
                   </div>
+                )
+              } else {
+                // MODO IMERSIVO PARA EXERCÍCIO INDIVIDUAL
+                const exercise = currentBlock.exercise
+                const videoId = youtubeId(exercise.video)
+                const totalSets = parseInt(exercise.sets) || 1
+                const doneSets = exerciseProgress[exercise.id] || 0
+                const isAllDone = doneSets >= totalSets
 
-                  {exercise.notes && (
-                    <div className="rounded-xl bg-gold-400/10 border border-gold-400/25 p-3 text-xs leading-relaxed text-zinc-200">
-                      <div className="flex items-center gap-1.5 text-gold-400 font-bold uppercase text-[10px] tracking-wider mb-1">
-                        <Lightbulb size={14} /> Foco / Execução
-                      </div>
-                      <p>{exercise.notes}</p>
+                return (
+                  <div className="rounded-2xl border border-gold-400/50 bg-ink-900 p-5 shadow-2xl space-y-4">
+                    <div>
+                      <h2 className="font-display text-2xl uppercase tracking-wide text-white">
+                        {exercise.name}
+                      </h2>
                     </div>
-                  )}
 
-                  <div className="space-y-2 pt-2">
-                    <div className="flex items-center justify-center text-xs font-bold uppercase tracking-wider text-zinc-400 gap-1 text-center">
-                      <span>Progresso das Séries</span>
-                      <span className="text-gold-400">({doneSets}/{totalSets})</span>
-                      {isAllDone && <span className="text-emerald-400 font-extrabold ml-1">• Completo ✓</span>}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {Array.from({ length: totalSets }).map((_, sIdx) => {
-                        const isDone = sIdx < doneSets
-                        return (
+                    {exercise.video && (
+                      <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-gold-400/30 bg-black">
+                        {videoId ? (
                           <button
-                            key={sIdx}
                             type="button"
-                            onClick={() => handleSetClick(exercise, sIdx)}
-                            className={`flex-1 py-3 rounded-xl border text-sm font-display font-extrabold uppercase transition-all flex items-center justify-center gap-1.5 ${
-                              isDone
-                                ? 'bg-emerald-500 text-ink-950 border-emerald-400 shadow-lg shadow-emerald-500/20'
-                                : 'bg-ink-800 text-gold-300 border-gold-400/40 hover:bg-gold-400 hover:text-ink-950'
-                            }`}
+                            onClick={() => openVideo(exercise)}
+                            className="group relative h-full w-full flex items-center justify-center"
                           >
-                            {!isDone && getSetIcon(sIdx)}
-                            <span>Série {sIdx + 1}</span>
-                            {isDone && <CheckCircle2 size={16} />}
+                            <img
+                              src={`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`}
+                              alt={exercise.name}
+                              className="absolute inset-0 h-full w-full object-cover opacity-80 group-hover:scale-105 transition"
+                            />
+                            <div className="absolute inset-0 bg-black/40" />
+                            <div className="relative z-10 flex h-14 w-14 items-center justify-center rounded-full bg-gold-400 text-ink-950 shadow-xl">
+                              <Play size={28} fill="currentColor" className="ml-1" />
+                            </div>
                           </button>
-                        )
-                      })}
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => openVideo(exercise)}
+                            className="h-full w-full flex items-center justify-center text-gold-400 text-xs uppercase font-bold"
+                          >
+                            <ExternalLink size={20} className="mr-2" /> Assistir Vídeo
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="rounded-xl bg-ink-800 p-3 text-center border border-white/5">
+                        <p className="text-[10px] uppercase tracking-wider text-zinc-400 font-bold">Séries</p>
+                        <p className="font-display text-2xl text-gold-400 font-extrabold mt-0.5">{exercise.sets}</p>
+                      </div>
+                      <div className="rounded-xl bg-ink-800 p-3 text-center border border-white/5">
+                        <p className="text-[10px] uppercase tracking-wider text-zinc-400 font-bold">Repetições</p>
+                        <p className="font-display text-2xl text-gold-400 font-extrabold mt-0.5">{exercise.reps}</p>
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="flex items-center justify-between pt-3 border-t border-white/10">
-                    <button
-                      type="button"
-                      disabled={workoutActiveIndex === 0}
-                      onClick={() => {
-                        setWorkoutActiveIndex((prev) => Math.max(0, prev - 1))
-                        setActiveRestMenu(false)
-                      }}
-                      className="flex items-center gap-1 rounded-xl border border-white/10 bg-ink-800 px-4 py-2.5 text-xs font-bold text-zinc-300 disabled:opacity-30 hover:border-gold-400/40 transition"
-                    >
-                      <ChevronLeft size={16} /> Anterior
-                    </button>
+                    {exercise.notes && (
+                      <div className="rounded-xl bg-gold-400/10 border border-gold-400/25 p-3 text-xs leading-relaxed text-zinc-200">
+                        <div className="flex items-center gap-1.5 text-gold-400 font-bold uppercase text-[10px] tracking-wider mb-1">
+                          <Lightbulb size={14} /> Foco / Execução
+                        </div>
+                        <p>{exercise.notes}</p>
+                      </div>
+                    )}
 
-                    {workoutActiveIndex < totalExercises - 1 ? (
+                    <div className="space-y-2 pt-2">
+                      <div className="flex items-center justify-center text-xs font-bold uppercase tracking-wider text-zinc-400 gap-1 text-center">
+                        <span>Progresso das Séries</span>
+                        <span className="text-gold-400">({doneSets}/{totalSets})</span>
+                        {isAllDone && <span className="text-emerald-400 font-extrabold ml-1">• Completo ✓</span>}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {Array.from({ length: totalSets }).map((_, sIdx) => {
+                          const isDone = sIdx < doneSets
+                          return (
+                            <button
+                              key={sIdx}
+                              type="button"
+                              onClick={() => handleSetClick(exercise, sIdx)}
+                              className={`flex-1 py-3 rounded-xl border text-sm font-display font-extrabold uppercase transition-all flex items-center justify-center gap-1.5 ${
+                                isDone
+                                  ? 'bg-emerald-500 text-ink-950 border-emerald-400 shadow-lg shadow-emerald-500/20'
+                                  : 'bg-ink-800 text-gold-300 border-gold-400/40 hover:bg-gold-400 hover:text-ink-950'
+                              }`}
+                            >
+                              {!isDone && getSetIcon(sIdx)}
+                              <span>Série {sIdx + 1}</span>
+                              {isDone && <CheckCircle2 size={16} />}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-3 border-t border-white/10">
                       <button
                         type="button"
+                        disabled={workoutActiveIndex === 0}
                         onClick={() => {
-                          setWorkoutActiveIndex((prev) => Math.min(totalExercises - 1, prev + 1))
+                          setWorkoutActiveIndex((prev) => Math.max(0, prev - 1))
                           setActiveRestMenu(false)
                         }}
-                        className="flex items-center gap-1 rounded-xl bg-gold-400 px-5 py-2.5 text-xs font-bold uppercase text-ink-950 hover:bg-gold-300 transition shadow-md"
+                        className="flex items-center gap-1 rounded-xl border border-white/10 bg-ink-800 px-4 py-2.5 text-xs font-bold text-zinc-300 disabled:opacity-30 hover:border-gold-400/40 transition"
                       >
-                        Próximo Exercício <ChevronRight size={16} />
+                        <ChevronLeft size={16} /> Anterior
                       </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => setShowFinishedScreen(true)}
-                        className="flex items-center gap-1 rounded-xl bg-emerald-500 px-5 py-2.5 text-xs font-extrabold uppercase text-ink-950 hover:bg-emerald-400 transition shadow-md animate-pulse"
-                      >
-                        Finalizar Treino <Trophy size={16} />
-                      </button>
-                    )}
+
+                      {workoutActiveIndex < structuredExercises.length - 1 ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setWorkoutActiveIndex((prev) => Math.min(structuredExercises.length - 1, prev + 1))
+                            setActiveRestMenu(false)
+                          }}
+                          className="flex items-center gap-1 rounded-xl bg-gold-400 px-5 py-2.5 text-xs font-bold uppercase text-ink-950 hover:bg-gold-300 transition shadow-md"
+                        >
+                          Próximo <ChevronRight size={16} />
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setShowFinishedScreen(true)}
+                          className="flex items-center gap-1 rounded-xl bg-emerald-500 px-5 py-2.5 text-xs font-extrabold uppercase text-ink-950 hover:bg-emerald-400 transition shadow-md animate-pulse"
+                        >
+                          Finalizar Treino <Trophy size={16} />
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              )
+                )
+              }
             })()}
           </div>
         )}
@@ -1322,7 +1470,8 @@ export default function StudentArea() {
               {timerActive ? `${timerSeconds}s (Parar)` : 'Descanso'}
             </span>
           </button>
-        </div></div>
+        </div>
+      </div>
 
       {isEvaluationOpen && (
         <div
