@@ -123,7 +123,6 @@ export default function StudentArea() {
   }, [data, student])
 
   const workouts = current?.workouts || {}
-  // Alunos antigos, sem activeDays, continuam vendo as cinco planilhas.
   const activeDays = Array.isArray(current?.activeDays) && current.activeDays.length > 0
     ? DAYS.filter((day) => current.activeDays.includes(day))
     : DAYS
@@ -178,6 +177,41 @@ export default function StudentArea() {
 
     return result
   }, [workout.exercises, selectedWorkoutDay])
+
+  // Estrutura agrupada para renderização em blocos (Bi-set / Tri-set)
+  const structuredExercises = useMemo(() => {
+    const list = sortedExercises
+    const blocks = []
+    let i = 0
+
+    while (i < list.length) {
+      const currentEx = list[i]
+      const groupKey = (currentEx.group || '').trim()
+
+      if (groupKey) {
+        // Encontra todos os exercícios consecutivos com o mesmo grupo
+        const groupItems = [currentEx]
+        let j = i + 1
+        while (j < list.length && (list[j].group || '').trim().toLowerCase() === groupKey.toLowerCase()) {
+          groupItems.push(list[j])
+          j++
+        }
+        blocks.push({
+          type: 'group',
+          groupName: groupKey,
+          exercises: groupItems,
+        })
+        i = j
+      } else {
+        blocks.push({
+          type: 'single',
+          exercise: currentEx,
+        })
+        i++
+      }
+    }
+    return blocks
+  }, [sortedExercises])
 
   const totalExercises = sortedExercises.length
 
@@ -571,7 +605,6 @@ export default function StudentArea() {
             </div>
           </div>
         ) : selectedWorkoutDay === 'ALL' ? (
-          /* TELA DE TODOS OS EXERCÍCIOS (BASEADA NO RASCUNHO DA IMAGEM) */
           <div className="space-y-6 animate-fade-in">
             <div>
               <p className="text-[12px] uppercase tracking-[0.2em] text-gold-400 font-bold">Visão Geral</p>
@@ -591,7 +624,6 @@ export default function StudentArea() {
                     key={dKey} 
                     className="rounded-2xl border border-gold-400/30 bg-ink-900 p-4 shadow-xl space-y-3"
                   >
-                    {/* CABEÇALHO DO CARD: [LETRA] [FOCO/TÍTULO] [OBS] */}
                     <div className="flex items-center justify-between border-b border-white/10 pb-3">
                       <div className="flex items-center gap-3">
                         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold-400 text-ink-950 font-display text-xl font-black shadow-md">
@@ -621,7 +653,6 @@ export default function StudentArea() {
                       </button>
                     </div>
 
-                    {/* LISTA SINTÉTICA DE EXERCÍCIOS */}
                     {exList.length === 0 ? (
                       <p className="text-xs text-zinc-500 italic py-2 text-center">
                         Nenhum exercício no Treino {dKey}.
@@ -636,7 +667,6 @@ export default function StudentArea() {
                               key={exercise.id || idx} 
                               className="flex items-center gap-3.5 rounded-xl border border-white/5 bg-ink-800 p-2.5 transition hover:border-gold-400/30"
                             >
-                              {/* VÍDEO COM MINIATURA / ÍCONE À ESQUERDA */}
                               <div className="h-16 w-16 shrink-0 rounded-lg overflow-hidden border border-gold-400/40 bg-black relative">
                                 {exercise.video ? (
                                   <button
@@ -667,7 +697,6 @@ export default function StudentArea() {
                                 )}
                               </div>
 
-                              {/* INFORMAÇÕES DO EXERCÍCIO */}
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-1.5 flex-wrap">
                                   {exercise.group && (
@@ -790,139 +819,273 @@ export default function StudentArea() {
               Enviar cargas e feedback no WhatsApp
             </button>
 
+            {/* RENDERIZAÇÃO DOS EXERCÍCIOS / BLOCOS (BI-SET / TRI-SET) */}
             <div className="mt-5 space-y-4">
-              {(sortedExercises || []).map((exercise, index) => {
-                const videoId = youtubeId(exercise.video)
-                const totalSets = parseInt(exercise.sets) || 1
-                const doneSets = exerciseProgress[exercise.id] || 0
-                const isAllDone = doneSets >= totalSets
-
-                return (
-                  <article
-                    key={exercise.id || `${currentDay}-${index}`}
-                    className={`rounded-2xl border p-4 relative transition-all duration-200 ${
-                      isAllDone
-                        ? 'bg-ink-900/40 border-emerald-500/30 opacity-75'
-                        : exercise.group
-                        ? 'bg-ink-800 border-gold-400/50 shadow-lg shadow-gold-400/5'
-                        : 'bg-ink-800 border-white/10'
-                    }`}
-                  >
-                    <div className="mb-3.5">
-                      {exercise.group && (
-                        <div className="mb-2 flex items-center gap-1.5 text-gold-400">
-                          <div className="flex items-center gap-1 rounded-md bg-gold-400/15 px-2.5 py-1 text-xs font-bold uppercase tracking-wider border border-gold-400/30">
-                            <Link2 size={14} />
-                            {exercise.group}
-                          </div>
+              {structuredExercises.map((block, bIndex) => {
+                if (block.type === 'group') {
+                  // Bloco Conjugado (Bi-set / Tri-set unificado visualmente)
+                  return (
+                    <div 
+                      key={`block-${block.groupName}-${bIndex}`}
+                      className="rounded-3xl border-2 border-gold-400 bg-ink-900/90 p-4 shadow-xl shadow-gold-400/10 space-y-4"
+                    >
+                      <div className="flex items-center justify-between border-b border-gold-400/30 pb-2.5">
+                        <div className="flex items-center gap-2 text-gold-400">
+                          <Link2 size={18} />
+                          <h3 className="font-display text-lg uppercase tracking-wider font-extrabold text-gold-300">
+                            {block.groupName}
+                          </h3>
                         </div>
-                      )}
-                      <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-400 font-semibold">
-                        Exercício {index + 1}
-                      </p>
-                      <h2 className={`mt-1 font-display text-2xl uppercase leading-tight ${isAllDone ? 'line-through text-zinc-400' : 'text-white font-extrabold tracking-wide'}`}>
-                        {exercise.name}
-                      </h2>
-                    </div>
-
-                    <div className="flex items-stretch gap-3.5 mb-3.5">
-                      <div className="w-32 shrink-0 flex flex-col">
-                        {exercise.video ? (
-                          <button
-                            type="button"
-                            onClick={() => openVideo(exercise)}
-                            className="group relative h-full min-h-[148px] w-full overflow-hidden rounded-xl border-2 border-gold-400/40 bg-ink-700 text-left transition hover:border-gold-400 flex items-center justify-center shadow-md"
-                          >
-                            {videoId ? (
-                              <>
-                                <img
-                                  src={`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`}
-                                  alt={exercise.name}
-                                  className="absolute inset-0 h-full w-full object-cover transition duration-300 group-hover:scale-105"
-                                />
-                                <div className="absolute inset-0 bg-black/40 transition group-hover:bg-black/50" />
-                                <div className="relative z-10 flex h-12 w-12 items-center justify-center rounded-full bg-gold-400 text-ink-950 shadow-lg">
-                                  <Play size={24} fill="currentColor" className="ml-0.5" />
-                                </div>
-                              </>
-                            ) : (
-                              <div className="flex flex-col items-center justify-center p-2 text-gold-300 text-center">
-                                <ExternalLink size={20} className="mb-1" />
-                                <span className="text-[11px] uppercase font-bold">Vídeo</span>
-                              </div>
-                            )}
-                          </button>
-                        ) : (
-                          <div className="flex h-full min-h-[148px] w-full items-center justify-center rounded-xl border border-white/10 bg-ink-900/50 text-zinc-600">
-                            <Play size={24} className="opacity-20" />
-                          </div>
-                        )}
+                        <span className="rounded-full bg-gold-400/20 px-3 py-0.5 text-[10px] font-bold uppercase tracking-widest text-gold-400 border border-gold-400/30">
+                          Conjugado
+                        </span>
                       </div>
 
-                      <div className="flex-1 min-w-0 flex flex-col gap-2.5">
-                        <div className="grid grid-cols-2 gap-2.5">
-                          <div className="rounded-xl bg-ink-700 p-2.5 text-center border border-white/5 flex flex-col justify-center">
-                            <p className="text-[10px] uppercase tracking-widest text-zinc-400 font-bold">Séries</p>
-                            <p className="font-display text-xl text-gold-400 font-extrabold mt-0.5">{exercise.sets}</p>
-                          </div>
-                          <div className="rounded-xl bg-ink-700 p-2.5 text-center border border-white/5 flex flex-col justify-center">
-                            <p className="text-[10px] uppercase tracking-widest text-zinc-400 font-bold">Repetições</p>
-                            <p className="font-display text-xl text-gold-400 font-extrabold mt-0.5">{exercise.reps}</p>
-                          </div>
-                        </div>
+                      <div className="space-y-3.5">
+                        {block.exercises.map((exercise, indexInGroup) => {
+                          const videoId = youtubeId(exercise.video)
+                          const totalSets = parseInt(exercise.sets) || 1
+                          const doneSets = exerciseProgress[exercise.id] || 0
+                          const isAllDone = doneSets >= totalSets
 
-                        {exercise.notes ? (
-                          <div 
-                            onClick={() => setSelectedObs({ title: exercise.name, notes: exercise.notes })}
-                            className="flex items-start gap-1.5 rounded-xl bg-gold-400/10 border border-gold-400/25 p-2.5 text-[11px] leading-snug text-zinc-200 flex-1 cursor-pointer transition hover:bg-gold-400/20 hover:border-gold-400/50 active:scale-[0.99]"
-                            title="Toque para ler a observação completa"
-                          >
-                            <Lightbulb size={14} className="text-gold-400 shrink-0 mt-0.5" />
-                            <span className="line-clamp-3">{exercise.notes}</span>
-                          </div>
-                        ) : (
-                          <div className="flex-1 rounded-xl border border-dashed border-white/5 bg-ink-900/20 p-2 flex items-center justify-center text-[10px] text-zinc-600 uppercase tracking-wider">
-                            Sem observações
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="pt-3 border-t border-white/10 space-y-2">
-                      <div className="flex items-center justify-center text-[11px] uppercase tracking-wider text-zinc-400 font-bold gap-1 text-center">
-                        <span>Progresso das Séries</span>
-                        <span className="text-gold-400 font-extrabold">({doneSets}/{totalSets})</span>
-                        {isAllDone && <span className="text-emerald-400 font-extrabold flex items-center gap-1 ml-1">• Concluído <CheckCircle2 size={13} /></span>}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {Array.from({ length: totalSets }).map((_, sIdx) => {
-                          const isDone = sIdx < doneSets
                           return (
-                            <button
-                              key={sIdx}
-                              type="button"
-                              onClick={() => handleSetClick(exercise, sIdx)}
-                              className={`flex-1 py-2.5 rounded-xl border text-xs font-display font-extrabold uppercase transition-all flex items-center justify-center gap-1.5 ${
-                                isDone
-                                  ? 'bg-emerald-500 text-ink-950 border-emerald-400 shadow-md shadow-emerald-500/20'
-                                  : 'bg-ink-700 text-zinc-300 border-white/10 hover:border-gold-400/50 hover:text-gold-300'
+                            <article
+                              key={exercise.id || `group-ex-${indexInGroup}`}
+                              className={`rounded-2xl border p-3.5 relative transition-all duration-200 ${
+                                isAllDone
+                                  ? 'bg-ink-950/40 border-emerald-500/30 opacity-75'
+                                  : 'bg-ink-800 border-white/15'
                               }`}
                             >
-                              {!isDone && getSetIcon(sIdx)}
-                              <span>S{sIdx + 1}</span>
-                              {isDone && <CheckCircle2 size={14} />}
-                            </button>
+                              <div className="mb-2.5">
+                                <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-400 font-semibold">
+                                  Exercício {indexInGroup + 1} do bloco
+                                </p>
+                                <h2 className={`mt-0.5 font-display text-xl uppercase leading-tight ${isAllDone ? 'line-through text-zinc-400' : 'text-white font-extrabold tracking-wide'}`}>
+                                  {exercise.name}
+                                </h2>
+                              </div>
+
+                              <div className="flex items-stretch gap-3 mb-3">
+                                <div className="w-28 shrink-0 flex flex-col">
+                                  {exercise.video ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => openVideo(exercise)}
+                                      className="group relative h-full min-h-[130px] w-full overflow-hidden rounded-xl border border-gold-400/40 bg-ink-700 text-left transition hover:border-gold-400 flex items-center justify-center shadow-md"
+                                    >
+                                      {videoId ? (
+                                        <>
+                                          <img
+                                            src={`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`}
+                                            alt={exercise.name}
+                                            className="absolute inset-0 h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                                          />
+                                          <div className="absolute inset-0 bg-black/40 transition group-hover:bg-black/50" />
+                                          <div className="relative z-10 flex h-10 w-10 items-center justify-center rounded-full bg-gold-400 text-ink-950 shadow-lg">
+                                            <Play size={20} fill="currentColor" className="ml-0.5" />
+                                          </div>
+                                        </>
+                                      ) : (
+                                        <div className="flex flex-col items-center justify-center p-2 text-gold-300 text-center">
+                                          <ExternalLink size={18} className="mb-1" />
+                                          <span className="text-[10px] uppercase font-bold">Vídeo</span>
+                                        </div>
+                                      )}
+                                    </button>
+                                  ) : (
+                                    <div className="flex h-full min-h-[130px] w-full items-center justify-center rounded-xl border border-white/10 bg-ink-900/50 text-zinc-600">
+                                      <Play size={22} className="opacity-20" />
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div className="flex-1 min-w-0 flex flex-col gap-2">
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div className="rounded-xl bg-ink-700 p-2 text-center border border-white/5 flex flex-col justify-center">
+                                      <p className="text-[9px] uppercase tracking-widest text-zinc-400 font-bold">Séries</p>
+                                      <p className="font-display text-lg text-gold-400 font-extrabold mt-0.5">{exercise.sets}</p>
+                                    </div>
+                                    <div className="rounded-xl bg-ink-700 p-2 text-center border border-white/5 flex flex-col justify-center">
+                                      <p className="text-[9px] uppercase tracking-widest text-zinc-400 font-bold">Repetições</p>
+                                      <p className="font-display text-lg text-gold-400 font-extrabold mt-0.5">{exercise.reps}</p>
+                                    </div>
+                                  </div>
+
+                                  {exercise.notes ? (
+                                    <div 
+                                      onClick={() => setSelectedObs({ title: exercise.name, notes: exercise.notes })}
+                                      className="flex items-start gap-1.5 rounded-xl bg-gold-400/10 border border-gold-400/25 p-2 text-[11px] leading-snug text-zinc-200 flex-1 cursor-pointer transition hover:bg-gold-400/20 active:scale-[0.99]"
+                                      title="Toque para ler a observação completa"
+                                    >
+                                      <Lightbulb size={13} className="text-gold-400 shrink-0 mt-0.5" />
+                                      <span className="line-clamp-2">{exercise.notes}</span>
+                                    </div>
+                                  ) : (
+                                    <div className="flex-1 rounded-xl border border-dashed border-white/5 bg-ink-900/20 p-2 flex items-center justify-center text-[10px] text-zinc-600 uppercase">
+                                      Sem observações
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="pt-2.5 border-t border-white/10 space-y-1.5">
+                                <div className="flex items-center justify-center text-[10px] uppercase tracking-wider text-zinc-400 font-bold gap-1">
+                                  <span>Séries ({doneSets}/{totalSets})</span>
+                                  {isAllDone && <span className="text-emerald-400 font-extrabold ml-1">✓ Concluído</span>}
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  {Array.from({ length: totalSets }).map((_, sIdx) => {
+                                    const isDone = sIdx < doneSets
+                                    return (
+                                      <button
+                                        key={sIdx}
+                                        type="button"
+                                        onClick={() => handleSetClick(exercise, sIdx)}
+                                        className={`flex-1 py-2 rounded-xl border text-xs font-display font-extrabold uppercase transition-all flex items-center justify-center gap-1 ${
+                                          isDone
+                                            ? 'bg-emerald-500 text-ink-950 border-emerald-400 shadow-md'
+                                            : 'bg-ink-700 text-zinc-300 border-white/10 hover:border-gold-400/50 hover:text-gold-300'
+                                        }`}
+                                      >
+                                        {!isDone && getSetIcon(sIdx)}
+                                        <span>S{sIdx + 1}</span>
+                                        {isDone && <CheckCircle2 size={13} />}
+                                      </button>
+                                    )
+                                  })}
+                                </div>
+                              </div>
+                            </article>
                           )
                         })}
                       </div>
                     </div>
-                  </article>
-                )
+                  )
+                } else {
+                  // Exercício Individual Padrão
+                  const exercise = block.exercise
+                  const videoId = youtubeId(exercise.video)
+                  const totalSets = parseInt(exercise.sets) || 1
+                  const doneSets = exerciseProgress[exercise.id] || 0
+                  const isAllDone = doneSets >= totalSets
+
+                  return (
+                    <article
+                      key={exercise.id || `single-${bIndex}`}
+                      className={`rounded-2xl border p-4 relative transition-all duration-200 ${
+                        isAllDone
+                          ? 'bg-ink-900/40 border-emerald-500/30 opacity-75'
+                          : 'bg-ink-800 border-white/10'
+                      }`}
+                    >
+                      <div className="mb-3.5">
+                        <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-400 font-semibold">
+                          Exercício
+                        </p>
+                        <h2 className={`mt-1 font-display text-2xl uppercase leading-tight ${isAllDone ? 'line-through text-zinc-400' : 'text-white font-extrabold tracking-wide'}`}>
+                          {exercise.name}
+                        </h2>
+                      </div>
+
+                      <div className="flex items-stretch gap-3.5 mb-3.5">
+                        <div className="w-32 shrink-0 flex flex-col">
+                          {exercise.video ? (
+                            <button
+                              type="button"
+                              onClick={() => openVideo(exercise)}
+                              className="group relative h-full min-h-[148px] w-full overflow-hidden rounded-xl border-2 border-gold-400/40 bg-ink-700 text-left transition hover:border-gold-400 flex items-center justify-center shadow-md"
+                            >
+                              {videoId ? (
+                                <>
+                                  <img
+                                    src={`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`}
+                                    alt={exercise.name}
+                                    className="absolute inset-0 h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                                  />
+                                  <div className="absolute inset-0 bg-black/40 transition group-hover:bg-black/50" />
+                                  <div className="relative z-10 flex h-12 w-12 items-center justify-center rounded-full bg-gold-400 text-ink-950 shadow-lg">
+                                    <Play size={24} fill="currentColor" className="ml-0.5" />
+                                  </div>
+                                </>
+                              ) : (
+                                <div className="flex flex-col items-center justify-center p-2 text-gold-300 text-center">
+                                  <ExternalLink size={20} className="mb-1" />
+                                  <span className="text-[11px] uppercase font-bold">Vídeo</span>
+                                </div>
+                              )}
+                            </button>
+                          ) : (
+                            <div className="flex h-full min-h-[148px] w-full items-center justify-center rounded-xl border border-white/10 bg-ink-900/50 text-zinc-600">
+                              <Play size={24} className="opacity-20" />
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex-1 min-w-0 flex flex-col gap-2.5">
+                          <div className="grid grid-cols-2 gap-2.5">
+                            <div className="rounded-xl bg-ink-700 p-2.5 text-center border border-white/5 flex flex-col justify-center">
+                              <p className="text-[10px] uppercase tracking-widest text-zinc-400 font-bold">Séries</p>
+                              <p className="font-display text-xl text-gold-400 font-extrabold mt-0.5">{exercise.sets}</p>
+                            </div>
+                            <div className="rounded-xl bg-ink-700 p-2.5 text-center border border-white/5 flex flex-col justify-center">
+                              <p className="text-[10px] uppercase tracking-widest text-zinc-400 font-bold">Repetições</p>
+                              <p className="font-display text-xl text-gold-400 font-extrabold mt-0.5">{exercise.reps}</p>
+                            </div>
+                          </div>
+
+                          {exercise.notes ? (
+                            <div 
+                              onClick={() => setSelectedObs({ title: exercise.name, notes: exercise.notes })}
+                              className="flex items-start gap-1.5 rounded-xl bg-gold-400/10 border border-gold-400/25 p-2.5 text-[11px] leading-snug text-zinc-200 flex-1 cursor-pointer transition hover:bg-gold-400/20 active:scale-[0.99]"
+                              title="Toque para ler a observação completa"
+                            >
+                              <Lightbulb size={14} className="text-gold-400 shrink-0 mt-0.5" />
+                              <span className="line-clamp-3">{exercise.notes}</span>
+                            </div>
+                          ) : (
+                            <div className="flex-1 rounded-xl border border-dashed border-white/5 bg-ink-900/20 p-2 flex items-center justify-center text-[10px] text-zinc-600 uppercase tracking-wider">
+                              Sem observações
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="pt-3 border-t border-white/10 space-y-2">
+                        <div className="flex items-center justify-center text-[11px] uppercase tracking-wider text-zinc-400 font-bold gap-1 text-center">
+                          <span>Progresso das Séries</span>
+                          <span className="text-gold-400 font-extrabold">({doneSets}/{totalSets})</span>
+                          {isAllDone && <span className="text-emerald-400 font-extrabold flex items-center gap-1 ml-1">• Concluído <CheckCircle2 size={13} /></span>}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {Array.from({ length: totalSets }).map((_, sIdx) => {
+                            const isDone = sIdx < doneSets
+                            return (
+                              <button
+                                key={sIdx}
+                                type="button"
+                                onClick={() => handleSetClick(exercise, sIdx)}
+                                className={`flex-1 py-2.5 rounded-xl border text-xs font-display font-extrabold uppercase transition-all flex items-center justify-center gap-1.5 ${
+                                  isDone
+                                    ? 'bg-emerald-500 text-ink-950 border-emerald-400 shadow-md shadow-emerald-500/20'
+                                    : 'bg-ink-700 text-zinc-300 border-white/10 hover:border-gold-400/50 hover:text-gold-300'
+                                }`}
+                              >
+                                {!isDone && getSetIcon(sIdx)}
+                                <span>S{sIdx + 1}</span>
+                                {isDone && <CheckCircle2 size={14} />}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    </article>
+                  )
+                }
               })}
             </div>
           </div>
         ) : (
-          /* MODO TREINO IMERSIVO */
           <div className="space-y-4 animate-fade-in">
             <div className="flex items-center justify-between rounded-2xl bg-ink-900 border border-gold-400/40 p-3.5">
               <div className="flex items-center gap-2">
@@ -1159,8 +1322,7 @@ export default function StudentArea() {
               {timerActive ? `${timerSeconds}s (Parar)` : 'Descanso'}
             </span>
           </button>
-        </div>
-      </div>
+        </div></div>
 
       {isEvaluationOpen && (
         <div
