@@ -123,10 +123,29 @@ export default function StudentArea() {
   }, [data, student])
 
   const workouts = current?.workouts || {}
+  // Alunos antigos, sem activeDays, continuam vendo as cinco planilhas.
+  const activeDays = Array.isArray(current?.activeDays) && current.activeDays.length > 0
+    ? DAYS.filter((day) => current.activeDays.includes(day))
+    : DAYS
   const evaluations = current?.evaluations || []
   const latestEvaluation = evaluations.length > 0 ? evaluations[evaluations.length - 1] : null
 
-  const currentDay = selectedWorkoutDay && selectedWorkoutDay !== 'ALL' ? selectedWorkoutDay : 'A'
+  useEffect(() => {
+    if (
+      selectedWorkoutDay &&
+      selectedWorkoutDay !== 'ALL' &&
+      !activeDays.includes(selectedWorkoutDay)
+    ) {
+      setSelectedWorkoutDay(null)
+      setShowFinishedScreen(false)
+      setInWorkoutMode(false)
+    }
+  }, [selectedWorkoutDay, activeDays.join(',')])
+
+  const currentDay =
+    selectedWorkoutDay && selectedWorkoutDay !== 'ALL' && activeDays.includes(selectedWorkoutDay)
+      ? selectedWorkoutDay
+      : activeDays[0] || 'A'
   const workout = workouts[currentDay] || {
     title: 'Treino',
     focus: '',
@@ -504,7 +523,7 @@ export default function StudentArea() {
                   <h2 className="font-display text-base uppercase text-white tracking-wide group-hover:text-gold-300 transition-colors">
                     Todos os Exercícios
                   </h2>
-                  <p className="text-xs text-zinc-400">Visualizar planilhas de A a E completas</p>
+                  <p className="text-xs text-zinc-400">Visualizar todas as planilhas cadastradas</p>
                 </div>
               </div>
               <ChevronRight size={20} className="text-gold-400 transition-transform group-hover:translate-x-1" />
@@ -520,7 +539,7 @@ export default function StudentArea() {
             </div>
 
             <div className="space-y-3.5 pt-2">
-              {DAYS.map((dayKey) => {
+              {activeDays.map((dayKey) => {
                 const wData = workouts[dayKey]
 
                 return (
@@ -556,12 +575,14 @@ export default function StudentArea() {
           <div className="space-y-6 animate-fade-in">
             <div>
               <p className="text-[12px] uppercase tracking-[0.2em] text-gold-400 font-bold">Visão Geral</p>
-              <h1 className="mt-1 font-display text-2xl uppercase">Todas as Fichas (A a E)</h1>
+              <h1 className="mt-1 font-display text-2xl uppercase">
+                Todas as Fichas ({activeDays.join(' / ')})
+              </h1>
               <p className="text-xs text-zinc-400 mt-1">Lista sintética das planilhas de treino.</p>
             </div>
 
             <div className="space-y-5">
-              {DAYS.map((dKey) => {
+              {activeDays.map((dKey) => {
                 const wData = workouts[dKey]
                 const exList = wData?.exercises || []
 
