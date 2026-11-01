@@ -1,3 +1,4 @@
+
 import { supabase } from './services/supabase'
 
 const STORAGE_KEY = 'dl_consultoria_v1'
@@ -10,7 +11,7 @@ export const WHATSAPP_NUMBER = '5527996247906'
 
 /*
 |--------------------------------------------------------------------------
-| UTILITÁRIOS E CRIPTOGRAFIA (PBKDF2 COM SALT ALEATÓRIO)
+| UTILITÁRIOS E CRIPTOGRAFIA
 |--------------------------------------------------------------------------
 */
 
@@ -44,7 +45,9 @@ export function cloneWorkouts(source) {
 function generateRandomSalt() {
   const array = new Uint8Array(16)
   crypto.getRandomValues(array)
-  return Array.from(array).map(b => b.toString(16).padStart(2, '0')).join('')
+  return Array.from(array)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
 }
 
 async function derivePasswordHash(password, saltHex) {
@@ -52,6 +55,7 @@ async function derivePasswordHash(password, saltHex) {
   if (!cleanPass || !saltHex) return ''
 
   const encoder = new TextEncoder()
+
   const keyMaterial = await crypto.subtle.importKey(
     'raw',
     encoder.encode(cleanPass),
@@ -60,7 +64,9 @@ async function derivePasswordHash(password, saltHex) {
     ['deriveBits', 'deriveKey']
   )
 
-  const saltBytes = new Uint8Array(saltHex.match(/.{1,2}/g).map(byte => parseInt(byte, 16)))
+  const saltBytes = new Uint8Array(
+    saltHex.match(/.{1,2}/g).map((byte) => parseInt(byte, 16))
+  )
 
   const derivedKey = await crypto.subtle.deriveKey(
     {
@@ -77,7 +83,37 @@ async function derivePasswordHash(password, saltHex) {
 
   const exported = await crypto.subtle.exportKey('raw', derivedKey)
   const hashArray = Array.from(new Uint8Array(exported))
-  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('')
+
+  return hashArray
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
+}
+
+function isOnline() {
+  return typeof navigator === 'undefined' || navigator.onLine !== false
+}
+
+function isNetworkError(error) {
+  return (
+    error?.message === 'NETWORK_ERROR' ||
+    error?.name === 'TypeError' ||
+    error?.message?.includes('Failed to fetch') ||
+    error?.message?.includes('NetworkError') ||
+    error?.message?.includes('fetch')
+  )
+}
+
+async function validateCachedPassword(cache, password) {
+  if (!cache?.passwordHash || !cache?.passwordSalt) {
+    return false
+  }
+
+  const inputHash = await derivePasswordHash(
+    password,
+    cache.passwordSalt
+  )
+
+  return inputHash === cache.passwordHash
 }
 
 /*
@@ -195,15 +231,19 @@ function buildInitialLibrary() {
   const exercises = Object.values(defaultData.workouts).flatMap(
     (workout) => workout.exercises || []
   )
+
   const unique = []
   const names = new Set()
 
   for (const exercise of exercises) {
     const key = String(exercise.name || '').trim().toLowerCase()
+
     if (!key || names.has(key)) continue
+
     names.add(key)
     unique.push({ ...clone(exercise), id: createId() })
   }
+
   return unique
 }
 
@@ -217,6 +257,7 @@ defaultData.exercisesLibrary = buildInitialLibrary()
 
 function normalizeWorkout(workout, fallback = {}) {
   const source = workout || {}
+
   return {
     ...fallback,
     ...source,
@@ -243,6 +284,7 @@ function normalizeStudent(student, templateWorkouts) {
   }
 
   const validDays = ['A', 'B', 'C', 'D', 'E']
+
   const requestedDays = Array.isArray(source.activeDays)
     ? source.activeDays
     : Array.isArray(source.active_days)
@@ -257,26 +299,32 @@ function normalizeStudent(student, templateWorkouts) {
     id: source.id || createId(),
     name: source.name || source.nome || 'Aluno',
     code: String(source.code || generateAccessCode()).toUpperCase(),
-    password: String(source.password || generatePassword()),
+    password: String(source.password || ''),
     active: source.active !== false,
     updatedAt: source.updatedAt || source.updated_at || null,
     dataVersion: Number(source.dataVersion || source.data_version || 1),
     activeDays: activeDays.length > 0 ? activeDays : [...validDays],
     workouts,
-    evaluations: Array.isArray(source.evaluations) ? source.evaluations : [],
+    evaluations: Array.isArray(source.evaluations)
+      ? source.evaluations
+      : [],
     _writeTimestamp: source._writeTimestamp || '',
   }
 }
 
 export function mergeData(parsed) {
   const source = parsed || {}
+
   const workouts = {
     ...clone(defaultData.workouts),
     ...(source.workouts || {}),
   }
 
   for (const day of ['A', 'B', 'C', 'D', 'E']) {
-    workouts[day] = normalizeWorkout(source.workouts?.[day], defaultData.workouts[day])
+    workouts[day] = normalizeWorkout(
+      source.workouts?.[day],
+      defaultData.workouts[day]
+    )
   }
 
   const studentsSource = Array.isArray(source.students)
@@ -296,7 +344,9 @@ export function mergeData(parsed) {
         ? source.plan.includes
         : clone(defaultData.plan.includes),
     },
-    students: studentsSource.map((student) => normalizeStudent(student, workouts)),
+    students: studentsSource.map((student) =>
+      normalizeStudent(student, workouts)
+    ),
     workouts,
     exercisesLibrary,
   }
@@ -304,12 +354,13 @@ export function mergeData(parsed) {
 
 /*
 |--------------------------------------------------------------------------
-| PERSISTÊNCIA LOCAL (LOCALSTORAGE)
+| PERSISTÊNCIA LOCAL
 |--------------------------------------------------------------------------
 */
 
 function notifyLocalChange(data) {
   if (typeof window === 'undefined') return
+
   window.dispatchEvent(
     new CustomEvent('dl:local-data-changed', { detail: data })
   )
@@ -317,9 +368,14 @@ function notifyLocalChange(data) {
 
 export function loadData() {
   try {
-    if (typeof localStorage === 'undefined') return clone(defaultData)
+    if (typeof localStorage === 'undefined') {
+      return clone(defaultData)
+    }
+
     const raw = localStorage.getItem(STORAGE_KEY)
+
     if (!raw) return clone(defaultData)
+
     return mergeData(JSON.parse(raw))
   } catch (error) {
     console.error('Erro ao carregar os dados locais:', error)
@@ -330,8 +386,10 @@ export function loadData() {
 export function saveLocalData(data) {
   try {
     if (typeof localStorage === 'undefined') return false
+
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
     notifyLocalChange(data)
+
     return true
   } catch (error) {
     console.error('Erro ao salvar dados localmente:', error)
@@ -352,9 +410,13 @@ function studentToRow(student) {
     code: student.code,
     password: student.password,
     active: student.active !== false,
-    active_days: Array.isArray(student.activeDays) ? student.activeDays : ['A', 'B', 'C', 'D', 'E'],
+    active_days: Array.isArray(student.activeDays)
+      ? student.activeDays
+      : ['A', 'B', 'C', 'D', 'E'],
     workouts: student.workouts || {},
-    evaluations: Array.isArray(student.evaluations) ? student.evaluations : [],
+    evaluations: Array.isArray(student.evaluations)
+      ? student.evaluations
+      : [],
     data_version: Number(student.dataVersion || 1),
     updated_at: new Date().toISOString(),
   }
@@ -380,7 +442,7 @@ function rowToStudent(row, templateWorkouts) {
 
 /*
 |--------------------------------------------------------------------------
-| CACHE INDIVIDUAL E AUTENTICAÇÃO
+| CACHE INDIVIDUAL DO ALUNO
 |--------------------------------------------------------------------------
 */
 
@@ -388,59 +450,103 @@ export function getLocalStudentCache(code) {
   try {
     const cleanCode = String(code || '').trim().toUpperCase()
     const cachedKey = `${STUDENT_CACHE_PREFIX}${cleanCode}`
-    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(cachedKey) : null
+
+    const raw =
+      typeof localStorage !== 'undefined'
+        ? localStorage.getItem(cachedKey)
+        : null
+
     if (!raw) return null
+
     return JSON.parse(raw)
-  } catch (e) {
+  } catch (error) {
+    console.error('Erro ao ler cache do aluno:', error)
     return null
   }
 }
 
 function purgeStudentCacheById(studentId) {
   if (typeof localStorage === 'undefined' || !studentId) return
+
   try {
     const keysToRemove = []
+
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i)
+
       if (key && key.startsWith(STUDENT_CACHE_PREFIX)) {
         try {
           const cached = JSON.parse(localStorage.getItem(key))
+
           if (cached && cached.id === studentId) {
             keysToRemove.push(key)
           }
         } catch (_) {}
       }
     }
-    keysToRemove.forEach((k) => localStorage.removeItem(k))
-  } catch (e) {
-    console.error('Erro ao purgar cache por ID:', e)
+
+    keysToRemove.forEach((key) => localStorage.removeItem(key))
+  } catch (error) {
+    console.error('Erro ao purgar cache por ID:', error)
   }
 }
 
-export async function saveStudentCache(code, studentData, rawPassword = '') {
+export async function saveStudentCache(
+  code,
+  studentData,
+  rawPassword = ''
+) {
   try {
     if (typeof localStorage === 'undefined' || !code) return false
-    const cleanCode = String(code || '').trim().toUpperCase()
-    const sanitized = normalizeStudent(studentData, defaultData.workouts)
+
+    const cleanCode = String(code).trim().toUpperCase()
+
+    const sanitized = normalizeStudent(
+      studentData,
+      defaultData.workouts
+    )
+
     delete sanitized._writeTimestamp
+    delete sanitized.password
+    delete sanitized._hasRemoteUpdate
+
+    const passToHash = rawPassword || studentData?.password
+
+    if (passToHash) {
+      const salt = generateRandomSalt()
+
+      sanitized.passwordSalt = salt
+      sanitized.passwordHash = await derivePasswordHash(
+        passToHash,
+        salt
+      )
+    } else if (
+      studentData?.passwordHash &&
+      studentData?.passwordSalt
+    ) {
+      sanitized.passwordHash = studentData.passwordHash
+      sanitized.passwordSalt = studentData.passwordSalt
+    }
 
     purgeStudentCacheById(sanitized.id)
 
-    const passToHash = rawPassword || sanitized.password
-    if (passToHash) {
-      const salt = generateRandomSalt()
-      sanitized.passwordSalt = salt
-      sanitized.passwordHash = await derivePasswordHash(passToHash, salt)
-    }
+    localStorage.setItem(
+      `${STUDENT_CACHE_PREFIX}${cleanCode}`,
+      JSON.stringify(sanitized)
+    )
 
-    delete sanitized.password
-    localStorage.setItem(`${STUDENT_CACHE_PREFIX}${cleanCode}`, JSON.stringify(sanitized))
     return true
-  } catch (e) {
-    console.error('Erro ao guardar cache do aluno:', e)
+  } catch (error) {
+    console.error('Erro ao guardar cache do aluno:', error)
     return false
   }
 }
+
+/*
+|--------------------------------------------------------------------------
+| VERIFICAÇÃO DE VERSÃO E LOGIN
+|--------------------------------------------------------------------------
+*/
 
 export async function checkStudentVersion(code, password) {
   const cleanCode = String(code || '').trim().toUpperCase()
@@ -452,18 +558,30 @@ export async function checkStudentVersion(code, password) {
 
   const localCache = getLocalStudentCache(cleanCode)
 
-  if (!navigator.onLine) {
-    if (localCache && localCache.passwordHash && localCache.passwordSalt) {
-      const inputHash = await derivePasswordHash(cleanPass, localCache.passwordSalt)
-      if (localCache.passwordHash !== inputHash) {
-        throw new Error('Senha incorreta. Verifique os seus dados.')
-      }
-      return { status: 'OFFLINE_CACHE', student: localCache }
+  // Acesso offline: valida a senha usando o hash local.
+  if (!isOnline()) {
+    const validPassword = await validateCachedPassword(
+      localCache,
+      cleanPass
+    )
+
+    if (!validPassword) {
+      throw new Error(
+        'Você está sem internet e não possui dados salvos ou credenciais válidas neste dispositivo.'
+      )
     }
-    throw new Error('Você está sem internet e não possui dados salvos ou credenciais válidas neste dispositivo.')
+
+    return {
+      status: 'OFFLINE_CACHE',
+      student: localCache,
+      localCache,
+      studentId: localCache.id,
+      remoteVersion: localCache.dataVersion,
+    }
   }
 
   try {
+    // Consulta leve: não baixa treinos, avaliações ou outros dados.
     const { data: row, error } = await supabase
       .from('alunos')
       .select('id, password, active, data_version')
@@ -471,61 +589,138 @@ export async function checkStudentVersion(code, password) {
       .maybeSingle()
 
     if (error) throw new Error('NETWORK_ERROR')
-    if (!row) throw new Error('AUTH_INVALID_CODE')
-    if (row.password !== cleanPass) throw new Error('AUTH_INVALID_PASSWORD')
-    if (row.active === false) throw new Error('AUTH_INACTIVE')
 
-    return processVersionCheckResult(row.id, row.data_version, localCache, cleanCode, cleanPass)
-  } catch (err) {
-    if (err.message === 'AUTH_INVALID_CODE') {
-      throw new Error('Código de acesso inválido ou aluno não encontrado.')
+    if (!row) {
+      throw new Error('AUTH_INVALID_CODE')
     }
-    if (err.message === 'AUTH_INVALID_PASSWORD') {
+
+    if (row.password !== cleanPass) {
+      throw new Error('AUTH_INVALID_PASSWORD')
+    }
+
+    if (row.active === false) {
+      throw new Error('AUTH_INACTIVE')
+    }
+
+    return await processVersionCheckResult(
+      row.id,
+      row.data_version,
+      localCache,
+      cleanCode,
+      cleanPass
+    )
+  } catch (error) {
+    if (error.message === 'AUTH_INVALID_CODE') {
+      throw new Error(
+        'Código de acesso inválido ou aluno não encontrado.'
+      )
+    }
+
+    if (error.message === 'AUTH_INVALID_PASSWORD') {
       throw new Error('Senha incorreta. Verifique os seus dados.')
     }
-    if (err.message === 'AUTH_INACTIVE') {
-      throw new Error('Este acesso encontra-se desativado. Contacte o professor.')
+
+    if (error.message === 'AUTH_INACTIVE') {
+      throw new Error(
+        'Este acesso encontra-se desativado. Contacte o professor.'
+      )
     }
 
-    const isNetworkError =
-      err.message === 'NETWORK_ERROR' ||
-      err.name === 'TypeError' ||
-      err.message?.includes('Failed to fetch') ||
-      err.message?.includes('NetworkError')
+    if (isNetworkError(error)) {
+      const validPassword = await validateCachedPassword(
+        localCache,
+        cleanPass
+      )
 
-    if (isNetworkError && localCache && localCache.passwordHash && localCache.passwordSalt) {
-      const inputHash = await derivePasswordHash(cleanPass, localCache.passwordSalt)
-      if (localCache.passwordHash !== inputHash) {
-        throw new Error('Senha incorreta. Verifique os seus dados.')
+      if (validPassword) {
+        return {
+          status: 'OFFLINE_CACHE',
+          student: localCache,
+          localCache,
+          studentId: localCache.id,
+          remoteVersion: localCache.dataVersion,
+        }
       }
-      return { status: 'OFFLINE_CACHE', student: localCache }
+
+      throw new Error(
+        'Não foi possível conectar ao servidor e não existe um cache válido neste dispositivo.'
+      )
     }
 
-    throw err
+    throw error
   }
 }
 
-async function processVersionCheckResult(studentId, remoteVersionVal, localCache, cleanCode, cleanPass) {
+async function processVersionCheckResult(
+  studentId,
+  remoteVersionVal,
+  localCache,
+  cleanCode,
+  cleanPass
+) {
   const remoteVersion = Number(remoteVersionVal || 1)
   const localVersion = Number(localCache?.dataVersion || 0)
 
-  if (localCache && (!localCache.passwordHash || !localCache.passwordSalt)) {
-    await saveStudentCache(cleanCode, localCache, cleanPass)
+  let validCache = localCache
+
+  // Migração de cache antigo sem hash de senha.
+  if (
+    validCache &&
+    (!validCache.passwordHash || !validCache.passwordSalt)
+  ) {
+    await saveStudentCache(cleanCode, validCache, cleanPass)
+    validCache = getLocalStudentCache(cleanCode)
   }
 
-  if (!localCache) {
-    return { status: 'FIRST_ACCESS', studentId, remoteVersion }
+  // Primeiro acesso: a ficha completa será baixada pelo login.
+  if (!validCache) {
+    return {
+      status: 'FIRST_ACCESS',
+      studentId,
+      remoteVersion,
+      localCache: null,
+    }
   }
 
   if (localVersion >= remoteVersion) {
-    return { status: 'UP_TO_DATE', studentId, localCache, remoteVersion }
-  } else {
-    return { status: 'UPDATE_AVAILABLE', studentId, localCache, remoteVersion }
+    return {
+      status: 'UP_TO_DATE',
+      studentId,
+      localCache: validCache,
+      remoteVersion,
+    }
+  }
+
+  return {
+    status: 'UPDATE_AVAILABLE',
+    studentId,
+    localCache: validCache,
+    remoteVersion,
   }
 }
 
+/*
+|--------------------------------------------------------------------------
+| DOWNLOAD COMPLETO DO ALUNO
+|--------------------------------------------------------------------------
+| Esta função deve ser chamada no primeiro acesso ou quando o aluno
+| clicar em "Atualizar agora". Não deve ser chamada em todo login.
+|--------------------------------------------------------------------------
+*/
+
 export async function fetchSingleStudentData(studentId, code) {
-  const cleanCode = String(code || '').trim().toUpperCase()
+  if (!isOnline()) {
+    throw new Error(
+      'Sem conexão com a internet. Não foi possível atualizar os treinos.'
+    )
+  }
+
+  if (!studentId || !code) {
+    throw new Error('Identificação do aluno inválida.')
+  }
+
+  const cleanCode = String(code).trim().toUpperCase()
+
   const { data: row, error } = await supabase
     .from('alunos')
     .select('*')
@@ -533,11 +728,17 @@ export async function fetchSingleStudentData(studentId, code) {
     .single()
 
   if (error || !row) {
+    console.error('Erro no download da ficha:', error)
     throw new Error('Erro ao baixar atualizações do aluno.')
   }
 
-  if (row.id !== studentId || String(row.code).trim().toUpperCase() !== cleanCode) {
-    throw new Error('Erro de validação de identidade do aluno.')
+  if (
+    row.id !== studentId ||
+    String(row.code).trim().toUpperCase() !== cleanCode
+  ) {
+    throw new Error(
+      'Erro de validação de identidade do aluno.'
+    )
   }
 
   if (row.active === false) {
@@ -546,8 +747,23 @@ export async function fetchSingleStudentData(studentId, code) {
 
   const baseWorkouts = clone(defaultData.workouts)
   const student = rowToStudent(row, baseWorkouts)
-  
-  await saveStudentCache(code, student, student.password)
+
+  const cacheSaved = await saveStudentCache(
+    cleanCode,
+    student,
+    student.password
+  )
+
+  if (!cacheSaved) {
+    console.warn(
+      'A ficha foi baixada, mas não foi possível atualizar o cache local.'
+    )
+  }
+
+  // A senha não precisa permanecer na sessão do aluno.
+  delete student.password
+  delete student._hasRemoteUpdate
+
   return student
 }
 
@@ -565,27 +781,34 @@ let saveQueue = Promise.resolve()
 
 function loadPendingQueue() {
   if (typeof localStorage === 'undefined') return
+
   try {
     const raw = localStorage.getItem(PENDING_QUEUE_KEY)
     if (!raw) return
+
     const parsed = JSON.parse(raw)
+
     if (parsed.writes) {
       pendingStudentWrites = new Map(parsed.writes)
     }
+
     if (parsed.deletes) {
       pendingStudentDeletes = new Set(parsed.deletes)
     }
+
     if (parsed.globalConfigDirty) {
       globalConfigDirty = parsed.globalConfigDirty
-      globalConfigTimestamp = parsed.globalConfigTimestamp || createId()
+      globalConfigTimestamp =
+        parsed.globalConfigTimestamp || createId()
     }
-  } catch (e) {
-    console.error('Erro ao carregar fila pendente:', e)
+  } catch (error) {
+    console.error('Erro ao carregar fila pendente:', error)
   }
 }
 
 function persistPendingQueue() {
   if (typeof localStorage === 'undefined') return
+
   try {
     const payload = {
       writes: Array.from(pendingStudentWrites.entries()),
@@ -593,9 +816,13 @@ function persistPendingQueue() {
       globalConfigDirty,
       globalConfigTimestamp,
     }
-    localStorage.setItem(PENDING_QUEUE_KEY, JSON.stringify(payload))
-  } catch (e) {
-    console.error('Erro ao persistir fila pendente:', e)
+
+    localStorage.setItem(
+      PENDING_QUEUE_KEY,
+      JSON.stringify(payload)
+    )
+  } catch (error) {
+    console.error('Erro ao persistir fila pendente:', error)
   }
 }
 
@@ -603,8 +830,11 @@ loadPendingQueue()
 
 export async function fetchData() {
   const localData = loadData()
+
   try {
-    const { data: alunosData, error: alunosError } = await supabase.from('alunos').select('*')
+    const { data: alunosData, error: alunosError } =
+      await supabase.from('alunos').select('*')
+
     if (alunosError) throw alunosError
 
     const rows = Array.isArray(alunosData) ? alunosData : []
@@ -615,15 +845,21 @@ export async function fetchData() {
       if (pendingStudentDeletes.has(row.id)) continue
 
       if (pendingStudentWrites.has(row.id)) {
-        remoteStudents.set(row.id, pendingStudentWrites.get(row.id))
+        remoteStudents.set(
+          row.id,
+          pendingStudentWrites.get(row.id)
+        )
         continue
       }
 
-      remoteStudents.set(row.id, rowToStudent(row, localData.workouts))
+      remoteStudents.set(
+        row.id,
+        rowToStudent(row, localData.workouts)
+      )
     }
 
     for (const [id, student] of pendingStudentWrites.entries()) {
-      if (!rows.some(r => r.id === id)) {
+      if (!rows.some((row) => row.id === id)) {
         remoteStudents.set(id, student)
       }
     }
@@ -635,17 +871,20 @@ export async function fetchData() {
     }
 
     if (!globalConfigDirty) {
-      const { data: configRow, error: configError } = await supabase
-        .from('config')
-        .select('*')
-        .eq('id', 'global')
-        .maybeSingle()
+      const { data: configRow, error: configError } =
+        await supabase
+          .from('config')
+          .select('*')
+          .eq('id', 'global')
+          .maybeSingle()
 
       if (!configError && configRow) {
         globalConfig = {
           brand: configRow.brand || localData.brand,
           plan: configRow.plan || localData.plan,
-          exercisesLibrary: configRow.exercises_library || localData.exercisesLibrary,
+          exercisesLibrary:
+            configRow.exercises_library ||
+            localData.exercisesLibrary,
         }
       }
     }
@@ -657,6 +896,7 @@ export async function fetchData() {
     })
 
     saveLocalData(result)
+
     return result
   } catch (error) {
     console.error('Erro ao carregar dados:', error)
@@ -668,22 +908,45 @@ export function saveData(data) {
   try {
     const snapshot = clone(data)
     const successLocal = saveLocalData(snapshot)
+
     if (!successLocal) {
-      return { success: false, localSaved: false, error: new Error('Falha ao escrever no armazenamento local.') }
+      return {
+        success: false,
+        localSaved: false,
+        error: new Error(
+          'Falha ao escrever no armazenamento local.'
+        ),
+      }
     }
-    return { success: true, localSaved: true, pending: true }
+
+    return {
+      success: true,
+      localSaved: true,
+      pending: true,
+    }
   } catch (error) {
     console.error('Erro ao salvar dados localmente:', error)
-    return { success: false, localSaved: false, error }
+
+    return {
+      success: false,
+      localSaved: false,
+      error,
+    }
   }
 }
 
 export function markStudentAsPending(student) {
   if (!student?.id) return
+
   pendingStudentDeletes.delete(student.id)
-  
-  const normalized = normalizeStudent(student, defaultData.workouts)
+
+  const normalized = normalizeStudent(
+    student,
+    defaultData.workouts
+  )
+
   normalized._writeTimestamp = createId()
+
   pendingStudentWrites.set(student.id, normalized)
   persistPendingQueue()
 }
@@ -691,13 +954,18 @@ export function markStudentAsPending(student) {
 export function removeStudentRecord(id, studentCode = '') {
   pendingStudentWrites.delete(id)
   pendingStudentDeletes.add(id)
+
   persistPendingQueue()
   purgeStudentCacheById(id)
 
-  const cleanCode = String(studentCode || '').trim().toUpperCase()
+  const cleanCode = String(studentCode || '')
+    .trim()
+    .toUpperCase()
 
   if (cleanCode && typeof localStorage !== 'undefined') {
-    localStorage.removeItem(`${STUDENT_CACHE_PREFIX}${cleanCode}`)
+    localStorage.removeItem(
+      `${STUDENT_CACHE_PREFIX}${cleanCode}`
+    )
   }
 }
 
@@ -706,19 +974,27 @@ export async function publishData() {
     const errors = []
 
     try {
-      const currentDeletes = Array.from(pendingStudentDeletes)
+      const currentDeletes = Array.from(
+        pendingStudentDeletes
+      )
+
       const currentWrites = new Map()
+
       for (const [id, student] of pendingStudentWrites.entries()) {
         currentWrites.set(id, clone(student))
       }
-      
+
       const syncGlobalSnapshot = globalConfigDirty
       const syncGlobalTimestamp = globalConfigTimestamp
       const localCurrentSnapshot = loadData()
 
-      // 1. Processar exclusões pendentes
+      // 1. Processar exclusões.
       for (const studentId of currentDeletes) {
-        const { error } = await supabase.from('alunos').delete().eq('id', studentId)
+        const { error } = await supabase
+          .from('alunos')
+          .delete()
+          .eq('id', studentId)
+
         if (error) {
           errors.push(error)
         } else {
@@ -727,34 +1003,57 @@ export async function publishData() {
         }
       }
 
-      // 2. Processar gravações de alunos
+      // 2. Publicar alunos e incrementar versão.
       for (const [studentId, student] of currentWrites.entries()) {
         if (pendingStudentDeletes.has(studentId)) continue
 
-        const nextVersion = (Number(student.dataVersion) || 1) + 1
-        const payloadStudent = { ...student, dataVersion: nextVersion }
+        const nextVersion =
+          (Number(student.dataVersion) || 1) + 1
+
+        const payloadStudent = {
+          ...student,
+          dataVersion: nextVersion,
+        }
+
         delete payloadStudent._writeTimestamp
+
         const row = studentToRow(payloadStudent)
 
-        const { error } = await supabase.from('alunos').upsert(row, { onConflict: 'id' })
-        
+        const { error } = await supabase
+          .from('alunos')
+          .upsert(row, { onConflict: 'id' })
+
         if (error) {
           errors.push(error)
-          console.error(`Erro ao publicar aluno ${student.name}:`, error)
+          console.error(
+            `Erro ao publicar aluno ${student.name}:`,
+            error
+          )
         } else {
-          const publishedStudentObject = normalizeStudent(payloadStudent, defaultData.workouts)
-          
-          const latestInQueue = pendingStudentWrites.get(studentId)
+          const publishedStudentObject = normalizeStudent(
+            payloadStudent,
+            defaultData.workouts
+          )
 
-          if (latestInQueue?._writeTimestamp === student._writeTimestamp) {
+          const latestInQueue =
+            pendingStudentWrites.get(studentId)
+
+          if (
+            latestInQueue?._writeTimestamp ===
+            student._writeTimestamp
+          ) {
             pendingStudentWrites.delete(studentId)
 
-            // Atualiza a versão no armazenamento principal local.
             const currentData = loadData()
-            const updatedStudents = currentData.students.map((item) =>
-              item.id === studentId
-                ? { ...item, dataVersion: nextVersion }
-                : item
+
+            const updatedStudents = currentData.students.map(
+              (item) =>
+                item.id === studentId
+                  ? {
+                      ...item,
+                      dataVersion: nextVersion,
+                    }
+                  : item
             )
 
             saveLocalData({
@@ -770,40 +1069,54 @@ export async function publishData() {
               publishedStudentObject.password
             )
           } else {
-            // Existe uma edição mais recente na fila. Atualiza somente a versão preservando a edição pendente.
-            const latestStudent = pendingStudentWrites.get(studentId)
+            const latestStudent =
+              pendingStudentWrites.get(studentId)
+
             if (latestStudent) {
               latestStudent.dataVersion = nextVersion
-              pendingStudentWrites.set(studentId, latestStudent)
+
+              pendingStudentWrites.set(
+                studentId,
+                latestStudent
+              )
+
               persistPendingQueue()
             }
           }
         }
       }
 
-      // 3. Publicar configurações globais usando o snapshot estático
+      // 3. Publicar configurações globais.
       if (syncGlobalSnapshot) {
         const configPayload = {
           id: 'global',
           brand: localCurrentSnapshot.brand,
           plan: localCurrentSnapshot.plan,
-          exercises_library: localCurrentSnapshot.exercisesLibrary,
+          exercises_library:
+            localCurrentSnapshot.exercisesLibrary,
           updated_at: new Date().toISOString(),
         }
 
-        const { error: configError } = await supabase.from('config').upsert(configPayload, { onConflict: 'id' })
+        const { error: configError } = await supabase
+          .from('config')
+          .upsert(configPayload, { onConflict: 'id' })
+
         if (configError) {
           errors.push(configError)
-          console.error('Erro ao publicar configurações globais:', configError)
-        } else {
-          if (globalConfigTimestamp === syncGlobalTimestamp) {
-            globalConfigDirty = false
-            persistPendingQueue()
-          }
+          console.error(
+            'Erro ao publicar configurações globais:',
+            configError
+          )
+        } else if (
+          globalConfigTimestamp === syncGlobalTimestamp
+        ) {
+          globalConfigDirty = false
+          persistPendingQueue()
         }
       }
 
       const success = errors.length === 0
+
       return {
         success,
         message: success
@@ -813,12 +1126,23 @@ export async function publishData() {
       }
     } catch (error) {
       console.error('Erro inesperado na publicação:', error)
-      return { success: false, message: error.message, errors: [error] }
+
+      return {
+        success: false,
+        message: error.message,
+        errors: [error],
+      }
     }
   })
 
   return saveQueue
 }
+
+/*
+|--------------------------------------------------------------------------
+| BIBLIOTECA DE EXERCÍCIOS
+|--------------------------------------------------------------------------
+*/
 
 export function createLibraryExercise(exercise) {
   return {
@@ -841,46 +1165,101 @@ export function markGlobalConfigDirty() {
 
 export function addExerciseToLibrary(data, exercise) {
   const next = clone(data)
-  if (!Array.isArray(next.exercisesLibrary)) next.exercisesLibrary = []
-  next.exercisesLibrary.push(createLibraryExercise(exercise))
+
+  if (!Array.isArray(next.exercisesLibrary)) {
+    next.exercisesLibrary = []
+  }
+
+  next.exercisesLibrary.push(
+    createLibraryExercise(exercise)
+  )
+
   markGlobalConfigDirty()
+
   return next
 }
 
-export function updateLibraryExercise(data, exerciseId, changes) {
+export function updateLibraryExercise(
+  data,
+  exerciseId,
+  changes
+) {
   const next = clone(data)
-  next.exercisesLibrary = (next.exercisesLibrary || []).map((exercise) =>
-    exercise.id === exerciseId ? { ...exercise, ...changes } : exercise
+
+  next.exercisesLibrary = (
+    next.exercisesLibrary || []
+  ).map((exercise) =>
+    exercise.id === exerciseId
+      ? { ...exercise, ...changes }
+      : exercise
   )
+
   markGlobalConfigDirty()
+
   return next
 }
 
 export function removeExerciseFromLibrary(data, exerciseId) {
   const next = clone(data)
-  next.exercisesLibrary = (next.exercisesLibrary || []).filter((e) => e.id !== exerciseId)
+
+  next.exercisesLibrary = (
+    next.exercisesLibrary || []
+  ).filter((exercise) => exercise.id !== exerciseId)
+
   markGlobalConfigDirty()
+
   return next
 }
 
-export function addLibraryExerciseToWorkout(data, studentId, day, exerciseId) {
+export function addLibraryExerciseToWorkout(
+  data,
+  studentId,
+  day,
+  exerciseId
+) {
   const next = clone(data)
-  const student = (next.students || []).find((s) => s.id === studentId)
+
+  const student = (next.students || []).find(
+    (item) => item.id === studentId
+  )
+
   if (!student) return next
-  const libraryExercise = (next.exercisesLibrary || []).find((item) => item.id === exerciseId)
+
+  const libraryExercise = (
+    next.exercisesLibrary || []
+  ).find((item) => item.id === exerciseId)
+
   if (!libraryExercise) return next
 
-  if (!student.workouts) student.workouts = clone(defaultData.workouts)
-  if (!student.workouts[day]) {
-    student.workouts[day] = { title: `Treino ${day}`, focus: '', exercises: [] }
+  if (!student.workouts) {
+    student.workouts = clone(defaultData.workouts)
   }
 
-  student.workouts[day].exercises.push({ ...clone(libraryExercise), id: createId() })
+  if (!student.workouts[day]) {
+    student.workouts[day] = {
+      title: `Treino ${day}`,
+      focus: '',
+      exercises: [],
+    }
+  }
+
+  student.workouts[day].exercises.push({
+    ...clone(libraryExercise),
+    id: createId(),
+  })
+
   student.updatedAt = new Date().toISOString()
-  
+
   markStudentAsPending(student)
+
   return next
 }
+
+/*
+|--------------------------------------------------------------------------
+| LOGO E EVENTOS
+|--------------------------------------------------------------------------
+*/
 
 export async function uploadLogo(dataUrl) {
   markGlobalConfigDirty()
@@ -893,10 +1272,24 @@ export function logoSrc(path) {
 }
 
 export function subscribeData(onChange) {
-  if (typeof window === 'undefined') return () => {}
-  const handleLocalChange = (event) => {
-    if (typeof onChange === 'function') onChange(event.detail || loadData())
+  if (typeof window === 'undefined') {
+    return () => {}
   }
-  window.addEventListener('dl:local-data-changed', handleLocalChange)
-  return () => window.removeEventListener('dl:local-data-changed', handleLocalChange)
+
+  const handleLocalChange = (event) => {
+    if (typeof onChange === 'function') {
+      onChange(event.detail || loadData())
+    }
+  }
+
+  window.addEventListener(
+    'dl:local-data-changed',
+    handleLocalChange
+  )
+
+  return () =>
+    window.removeEventListener(
+      'dl:local-data-changed',
+      handleLocalChange
+    )
 }
