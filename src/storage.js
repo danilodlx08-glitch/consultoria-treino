@@ -82,9 +82,8 @@ async function derivePasswordHash(password, saltHex) {
   )
 
   const exported = await crypto.subtle.exportKey('raw', derivedKey)
-  const hashArray = Array.from(new Uint8Array(exported))
 
-  return hashArray
+  return Array.from(new Uint8Array(exported))
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('')
 }
@@ -94,12 +93,15 @@ function isOnline() {
 }
 
 function isNetworkError(error) {
+  const message = String(error?.message || '').toLowerCase()
+
   return (
-    error?.message === 'NETWORK_ERROR' ||
     error?.name === 'TypeError' ||
-    error?.message?.includes('Failed to fetch') ||
-    error?.message?.includes('NetworkError') ||
-    error?.message?.includes('fetch')
+    message.includes('failed to fetch') ||
+    message.includes('networkerror') ||
+    message.includes('network request failed') ||
+    message.includes('load failed') ||
+    message.includes('timeout')
   )
 }
 
@@ -215,7 +217,7 @@ const defaultData = {
       focus: 'Força geral',
       exercises: createDefaultExercises([
         {
-          name: 'Levantamento terra rumeno',
+          name: 'Levantamento terra romeno',
           sets: '4',
           reps: '8-10',
           notes: 'Barra raspando as pernas. Quadril para trás.',
@@ -558,7 +560,6 @@ export async function checkStudentVersion(code, password) {
 
   const localCache = getLocalStudentCache(cleanCode)
 
-  // Acesso offline: valida a senha usando o hash local.
   if (!isOnline()) {
     const validPassword = await validateCachedPassword(
       localCache,
@@ -581,26 +582,42 @@ export async function checkStudentVersion(code, password) {
   }
 
   try {
-    // Consulta leve: não baixa treinos, avaliações ou outros dados.
+    console.log('[LOGIN ALUNO] Consultando Supabase...', {
+      code: cleanCode,
+    })
+
     const { data: row, error } = await supabase
       .from('alunos')
       .select('id, password, active, data_version')
       .eq('code', cleanCode)
       .maybeSingle()
 
-    if (error) throw new Error('NETWORK_ERROR')
-
-    if (!row) {
-      throw new Error('AUTH_INVALID_CODE')
+    if (error) {
+      console.error('[LOGIN ALUNO] Erro real do Supabase:', error)
+      throw error
     }
 
-    if (row.password !== cleanPass) {
-      throw new Error('AUTH_INVALID_PASSWORD')
+    if (!row) {
+      throw new Error(
+        'Código de acesso inválido ou aluno não encontrado.'
+      )
+    }
+
+    if (String(row.password || '').trim() !== cleanPass) {
+      throw new Error('Senha incorreta. Verifique os seus dados.')
     }
 
     if (row.active === false) {
-      throw new Error('AUTH_INACTIVE')
+      throw new Error(
+        'Este acesso encontra-se desativado. Contacte o professor.'
+      )
     }
+
+    console.log('[LOGIN ALUNO] Credenciais validadas.', {
+      studentId: row.id,
+      remoteVersion: row.data_version,
+      localVersion: localCache?.dataVersion,
+    })
 
     return await processVersionCheckResult(
       row.id,
@@ -610,23 +627,16 @@ export async function checkStudentVersion(code, password) {
       cleanPass
     )
   } catch (error) {
-    if (error.message === 'AUTH_INVALID_CODE') {
-      throw new Error(
-        'Código de acesso inválido ou aluno não encontrado.'
-      )
-    }
+    console.error('[LOGIN ALUNO] Falha na autenticação:', error)
 
-    if (error.message === 'AUTH_INVALID_PASSWORD') {
-      throw new Error('Senha incorreta. Verifique os seus dados.')
-    }
+    const message = String(error?.message || '').toLowerCase()
 
-    if (error.message === 'AUTH_INACTIVE') {
-      throw new Error(
-        'Este acesso encontra-se desativado. Contacte o professor.'
-      )
-    }
+    const networkFailure =
+      isNetworkError(error) ||
+      message.includes('network') ||
+      message.includes('timeout')
 
-    if (isNetworkError(error)) {
+    if (networkFailure) {
       const validPassword = await validateCachedPassword(
         localCache,
         cleanPass
@@ -663,7 +673,6 @@ async function processVersionCheckResult(
 
   let validCache = localCache
 
-  // Migração de cache antigo sem hash de senha.
   if (
     validCache &&
     (!validCache.passwordHash || !validCache.passwordSalt)
@@ -672,7 +681,6 @@ async function processVersionCheckResult(
     validCache = getLocalStudentCache(cleanCode)
   }
 
-  // Primeiro acesso: a ficha completa será baixada pelo login.
   if (!validCache) {
     return {
       status: 'FIRST_ACCESS',
@@ -703,9 +711,6 @@ async function processVersionCheckResult(
 |--------------------------------------------------------------------------
 | DOWNLOAD COMPLETO DO ALUNO
 |--------------------------------------------------------------------------
-| Esta função deve ser chamada no primeiro acesso ou quando o aluno
-| clicar em "Atualizar agora". Não deve ser chamada em todo login.
-|--------------------------------------------------------------------------
 */
 
 export async function fetchSingleStudentData(studentId, code) {
@@ -721,6 +726,11 @@ export async function fetchSingleStudentData(studentId, code) {
 
   const cleanCode = String(code).trim().toUpperCase()
 
+  console.log('[LOGIN ALUNO] Baixando ficha completa...', {
+    studentId,
+    code: cleanCode,
+  })
+
   const { data: row, error } = await supabase
     .from('alunos')
     .select('*')
@@ -728,8 +738,10 @@ export async function fetchSingleStudentData(studentId, code) {
     .single()
 
   if (error || !row) {
-    console.error('Erro no download da ficha:', error)
-    throw new Error('Erro ao baixar atualizações do aluno.')
+    console.error('[LOGIN ALUNO] Erro no download da ficha:', error)
+    throw new Error(
+      error?.message || 'Erro ao baixar atualizações do aluno.'
+    )
   }
 
   if (
@@ -756,13 +768,14 @@ export async function fetchSingleStudentData(studentId, code) {
 
   if (!cacheSaved) {
     console.warn(
-      'A ficha foi baixada, mas não foi possível atualizar o cache local.'
+      '[LOGIN ALUNO] Ficha baixada, mas não foi possível atualizar o cache local.'
     )
   }
 
-  // A senha não precisa permanecer na sessão do aluno.
   delete student.password
   delete student._hasRemoteUpdate
+
+  console.log('[LOGIN ALUNO] Ficha carregada com sucesso.')
 
   return student
 }
@@ -988,7 +1001,6 @@ export async function publishData() {
       const syncGlobalTimestamp = globalConfigTimestamp
       const localCurrentSnapshot = loadData()
 
-      // 1. Processar exclusões.
       for (const studentId of currentDeletes) {
         const { error } = await supabase
           .from('alunos')
@@ -1003,7 +1015,6 @@ export async function publishData() {
         }
       }
 
-      // 2. Publicar alunos e incrementar versão.
       for (const [studentId, student] of currentWrites.entries()) {
         if (pendingStudentDeletes.has(studentId)) continue
 
@@ -1086,7 +1097,6 @@ export async function publishData() {
         }
       }
 
-      // 3. Publicar configurações globais.
       if (syncGlobalSnapshot) {
         const configPayload = {
           id: 'global',
