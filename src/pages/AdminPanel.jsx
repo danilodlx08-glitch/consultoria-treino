@@ -1195,6 +1195,15 @@ async function persist(next) {
                           onClick={() => toggleExerciseExpand(exercise.id)}
                           className="p-1.5 text-zinc-300 hover:text-gold-400 transition ml-1"
                         >
+                          {/* COLE O BOTÃO LOGO ABAIXO DA DIV DOS INPUTS: */}
+              <button
+                type="button"
+                onClick={() => persist(data)}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-gold-400 py-3.5 text-sm font-bold uppercase tracking-wide text-ink-950 shadow-lg hover:bg-gold-300 transition"
+              >
+                <CheckCircle2 size={18} />
+                Salvar e Disparar Treino para o Aluno
+              </button>
                           {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
                         </button>
                       </div>
