@@ -189,19 +189,18 @@ export default function AdminPanel() {
     return { total, active, inactive: total - active }
   }, [data.students])
 
- async function persist(next) {
+async function persist(next) {
     setData(next)
     saveData(next)
 
-    // Sincronização cirúrgica com o Supabase para atualizar o aluno ativo
     if (selectedStudentId) {
       const alunoAtualizado = next.students.find(s => s.id === selectedStudentId)
       if (alunoAtualizado) {
         const { error } = await supabase
-          .from('alunos') // Ajusta para 'students' se o nome da tua tabela no Supabase for em inglês
+          .from('alunos')
           .update({
             workouts: alunoAtualizado.workouts,
-            workoutPlan: alunoAtualizado.workouts, // Garante compatibilidade com ambas as colunas
+            workoutPlan: alunoAtualizado.workouts,
             evaluations: alunoAtualizado.evaluations,
             activeDays: alunoAtualizado.activeDays,
             updated_at: new Date().toISOString()
