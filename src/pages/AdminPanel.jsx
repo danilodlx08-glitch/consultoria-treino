@@ -126,7 +126,6 @@ export default function AdminPanel() {
   const [evaluatingStudent, setEvaluatingStudent] = useState(null)
   const [evaluationForm, setEvaluationForm] = useState(emptyEvaluationForm())
   
-  // Novo estado para controlar a visualização do histórico de avaliações com opção de exclusão
   const [showEvalHistoryModal, setShowEvalHistoryModal] = useState(false)
 
   const [studentForm, setStudentForm] = useState({
@@ -260,7 +259,6 @@ export default function AdminPanel() {
     })
   }
 
-  // --- Função para excluir uma avaliação física específica do aluno ---
   function handleDeleteEvaluation(studentId, evalIndex) {
     const confirmed = window.confirm('Deseja realmente excluir esta avaliação física?')
     if (!confirmed) return
@@ -268,7 +266,7 @@ export default function AdminPanel() {
     const updatedStudents = data.students.map((student) => {
       if (student.id === studentId) {
         const evaluations = [...(student.evaluations || [])]
-        evaluations.splice(evalIndex, 1) // Remove o item pelo índice exato
+        evaluations.splice(evalIndex, 1)
         return {
           ...student,
           evaluations,
@@ -758,8 +756,7 @@ export default function AdminPanel() {
     title: '',
     focus: '',
     exercises: [],
-  }
-    return (
+  }return (
     <div className="min-h-dvh bg-ink-950 text-white">
       <header className="sticky top-0 z-20 border-b border-white/5 bg-ink-950/90 backdrop-blur">
         <div className="mx-auto flex max-w-md items-center justify-between px-4 py-3.5">
@@ -1446,7 +1443,6 @@ export default function AdminPanel() {
                             Editar treinos
                           </button>
                           
-                          {/* Botão para ver o Histórico de Avaliações com a opção de excluir */}
                           <button
                             onClick={() => {
                               setSelectedStudentId(student.id)
@@ -1487,7 +1483,6 @@ export default function AdminPanel() {
         )}
       </main>
 
-      {/* MODAL DE HISTÓRICO DE AVALIAÇÕES (COM BOTÃO DE EXCLUIR CADA AVALIAÇÃO) */}
       {showEvalHistoryModal && selectedStudent && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-3 backdrop-blur-sm"
