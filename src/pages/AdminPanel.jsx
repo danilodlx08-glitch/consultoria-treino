@@ -41,6 +41,9 @@ import {
   updateLibraryExercise,
   removeExerciseFromLibrary,
   addLibraryExerciseToWorkout,
+  markStudentAsPending,
+  removeStudentRecord,
+  markGlobalConfigDirty,
 } from '../storage'
 
 const DAYS = ['A', 'B', 'C', 'D', 'E']
@@ -272,12 +275,18 @@ export default function AdminPanel() {
     }
   }
 
-  async function resetLogo() {
+  function resetLogo() {
+    markGlobalConfigDirty()
     persist({
       ...data,
-      brand: { logo: '/logo.png' },
+      brand: {
+        ...(data.brand || {}),
+        logo: '/logo.png',
+      },
     })
     setLogoError('')
+    setSaved('Logo padrão restaurada. Publique para sincronizar.')
+    setTimeout(() => setSaved(''), 2500)
   }
 
   function studentWorkouts() {
@@ -286,18 +295,24 @@ export default function AdminPanel() {
 
   function persistStudentWorkouts(workouts) {
     if (!selectedStudent) return
+    const updatedStudents = data.students.map((item) =>
+      item.id === selectedStudent.id
+        ? {
+            ...item,
+            workouts,
+            updatedAt: new Date().toISOString(),
+          }
+        : item
+    )
     persist({
       ...data,
-      students: data.students.map((item) =>
-        item.id === selectedStudent.id
-          ? {
-              ...item,
-              workouts,
-              updatedAt: new Date().toISOString(),
-            }
-          : item
-      ),
+      students: updatedStudents,
     })
+
+    const targetStudent = updatedStudents.find((s) => s.id === selectedStudent.id)
+    if (targetStudent) {
+      markStudentAsPending(targetStudent)
+    }
   }
 
   function handleDeleteEvaluation(studentId, evalIndex) {
@@ -318,6 +333,10 @@ export default function AdminPanel() {
     })
 
     persist({ ...data, students: updatedStudents })
+
+    const targetStudent = updatedStudents.find((s) => s.id === studentId)
+    if (targetStudent) markStudentAsPending(targetStudent)
+
     setSaved('Avaliação excluída localmente. Publique para sincronizar.')
     setTimeout(() => setSaved(''), 2200)
   }
@@ -512,6 +531,9 @@ export default function AdminPanel() {
     if (!evaluatingStudent) return
     const newEvaluation = {
       date: evaluationForm.date || new Date().toLocaleDateString('pt-BR'),
+      sex: evaluationForm.sex,
+      age: Number(evaluationForm.age) || 0,
+      activityFactor: Number(evaluationForm.activityFactor) || 1.375,
       weight: Number(evaluationForm.weight) || 0,
       height: Number(evaluationForm.height) || 0,
       fatPercentage: Number(evaluationForm.fatPercentage) || 0,
@@ -539,6 +561,10 @@ export default function AdminPanel() {
       return student
     })
     persist({ ...data, students: updatedStudents })
+
+    const targetStudent = updatedStudents.find((s) => s.id === evaluatingStudent.id)
+    if (targetStudent) markStudentAsPending(targetStudent)
+
     setShowEvaluationModal(false)
     setEvaluatingStudent(null)
     setEvaluationForm(emptyEvaluationForm())
@@ -575,45 +601,43 @@ export default function AdminPanel() {
     })
   }, [libraryExercises, librarySearch, selectedMuscleFilter])
 
-  function addCurrentExerciseToLibrary(exercise) {
-    const next = addExerciseToLibrary(data, {
-      name: exercise.name,
-      muscle: exercise.muscle || '',
-      sets: exercise.sets || '',
-      reps: exercise.reps || '',
-      notes: exercise.notes || '',
-      video: exercise.video || '',
-      group: exercise.group || '',
-    })
-    persist(next)
-  }
-
   function propagateLibraryExerciseUpdate(currentState, updatedExercise, originalExerciseName) {
     const updatedStudents = currentState.students.map((student) => {
       if (!student.workouts) return student
       let studentUpdated = false
       const nextWorkouts = { ...student.workouts }
+
       DAYS.forEach((d) => {
-        if (nextWorkouts[d] && nextWorkouts[d].exercises) {
+        if (nextWorkouts[d]?.exercises) {
+          let dayUpdated = false
+
           const newExercises = nextWorkouts[d].exercises.map((ex) => {
-            const isMatch =
-              (ex.libraryId && ex.libraryId === updatedExercise.id) ||
-              (ex.name && originalExerciseName && ex.name.trim().toLowerCase() === originalExerciseName.trim().toLowerCase())
-            if (isMatch) {
-              studentUpdated = true
-              return {
-                ...ex,
-                libraryId: updatedExercise.id,
-                name: updatedExercise.name,
-                muscle: updatedExercise.muscle || ex.muscle,
-                notes: updatedExercise.notes || ex.notes,
-                video: updatedExercise.video,
-                group: updatedExercise.group || ex.group,
-              }
+            const isMatch = ex.libraryId
+              ? ex.libraryId === updatedExercise.id
+              : (
+                  ex.name &&
+                  originalExerciseName &&
+                  ex.name.trim().toLowerCase() ===
+                    originalExerciseName.trim().toLowerCase()
+                )
+
+            if (!isMatch) return ex
+
+            dayUpdated = true
+            studentUpdated = true
+
+            return {
+              ...ex,
+              libraryId: updatedExercise.id,
+              name: updatedExercise.name,
+              muscle: updatedExercise.muscle || ex.muscle,
+              notes: updatedExercise.notes || ex.notes,
+              video: updatedExercise.video,
+              group: updatedExercise.group || ex.group,
             }
-            return ex
           })
-          if (studentUpdated) {
+
+          if (dayUpdated) {
             nextWorkouts[d] = {
               ...nextWorkouts[d],
               exercises: newExercises,
@@ -621,12 +645,15 @@ export default function AdminPanel() {
           }
         }
       })
+
       if (studentUpdated) {
-        return {
+        const updatedStudent = {
           ...student,
           workouts: nextWorkouts,
           updatedAt: new Date().toISOString(),
         }
+        markStudentAsPending(updatedStudent)
+        return updatedStudent
       }
       return student
     })
@@ -709,6 +736,10 @@ export default function AdminPanel() {
         : student
     )
     persist({ ...data, students: updatedStudents })
+
+    const targetStudent = updatedStudents.find((s) => s.id === studentId)
+    if (targetStudent) markStudentAsPending(targetStudent)
+
     if (!activeDays.includes(day)) setDay(activeDays[0])
     setSaved(`Quantidade de planilhas atualizada para ${count}.`)
     setTimeout(() => setSaved(''), 3000)
@@ -716,14 +747,23 @@ export default function AdminPanel() {
 
   function addStudent(event) {
     event.preventDefault()
-    if (!studentForm.name) return
-    const code = (studentForm.code || generateAccessCode()).toUpperCase()
+    if (!studentForm.name?.trim()) return
+    const code = (studentForm.code || generateAccessCode())
+      .trim()
+      .toUpperCase()
     const password = studentForm.password || generatePassword()
-    if (data.students.some((item) => item.code === code)) return
+    if (
+      data.students.some(
+        (item) => (item.code || '').trim().toUpperCase() === code
+      )
+    ) {
+      alert('Já existe um aluno cadastrado com este código de acesso.')
+      return
+    }
     const count = Math.max(1, Math.min(5, Number(studentForm.planCount) || 5))
     const nextStudent = {
       id: createId(),
-      name: studentForm.name,
+      name: studentForm.name.trim(),
       code,
       password,
       active: true,
@@ -736,6 +776,7 @@ export default function AdminPanel() {
       ...data,
       students: [nextStudent, ...data.students],
     })
+    markStudentAsPending(nextStudent)
     setSelectedStudentId(nextStudent.id)
     setStudentForm({
       name: '',
@@ -752,24 +793,38 @@ export default function AdminPanel() {
     const count = Math.max(1, Math.min(5, Number(editStudentForm.planCount) || 5))
     const activeDays = DAYS.slice(0, count)
     if (!newCode || !newPass) return
+
+    if (data.students.some((st) => (st.code || '').trim().toUpperCase() === newCode && st.id !== studentId)) {
+      alert('Já existe outro aluno cadastrado com este código.')
+      return
+    }
+
     const updatedStudents = data.students.map((st) =>
       st.id === studentId
         ? { ...st, code: newCode, password: newPass, activeDays, updatedAt: new Date().toISOString() }
         : st
     )
     persist({ ...data, students: updatedStudents })
+
+    const targetStudent = updatedStudents.find((s) => s.id === studentId)
+    if (targetStudent) markStudentAsPending(targetStudent)
+
     setEditingStudentCredsId(null)
     setSaved('Credenciais e planilhas do aluno atualizadas!')
     setTimeout(() => setSaved(''), 2200)
   }
 
   function toggleStudent(id) {
+    const updatedStudents = data.students.map((item) =>
+      item.id === id ? { ...item, active: !item.active, updatedAt: new Date().toISOString() } : item
+    )
     persist({
       ...data,
-      students: data.students.map((item) =>
-        item.id === id ? { ...item, active: !item.active } : item
-      ),
+      students: updatedStudents,
     })
+
+    const targetStudent = updatedStudents.find((s) => s.id === id)
+    if (targetStudent) markStudentAsPending(targetStudent)
   }
 
   function removeStudent(id) {
@@ -778,6 +833,9 @@ export default function AdminPanel() {
     )
 
     if (!confirmed) return
+
+    const studentToDelete = data.students.find((s) => s.id === id)
+    removeStudentRecord(id, studentToDelete?.code)
 
     const next = data.students.filter((item) => item.id !== id)
 
@@ -1066,7 +1124,9 @@ export default function AdminPanel() {
               )}
             </div>
           </section>
-        )}{tab === 'workouts' && (
+        )}
+
+        {tab === 'workouts' && (
           <section className="flex flex-col h-[calc(100vh-140px)] overflow-hidden">
             <div className="shrink-0 bg-ink-950 pb-3 z-10 space-y-3 border-b border-white/10">
               <div>
