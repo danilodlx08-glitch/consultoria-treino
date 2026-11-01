@@ -189,11 +189,34 @@ export default function AdminPanel() {
     return { total, active, inactive: total - active }
   }, [data.students])
 
-  function persist(next) {
+ async function persist(next) {
     setData(next)
     saveData(next)
+
+    // Sincronização cirúrgica com o Supabase para atualizar o aluno ativo
+    if (selectedStudentId) {
+      const alunoAtualizado = next.students.find(s => s.id === selectedStudentId)
+      if (alunoAtualizado) {
+        const { error } = await supabase
+          .from('alunos') // Ajusta para 'students' se o nome da tua tabela no Supabase for em inglês
+          .update({
+            workouts: alunoAtualizado.workouts,
+            workoutPlan: alunoAtualizado.workouts, // Garante compatibilidade com ambas as colunas
+            evaluations: alunoAtualizado.evaluations,
+            activeDays: alunoAtualizado.activeDays,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', selectedStudentId)
+
+        if (error) {
+          console.error('Erro ao atualizar no Supabase:', error)
+        }
+      }
+    }
+
     setSaved('Salvo na nuvem com sucesso!')
     setTimeout(() => setSaved(''), 2200)
+  }
   }function fileToDataUrl(file) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
