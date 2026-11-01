@@ -758,7 +758,8 @@ export default function AdminPanel() {
     title: '',
     focus: '',
     exercises: [],
-  }return (
+  }
+    return (
     <div className="min-h-dvh bg-ink-950 text-white">
       <header className="sticky top-0 z-20 border-b border-white/5 bg-ink-950/90 backdrop-blur">
         <div className="mx-auto flex max-w-md items-center justify-between px-4 py-3.5">
