@@ -12,7 +12,6 @@ import {
   X,
   Dumbbell,
   CheckCircle2,
-  CopyCheck,
   Link2,
   Pencil,
   Activity,
@@ -26,11 +25,12 @@ import {
   Calculator,
 } from 'lucide-react'
 import { useAuth } from '../auth.jsx'
-import { supabase } from '../services/supabase'
 import {
   cloneWorkouts,
   loadData,
   saveData,
+  fetchData,
+  publishData,
   subscribeData,
   uploadLogo,
   logoSrc,
@@ -51,17 +51,6 @@ const TABS = [
   { id: 'workouts', label: 'Treinos' },
   { id: 'students', label: 'Alunos' },
 ]
-
-const emptyExercise = () => ({
-  id: createId(),
-  name: '',
-  muscle: '',
-  sets: '',
-  reps: '',
-  notes: '',
-  video: '',
-  group: '',
-})
 
 const emptyLibraryExercise = () => ({
   name: '',
@@ -112,11 +101,10 @@ export default function AdminPanel() {
   const [tab, setTab] = useState('brand')
   const [day, setDay] = useState('A')
   const [saved, setSaved] = useState('')
+  const [publishing, setPublishing] = useState(false)
   const [logoError, setLogoError] = useState('')
   const [selectedStudentId, setSelectedStudentId] = useState('')
   const [expandedExercises, setExpandedExercises] = useState({})
-  const [showCopyStudentWorkoutsModal, setShowCopyStudentWorkoutsModal] = useState(false)
-  const [sourceStudentIdForCopy, setSourceStudentIdForCopy] = useState('')
   const [studentSearch, setStudentSearch] = useState('')
   const [editingStudentCredsId, setEditingStudentCredsId] = useState(null)
   const [editStudentForm, setEditStudentForm] = useState({ code: '', password: '', planCount: '5' })
@@ -125,7 +113,7 @@ export default function AdminPanel() {
   const [showEvaluationModal, setShowEvaluationModal] = useState(false)
   const [evaluatingStudent, setEvaluatingStudent] = useState(null)
   const [evaluationForm, setEvaluationForm] = useState(emptyEvaluationForm())
-  
+
   const [showEvalHistoryModal, setShowEvalHistoryModal] = useState(false)
 
   const [studentForm, setStudentForm] = useState({
@@ -142,13 +130,30 @@ export default function AdminPanel() {
   const [libraryForm, setLibraryForm] = useState(emptyLibraryExercise())
 
   useEffect(() => {
+    let active = true
+
     const stop = subscribeData((next) => {
+      if (!active) return
+
       setData(next)
-      setSelectedStudentId(
-        (current) => current || next.students[0]?.id || ''
-      )
+      setSelectedStudentId((current) => current || next.students[0]?.id || '')
     })
-    return stop
+
+    fetchData()
+      .then((next) => {
+        if (!active) return
+
+        setData(next)
+        setSelectedStudentId((current) => current || next.students[0]?.id || '')
+      })
+      .catch((error) => {
+        console.error('Erro ao carregar dados do Supabase:', error)
+      })
+
+    return () => {
+      active = false
+      stop()
+    }
   }, [])
 
   const selectedStudent = useMemo(
@@ -189,32 +194,45 @@ export default function AdminPanel() {
     return { total, active, inactive: total - active }
   }, [data.students])
 
-async function persist(next) {
+  function persist(next) {
     setData(next)
     saveData(next)
 
-    if (selectedStudentId) {
-      const alunoAtualizado = next.students.find(s => s.id === selectedStudentId)
-      if (alunoAtualizado) {
-        const { error } = await supabase
-          .from('alunos')
-          .update({
-            workouts: alunoAtualizado.workouts,
-            workoutPlan: alunoAtualizado.workouts,
-            evaluations: alunoAtualizado.evaluations,
-            activeDays: alunoAtualizado.activeDays,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', selectedStudentId)
+    setSaved('Alterações salvas neste dispositivo. Publique para enviar aos alunos.')
+    setTimeout(() => setSaved(''), 3000)
+  }
 
-        if (error) {
-          console.error('Erro ao atualizar no Supabase:', error)
-        }
+  async function handlePublish() {
+    if (publishing) return
+
+    setPublishing(true)
+    setSaved('Publicando alterações...')
+
+    try {
+      const result = await publishData()
+
+      if (result?.success === false || (result?.errors?.length > 0)) {
+        const errorCount = result?.errors?.length || 0
+        throw new Error(
+          result?.message ||
+          (errorCount
+            ? `A publicação teve ${errorCount} erro(s).`
+            : 'Não foi possível concluir a publicação.')
+        )
       }
-    }
 
-   setSaved('Salvo na nuvem com sucesso!')
-    setTimeout(() => setSaved(''), 2200)
+      setSaved(result?.message || 'Alterações publicadas com sucesso!')
+    } catch (error) {
+      console.error('Erro ao publicar alterações:', error)
+      setSaved(
+        error?.message
+          ? `Falha na publicação: ${error.message}`
+          : 'Falha na publicação. Suas alterações continuam salvas neste dispositivo.'
+      )
+    } finally {
+      setPublishing(false)
+      setTimeout(() => setSaved(''), 3500)
+    }
   }
 
   function fileToDataUrl(file) {
@@ -300,7 +318,7 @@ async function persist(next) {
     })
 
     persist({ ...data, students: updatedStudents })
-    setSaved('Avaliação excluída com sucesso!')
+    setSaved('Avaliação excluída localmente. Publique para sincronizar.')
     setTimeout(() => setSaved(''), 2200)
   }
 
@@ -334,7 +352,16 @@ async function persist(next) {
       ...workouts,
       [day]: {
         ...workouts[day],
-        exercises: [...workouts[day].exercises, emptyExercise()],
+        exercises: [...workouts[day].exercises, {
+          id: createId(),
+          name: '',
+          muscle: '',
+          sets: '',
+          reps: '',
+          notes: '',
+          video: '',
+          group: '',
+        }],
       },
     })
   }
@@ -391,7 +418,7 @@ async function persist(next) {
     })
     setReplaceModalOpen(false)
     setReplacingExerciseId(null)
-    setSaved('Exercício substituído com sucesso na mesma posição!')
+    setSaved('Exercício substituído com sucesso!')
     setTimeout(() => setSaved(''), 2200)
   }
 
@@ -427,7 +454,9 @@ async function persist(next) {
     })
     setSaved(`Treino ${day} atualizado com base no Treino ${sourceDay}!`)
     setTimeout(() => setSaved(''), 2200)
-  }function calculateMetrics() {
+  }
+
+  function calculateMetrics() {
     const weight = parseFloat(evaluationForm.weight)
     let height = parseFloat(evaluationForm.height)
     const age = parseInt(evaluationForm.age, 10)
@@ -513,7 +542,7 @@ async function persist(next) {
     setShowEvaluationModal(false)
     setEvaluatingStudent(null)
     setEvaluationForm(emptyEvaluationForm())
-    setSaved('Avaliação física salva com sucesso!')
+    setSaved('Avaliação física salva localmente. Publique para sincronizar.')
     setTimeout(() => setSaved(''), 2200)
   }
 
@@ -681,7 +710,7 @@ async function persist(next) {
     )
     persist({ ...data, students: updatedStudents })
     if (!activeDays.includes(day)) setDay(activeDays[0])
-    setSaved(`Quantidade de planilhas atualizada para ${count}. Os treinos ocultos foram preservados.`)
+    setSaved(`Quantidade de planilhas atualizada para ${count}.`)
     setTimeout(() => setSaved(''), 3000)
   }
 
@@ -743,22 +772,26 @@ async function persist(next) {
     })
   }
 
-  async function removeStudent(id) {
-    const confirmed = window.confirm('Deseja realmente excluir este aluno?')
+  function removeStudent(id) {
+    const confirmed = window.confirm(
+      'Deseja realmente excluir este aluno? A exclusão será enviada ao Supabase quando você publicar as alterações.'
+    )
+
     if (!confirmed) return
-    const { error } = await supabase.from('alunos').delete().eq('id', id)
-    if (error) {
-      console.error('Erro ao excluir aluno no Supabase:', error)
-      alert('Erro ao excluir aluno na base de dados.')
-      return
-    }
+
     const next = data.students.filter((item) => item.id !== id)
-    persist({ ...data, students: next })
+
+    persist({
+      ...data,
+      students: next,
+    })
+
     if (selectedStudentId === id) {
       setSelectedStudentId(next[0]?.id || '')
     }
-    setSaved('Aluno excluído com sucesso!')
-    setTimeout(() => setSaved(''), 2200)
+
+    setSaved('Aluno excluído localmente. Publique para confirmar a exclusão na nuvem.')
+    setTimeout(() => setSaved(''), 3500)
   }
 
   function copyCredentials(student) {
@@ -779,21 +812,37 @@ async function persist(next) {
     title: '',
     focus: '',
     exercises: [],
-  }
-    return (
+  }return (
     <div className="min-h-dvh bg-ink-950 text-white">
       <header className="sticky top-0 z-20 border-b border-white/5 bg-ink-950/90 backdrop-blur">
-        <div className="mx-auto flex max-w-md items-center justify-between px-4 py-3.5">
+        <div className="mx-auto flex max-w-md items-center justify-between gap-2 px-4 py-3.5">
           <span className="font-display text-xl tracking-wider text-gold-400 font-bold">
             DANILO LOPES
           </span>
-          <button
-            onClick={exit}
-            className="rounded-full border border-white/10 p-2.5 text-zinc-200 hover:text-gold-400 transition"
-          >
-            <LogOut size={18} />
-          </button>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handlePublish}
+              disabled={publishing}
+              className="flex items-center gap-1.5 rounded-xl bg-gold-400 px-3 py-2.5 text-xs font-bold uppercase tracking-wide text-ink-950 shadow-md hover:bg-gold-300 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <RefreshCw
+                size={15}
+                className={publishing ? 'animate-spin' : ''}
+              />
+              {publishing ? 'Publicando...' : 'Publicar alterações'}
+            </button>
+
+            <button
+              onClick={exit}
+              className="rounded-full border border-white/10 p-2.5 text-zinc-200 hover:text-gold-400 transition"
+            >
+              <LogOut size={18} />
+            </button>
+          </div>
         </div>
+
         <div className="mx-auto grid max-w-md grid-cols-4 gap-2 px-4 pb-3.5">
           {TABS.map((item) => (
             <button
@@ -810,18 +859,20 @@ async function persist(next) {
           ))}
         </div>
       </header>
+
       <main className="mx-auto max-w-md px-4 py-6 pb-28">
         {saved && (
-          <p className="mb-4 flex items-center gap-2 rounded-xl bg-gold-400/20 px-3.5 py-3 text-sm font-semibold text-gold-300 border border-gold-400/30">
-            <CheckCircle2 size={18} />
+          <p className="mb-4 flex items-center gap-2 rounded-xl bg-gold-400/25 px-3.5 py-3 text-xs font-semibold text-gold-300 border border-gold-400/30">
+            <CheckCircle2 size={16} />
             {saved}
           </p>
         )}
+
         {tab === 'brand' && (
           <section className="space-y-4">
             <h1 className="font-display text-3xl uppercase">Logomarca</h1>
             <p className="text-base leading-relaxed text-zinc-300">
-              Envie a logo oficial. Ela é salva e usada na landing, nos logins e no ícone da tela inicial.
+              Envie a logo oficial. Ela é salva localmente e aplicada aos alunos ao publicar.
             </p>
             <div className="rounded-2xl border border-white/10 bg-ink-800 p-4.5">
               <p className="text-xs uppercase tracking-[0.18em] text-gold-400 font-bold">Preview atual</p>
@@ -848,6 +899,7 @@ async function persist(next) {
             {logoError && <p className="text-sm font-semibold text-red-400">{logoError}</p>}
           </section>
         )}
+
         {tab === 'library' && (
           <section className="space-y-4">
             <div className="flex items-center justify-between">
@@ -1012,8 +1064,7 @@ async function persist(next) {
               )}
             </div>
           </section>
-        )}
-        {tab === 'workouts' && (
+        )}{tab === 'workouts' && (
           <section className="flex flex-col h-[calc(100vh-140px)] overflow-hidden">
             <div className="shrink-0 bg-ink-950 pb-3 z-10 space-y-3 border-b border-white/10">
               <div>
@@ -1045,9 +1096,6 @@ async function persist(next) {
                       <option key={count} value={count}>{count} {count === 1 ? 'planilha' : 'planilhas'}</option>
                     ))}
                   </select>
-                  <p className="mt-2 text-[11px] leading-relaxed text-zinc-400">
-                    Ao reduzir, as planilhas excedentes ficam ocultas, mas seus exercícios permanecem salvos. Você pode reativá-las depois.
-                  </p>
                 </div>
               )}
               <div className={`grid gap-2`} style={{ gridTemplateColumns: `repeat(${selectedStudentDays.length}, minmax(0, 1fr))` }}>
@@ -1103,6 +1151,7 @@ async function persist(next) {
                 Selecionar da biblioteca rápida
               </button>
             </div>
+
             <div className="flex-1 overflow-y-auto space-y-3 pt-4 pb-20">
               {(currentWorkout.exercises || []).map((exercise, index, arr) => {
                 const isExpanded = expandedExercises[exercise.id] !== false
@@ -1145,7 +1194,7 @@ async function persist(next) {
                             setReplaceModalOpen(true)
                           }}
                           className="p-1.5 text-gold-400 hover:text-gold-300 transition"
-                          title="Substituir por outro da biblioteca"
+                          title="Substituir"
                         >
                           <RefreshCw size={16} />
                         </button>
@@ -1171,22 +1220,9 @@ async function persist(next) {
                         )}
                         <button
                           type="button"
-                          onClick={() => {
-                            if (!exercise.name?.trim()) return
-                            addCurrentExerciseToLibrary(exercise)
-                            setSaved('Exercício salvo na biblioteca!')
-                            setTimeout(() => setSaved(''), 2200)
-                          }}
-                          className="p-1.5 text-gold-300 hover:text-white transition"
-                          title="Salvar na biblioteca"
-                        >
-                          <Library size={16} />
-                        </button>
-                        <button
-                          type="button"
                           onClick={() => removeExercise(exercise.id)}
                           className="p-1.5 text-zinc-400 hover:text-red-400 transition"
-                          title="Excluir do treino"
+                          title="Excluir"
                         >
                           <Trash2 size={16} />
                         </button>
@@ -1195,13 +1231,12 @@ async function persist(next) {
                           onClick={() => toggleExerciseExpand(exercise.id)}
                           className="p-1.5 text-zinc-300 hover:text-gold-400 transition ml-1"
                         >
-                         
                           {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
                         </button>
                       </div>
                     </div>
                     {isExpanded && (
-                      <div className="mt-3.5 pt-3.5 border-t border-white/10 space-y-2.5 animate-fadeIn">
+                      <div className="mt-3.5 pt-3.5 border-t border-white/10 space-y-2.5">
                         <input
                           value={exercise.name}
                           onChange={(e) => updateExercise(exercise.id, 'name', e.target.value)}
@@ -1265,6 +1300,7 @@ async function persist(next) {
             </div>
           </section>
         )}
+
         {tab === 'students' && (
           <section>
             <h1 className="font-display text-3xl uppercase">Alunos e acessos</h1>
@@ -1287,18 +1323,21 @@ async function persist(next) {
                 onChange={(e) => setStudentForm({ ...studentForm, name: e.target.value })}
                 placeholder="Nome do aluno"
                 className="w-full rounded-xl border border-white/15 bg-ink-700 px-3.5 py-3 text-base text-white outline-none focus:border-gold-400/50"
+                required
               />
               <input
                 value={studentForm.code}
                 onChange={(e) => setStudentForm({ ...studentForm, code: e.target.value.toUpperCase() })}
                 placeholder="Código único"
                 className="w-full rounded-xl border border-white/15 bg-ink-700 px-3.5 py-3 text-base text-white outline-none focus:border-gold-400/50"
+                required
               />
               <input
                 value={studentForm.password}
                 onChange={(e) => setStudentForm({ ...studentForm, password: e.target.value })}
                 placeholder="Senha"
                 className="w-full rounded-xl border border-white/15 bg-ink-700 px-3.5 py-3 text-base text-white outline-none focus:border-gold-400/50"
+                required
               />
               <div>
                 <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-gold-400">
@@ -1313,9 +1352,6 @@ async function persist(next) {
                     <option key={count} value={count}>{count} {count === 1 ? 'planilha' : 'planilhas'}</option>
                   ))}
                 </select>
-                <p className="mt-1.5 text-xs text-zinc-400">
-                  Você poderá alterar essa quantidade depois, na área de treinos ou edição do aluno.
-                </p>
               </div>
               <button
                 type="button"
@@ -1467,7 +1503,7 @@ async function persist(next) {
                           >
                             Editar treinos
                           </button>
-                          
+
                           <button
                             onClick={() => {
                               setSelectedStudentId(student.id)
@@ -1508,6 +1544,7 @@ async function persist(next) {
         )}
       </main>
 
+      {/* MODAL HISTÓRICO AVALIAÇÕES */}
       {showEvalHistoryModal && selectedStudent && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-3 backdrop-blur-sm"
@@ -1565,6 +1602,7 @@ async function persist(next) {
         </div>
       )}
 
+      {/* MODAL BIBLIOTECA RÁPIDA */}
       {libraryOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 backdrop-blur-sm"
@@ -1602,7 +1640,7 @@ async function persist(next) {
                 <div key={exercise.id} className="group rounded-2xl border border-white/10 bg-ink-800 p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                    <h4 className="font-display text-base uppercase text-white">{exercise.name}</h4>
+                      <h4 className="font-display text-base uppercase text-white">{exercise.name}</h4>
                       <p className="text-xs text-gold-400 font-semibold uppercase">{exercise.muscle}</p>
                     </div>
                   </div>
@@ -1625,6 +1663,8 @@ async function persist(next) {
           </div>
         </div>
       )}
+
+      {/* MODAL SUBSTITUIR EXERCÍCIO */}
       {replaceModalOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 backdrop-blur-sm"
@@ -1667,6 +1707,8 @@ async function persist(next) {
           </div>
         </div>
       )}
+
+      {/* MODAL AVALIAÇÃO FÍSICA */}
       {showEvaluationModal && evaluatingStudent && (
         <div
           className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/85 p-2 sm:p-4 backdrop-blur-sm"
