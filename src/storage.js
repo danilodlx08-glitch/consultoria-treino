@@ -2,7 +2,6 @@ import { supabase } from './services/supabase'
 
 const STORAGE_KEY = 'dl_consultoria_v1'
 const CONFIG_ID = 'global'
-const SYNC_INTERVAL = 30000
 
 export const ADMIN_PASSWORD = 'admin17249'
 export const WHATSAPP_NUMBER = '5527996247906'
@@ -391,14 +390,13 @@ function normalizeStudent(student, templateWorkouts) {
     }
   }
 
-  // Alunos antigos, sem activeDays, continuam com as cinco planilhas.
-  // A validação também impede dias inválidos e mantém a ordem A–E.
   const validDays = ['A', 'B', 'C', 'D', 'E']
   const requestedDays = Array.isArray(source.activeDays)
     ? source.activeDays
     : Array.isArray(source.active_days)
       ? source.active_days
       : null
+
   const activeDays = requestedDays
     ? validDays.filter((day) => requestedDays.includes(day))
     : [...validDays]
@@ -475,9 +473,19 @@ export function mergeData(parsed) {
 
 /*
 |--------------------------------------------------------------------------
-| LOCAL STORAGE
+| LOCAL STORAGE E AVISO DE ALTERAÇÕES LOCAIS
 |--------------------------------------------------------------------------
 */
+
+function notifyLocalChange(data) {
+  if (typeof window === 'undefined') return
+
+  window.dispatchEvent(
+    new CustomEvent('dl:local-data-changed', {
+      detail: data,
+    })
+  )
+}
 
 export function loadData() {
   try {
@@ -500,9 +508,11 @@ export function loadData() {
 
 function saveLocalData(data) {
   try {
-    if (typeof localStorage === 'undefined') return true
+    if (typeof localStorage === 'undefined') return false
 
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+    notifyLocalChange(data)
+
     return true
   } catch (error) {
     console.error('Erro ao salvar os dados localmente:', error)
@@ -556,15 +566,8 @@ function rowToStudent(row, templateWorkouts) {
 
 /*
 |--------------------------------------------------------------------------
-| CONTROLE DA SINCRONIZAÇÃO
+| CONTROLE DA PUBLICAÇÃO
 |--------------------------------------------------------------------------
-|
-| pendingStudentWrites guarda as últimas versões locais que ainda precisam
-| ser confirmadas no Supabase.
-|
-| pendingStudentDeletes impede que alunos excluídos reapareçam durante
-| uma atualização automática.
-|
 */
 
 const persistedStudents = new Map()
@@ -579,7 +582,6 @@ let libraryBaselineReady = false
 let pendingLibrary = null
 
 let saveQueue = Promise.resolve()
-let saveInProgress = false
 
 function getStudentFingerprint(student) {
   return fingerprint(studentToRow(student))
@@ -592,7 +594,10 @@ function getRowFingerprint(row) {
     code: row.code,
     password: row.password,
     active: row.active !== false,
-    active_days: row.active_days || row.activeDays || ['A', 'B', 'C', 'D', 'E'],
+    active_days:
+      row.active_days ||
+      row.activeDays ||
+      ['A', 'B', 'C', 'D', 'E'],
     workouts: row.workouts || {},
     evaluations: row.evaluations || [],
   })
@@ -601,7 +606,7 @@ function getRowFingerprint(row) {
 function enqueueSave(operation) {
   saveQueue = saveQueue
     .catch((error) => {
-      console.error('Erro anterior na fila de salvamento:', error)
+      console.error('Erro anterior na fila de publicação:', error)
     })
     .then(operation)
 
@@ -623,13 +628,10 @@ export async function fetchData() {
       .from('alunos')
       .select('*')
 
-    if (alunosError) {
-      throw alunosError
-    }
+    if (alunosError) throw alunosError
 
     const rows = Array.isArray(alunosData) ? alunosData : []
 
-    // Atualiza a fotografia remota sem descartar alterações pendentes.
     persistedStudents.clear()
     remoteStudentIds.clear()
 
@@ -653,7 +655,7 @@ export async function fetchData() {
       )
     }
 
-    // Sobrepõe a versão local pendente à versão remota.
+    // Preserva alterações locais ainda não publicadas.
     for (const [studentId, pendingStudent] of pendingStudentWrites) {
       if (pendingStudentDeletes.has(studentId)) continue
 
@@ -663,7 +665,7 @@ export async function fetchData() {
       )
     }
 
-    // Mantém os alunos locais se o Supabase ainda estiver vazio.
+    // Se o banco estiver vazio, mantém os dados locais existentes.
     if (rows.length === 0 && remoteStudents.size === 0) {
       for (const student of localData.students) {
         if (pendingStudentDeletes.has(student.id)) continue
@@ -687,23 +689,24 @@ export async function fetchData() {
     let exercisesLibrary = localData.exercisesLibrary
 
     if (configError) {
-      console.error('Erro ao buscar a biblioteca de exercícios:', configError)
+      console.error(
+        'Erro ao buscar a biblioteca de exercícios:',
+        configError
+      )
     } else if (
       configData &&
-      Array.isArray(configData.exercisesLibrary)
+      Array.isArray(configData.exercicesLibrary)
     ) {
       persistedLibraryFingerprint = fingerprint(
-        configData.exercisesLibrary
+        configData.exercicesLibrary
       )
 
       libraryBaselineReady = true
 
-      // Não substitui alterações que ainda aguardam gravação.
       exercisesLibrary = pendingLibrary
         ? clone(pendingLibrary)
-        : configData.exercisesLibrary
+        : configData.exercicesLibrary
     } else {
-      // Se ainda não existe configuração remota, mantém a biblioteca local.
       if (!libraryBaselineReady && !pendingLibrary) {
         pendingLibrary = clone(localData.exercisesLibrary)
       }
@@ -713,15 +716,20 @@ export async function fetchData() {
       }
     }
 
-    return mergeData({
+    const result = mergeData({
       ...localData,
       students: Array.from(remoteStudents.values()),
       exercisesLibrary,
     })
+
+    // Atualiza o cache local com a versão remota mais recente.
+    saveLocalData(result)
+
+    return result
   } catch (error) {
     console.error('Erro ao buscar dados no Supabase:', error)
 
-    // Uma falha de rede não deve apagar o estado local.
+    // Falha de rede não apaga o cache local.
     return mergeData({
       ...localData,
       students: localData.students.filter(
@@ -734,7 +742,7 @@ export async function fetchData() {
 
 /*
 |--------------------------------------------------------------------------
-| SALVAR DADOS
+| SALVAR LOCALMENTE — SEM PUBLICAR
 |--------------------------------------------------------------------------
 */
 
@@ -744,7 +752,7 @@ export async function saveData(data) {
   try {
     snapshot = clone(data)
   } catch (error) {
-    console.error('Erro ao preparar os dados para salvar:', error)
+    console.error('Erro ao preparar os dados:', error)
 
     return {
       success: false,
@@ -755,8 +763,15 @@ export async function saveData(data) {
 
   const localSaved = saveLocalData(snapshot)
 
-  // Registra as versões mais recentes imediatamente, antes de iniciar
-  // a fila remota. Assim, a atualização automática pode preservá-las.
+  if (!localSaved) {
+    return {
+      success: false,
+      localSaved: false,
+      remoteSaved: false,
+      pending: true,
+    }
+  }
+
   if (Array.isArray(snapshot.students)) {
     const snapshotIds = new Set()
 
@@ -765,48 +780,72 @@ export async function saveData(data) {
 
       snapshotIds.add(student.id)
 
-      if (pendingStudentDeletes.has(student.id)) {
-        pendingStudentDeletes.delete(student.id)
-      }
+      pendingStudentDeletes.delete(student.id)
 
       pendingStudentWrites.set(
         student.id,
-        normalizeStudent(student, snapshot.workouts || defaultData.workouts)
+        normalizeStudent(
+          student,
+          snapshot.workouts || defaultData.workouts
+        )
       )
     }
 
-    // Detecta exclusões apenas de IDs conhecidos como existentes no remoto.
-    for (const remoteId of remoteStudentIds) {
-      if (!snapshotIds.has(remoteId)) {
-        pendingStudentWrites.delete(remoteId)
-        pendingStudentDeletes.add(remoteId)
+    // Registra exclusões de alunos que já foram identificados no banco.
+    if (studentsBaselineReady) {
+      for (const remoteId of remoteStudentIds) {
+        if (!snapshotIds.has(remoteId)) {
+          pendingStudentWrites.delete(remoteId)
+          pendingStudentDeletes.add(remoteId)
+        }
       }
     }
   }
 
   if (Array.isArray(snapshot.exercisesLibrary)) {
-    const nextLibraryFingerprint = fingerprint(snapshot.exercisesLibrary)
+    const nextFingerprint = fingerprint(snapshot.exercisesLibrary)
 
     if (
       !libraryBaselineReady ||
-      nextLibraryFingerprint !== persistedLibraryFingerprint
+      nextFingerprint !== persistedLibraryFingerprint
     ) {
       pendingLibrary = clone(snapshot.exercisesLibrary)
     }
   }
 
-  return enqueueSave(async () => {
-    saveInProgress = true
+  return {
+    success: true,
+    localSaved: true,
+    remoteSaved: false,
+    pending:
+      pendingStudentWrites.size > 0 ||
+      pendingStudentDeletes.size > 0 ||
+      pendingLibrary !== null,
+  }
+}
 
-    let remoteSuccess = true
+/*
+|--------------------------------------------------------------------------
+| PUBLICAR ALTERAÇÕES NO SUPABASE
+|--------------------------------------------------------------------------
+|
+| Esta função só deve ser chamada quando o administrador clicar
+| no botão de publicação.
+|
+*/
+
+export async function publishData() {
+  return enqueueSave(async () => {
     const errors = []
 
     try {
+      // Garante que a publicação tenha uma referência do estado remoto.
+      if (!studentsBaselineReady || !libraryBaselineReady) {
+        await fetchData()
+      }
+
       /*
-       * EXCLUSÕES
-       *
-       * Exclui apenas IDs previamente conhecidos no banco.
-       * Se a exclusão falhar, o ID permanece pendente para nova tentativa.
+       * EXCLUSÕES DE ALUNOS
        */
       for (const studentId of Array.from(pendingStudentDeletes)) {
         const { error } = await supabase
@@ -815,9 +854,11 @@ export async function saveData(data) {
           .eq('id', studentId)
 
         if (error) {
-          remoteSuccess = false
           errors.push(error)
-          console.error(`Erro ao excluir o aluno ${studentId}:`, error)
+          console.error(
+            `Erro ao excluir o aluno ${studentId}:`,
+            error
+          )
           continue
         }
 
@@ -828,10 +869,7 @@ export async function saveData(data) {
       }
 
       /*
-       * ALUNOS
-       *
-       * A fila consulta o estado pendente mais recente de cada aluno,
-       * evitando salvar uma cópia antiga quando houve edição durante a fila.
+       * PUBLICAÇÃO DOS ALUNOS
        */
       for (const [studentId, student] of Array.from(
         pendingStudentWrites.entries()
@@ -840,6 +878,7 @@ export async function saveData(data) {
 
         const row = studentToRow(student)
         const currentFingerprint = fingerprint(row)
+
         const previousFingerprint = persistedStudents.get(studentId)
 
         if (
@@ -863,9 +902,11 @@ export async function saveData(data) {
           .upsert(row, { onConflict: 'id' })
 
         if (error) {
-          remoteSuccess = false
           errors.push(error)
-          console.error(`Erro ao salvar o aluno ${student.name}:`, error)
+          console.error(
+            `Erro ao publicar o aluno ${student.name}:`,
+            error
+          )
           continue
         }
 
@@ -875,7 +916,7 @@ export async function saveData(data) {
 
         const latestPending = pendingStudentWrites.get(studentId)
 
-        // Só remove a pendência se ninguém tiver editado o aluno novamente.
+        // Mantém a pendência se o aluno foi editado durante a publicação.
         if (
           latestPending &&
           getStudentFingerprint(latestPending) === currentFingerprint
@@ -885,7 +926,7 @@ export async function saveData(data) {
       }
 
       /*
-       * BIBLIOTECA DE EXERCÍCIOS
+       * PUBLICAÇÃO DA BIBLIOTECA DE EXERCÍCIOS
        */
       if (pendingLibrary) {
         const librarySnapshot = clone(pendingLibrary)
@@ -900,23 +941,21 @@ export async function saveData(data) {
             .upsert(
               {
                 id: CONFIG_ID,
-                exercisesLibrary: librarySnapshot,
+                exercicesLibrary: librarySnapshot,
               },
               { onConflict: 'id' }
             )
 
           if (error) {
-            remoteSuccess = false
             errors.push(error)
             console.error(
-              'Erro ao salvar a biblioteca de exercícios:',
+              'Erro ao publicar a biblioteca de exercícios:',
               error
             )
           } else {
             persistedLibraryFingerprint = librarySnapshotFingerprint
             libraryBaselineReady = true
 
-            // Não apaga uma alteração mais recente feita durante o salvamento.
             if (
               pendingLibrary &&
               fingerprint(pendingLibrary) === librarySnapshotFingerprint
@@ -929,28 +968,26 @@ export async function saveData(data) {
         }
       }
 
+      const pending =
+        pendingStudentWrites.size > 0 ||
+        pendingStudentDeletes.size > 0 ||
+        pendingLibrary !== null
+
       return {
-        success: localSaved && remoteSuccess,
-        localSaved,
-        remoteSaved: remoteSuccess,
-        pending:
-          pendingStudentWrites.size > 0 ||
-          pendingStudentDeletes.size > 0 ||
-          pendingLibrary !== null,
+        success: errors.length === 0 && !pending,
+        remoteSaved: errors.length === 0 && !pending,
+        pending,
         errors,
       }
     } catch (error) {
-      console.error('Erro inesperado durante o salvamento:', error)
+      console.error('Erro inesperado ao publicar alterações:', error)
 
       return {
         success: false,
-        localSaved,
         remoteSaved: false,
         pending: true,
         errors: [...errors, error],
       }
-    } finally {
-      saveInProgress = false
     }
   })
 }
@@ -1069,10 +1106,6 @@ export function addLibraryExerciseToWorkout(
 |--------------------------------------------------------------------------
 | LOGOMARCA
 |--------------------------------------------------------------------------
-|
-| Mantém o comportamento anterior: a logo é armazenada como data URL
-| no armazenamento local. Não depende de uma tabela ou bucket novo.
-|
 */
 
 export async function uploadLogo(dataUrl) {
@@ -1098,77 +1131,45 @@ export function logoSrc(path) {
 
 /*
 |--------------------------------------------------------------------------
-| ATUALIZAÇÃO AUTOMÁTICA
+| ATUALIZAÇÃO LOCAL
 |--------------------------------------------------------------------------
+|
+| Não consulta o Supabase em intervalos.
+| Os componentes recebem avisos quando os dados locais mudam.
+|
 */
 
 export function subscribeData(onChange) {
-  let closed = false
-  let inFlight = false
+  if (typeof window === 'undefined') {
+    return () => {}
+  }
 
-  const tick = async () => {
-    if (closed || inFlight) return
-
-    if (
-      typeof document !== 'undefined' &&
-      document.hidden
-    ) {
-      return
-    }
-
-    inFlight = true
-
-    try {
-      const data = await fetchData()
-
-      if (!closed && typeof onChange === 'function') {
-        onChange(data)
-      }
-    } catch (error) {
-      console.error('Erro ao atualizar os dados:', error)
-    } finally {
-      inFlight = false
+  const handleLocalChange = (event) => {
+    if (typeof onChange === 'function') {
+      onChange(event.detail || loadData())
     }
   }
 
-  void tick()
-
-  const interval =
-    typeof setInterval === 'function'
-      ? setInterval(() => {
-          void tick()
-        }, SYNC_INTERVAL)
-      : null
-
-  const handleVisibilityChange = () => {
-    if (
-      typeof document !== 'undefined' &&
-      !document.hidden
-    ) {
-      void tick()
+  const handleStorageChange = (event) => {
+    if (event.key === STORAGE_KEY && typeof onChange === 'function') {
+      onChange(loadData())
     }
   }
 
-  if (typeof document !== 'undefined') {
-    document.addEventListener(
-      'visibilitychange',
-      handleVisibilityChange
-    )
-  }
+  window.addEventListener(
+    'dl:local-data-changed',
+    handleLocalChange
+  )
+
+  window.addEventListener('storage', handleStorageChange)
 
   return () => {
-    closed = true
+    window.removeEventListener(
+      'dl:local-data-changed',
+      handleLocalChange
+    )
 
-    if (interval !== null) {
-      clearInterval(interval)
-    }
-
-    if (typeof document !== 'undefined') {
-      document.removeEventListener(
-        'visibilitychange',
-        handleVisibilityChange
-      )
-    }
+    window.removeEventListener('storage', handleStorageChange)
   }
 }
 
