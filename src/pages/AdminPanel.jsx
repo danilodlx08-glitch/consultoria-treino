@@ -1564,15 +1564,7 @@ async function persist(next) {
           </div>
         </div>
       )}
-{/* BOTÃO ÚNICO DE SALVAR E DISPARAR (NO FINAL DA PÁGINA) */}
-              <button
-                type="button"
-                onClick={() => persist(data)}
-                className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-gold-400 py-4 text-base font-bold uppercase tracking-wide text-ink-950 shadow-xl hover:bg-gold-300 transition"
-              >
-                <CheckCircle2 size={20} />
-                Salvar e Disparar Treino para o Aluno
-              </button>
+
       {libraryOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 backdrop-blur-sm"
