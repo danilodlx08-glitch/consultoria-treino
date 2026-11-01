@@ -1,14 +1,9 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { 
-  ExternalLink, LogOut, RefreshCw, X, Play, Timer, RotateCcw, MessageCircle, Link2, 
-  CheckCircle2, Trophy, Lightbulb, ArrowLeft, Activity, Scale, Flame, UserCheck, 
-  FlameKindling, ChevronRight, ChevronLeft, Pause, PlayCircle, AlertCircle, Loader2, 
-  Dumbbell, ThumbsUp, Award, Zap, ShieldCheck, FileText, TrendingUp, ArrowUpRight, 
-  ArrowDownRight, Minus 
-} from 'lucide-react'
+import { ExternalLink, LogOut, RefreshCw, X, Play, Timer, RotateCcw, MessageCircle, Link2, CheckCircle2, Trophy, Lightbulb, ArrowLeft, Activity, Scale, Flame, UserCheck, FlameKindling, ChevronRight, ChevronLeft, Pause, PlayCircle, AlertCircle, Loader2, Dumbbell, ThumbsUp, Award, Zap, ShieldCheck, FileText, TrendingUp, ArrowUpRight, ArrowDownRight, Minus } from 'lucide-react'
 import Logo from '../components/Logo.jsx'
 import { useAuth } from '../auth.jsx'
+import { loadData, subscribeData } from '../storage'
 
 const DAYS = ['A', 'B', 'C', 'D', 'E']
 
@@ -79,37 +74,32 @@ function getSetIcon(index) {
   }
 }
 
-export default function StudentArea({ supabaseClient }) {
+export default function StudentArea() {
   const { student, logoutStudent } = useAuth()
   const navigate = useNavigate()
+
+  const [data, setData] = useState(() => loadData())
   const [isLoadingAuth, setIsLoadingAuth] = useState(true)
   const [selectedWorkoutDay, setSelectedWorkoutDay] = useState(null)
   const [syncedAt, setSyncedAt] = useState('')
-
-  // 1. CARREGAMENTO LOCAL INSTANTÂNEO (Zero Egress na abertura)
-  const [current, setCurrent] = useState(() => {
-    const cached = localStorage.getItem(`dlc_student_profile_${student?.id || student?.code}`)
-    if (cached) {
-      try { return JSON.parse(cached) } catch (e) { console.error(e) }
-    }
-    return student || null
-  })
-
   const [selectedVideo, setSelectedVideo] = useState(null)
   const [selectedObs, setSelectedObs] = useState(null)
   const [isEvaluationOpen, setIsEvaluationOpen] = useState(false)
+
   const [evalTab, setEvalTab] = useState('details')
   const [compareId1, setCompareId1] = useState('')
   const [compareId2, setCompareId2] = useState('')
+
   const [exerciseProgress, setExerciseProgress] = useState({})
-  
-  // Timers e Modos
+
   const [timerSeconds, setTimerSeconds] = useState(0)
   const [timerActive, setTimerActive] = useState(false)
   const [initialTime, setInitialTime] = useState(60)
   const [activeRestMenu, setActiveRestMenu] = useState(false)
+
   const [inWorkoutMode, setInWorkoutMode] = useState(false)
   const [workoutActiveIndex, setWorkoutActiveIndex] = useState(0)
+
   const [sessionSeconds, setSessionSeconds] = useState(0)
   const [sessionActive, setSessionActive] = useState(false)
   const [sessionPaused, setSessionPaused] = useState(false)
@@ -127,43 +117,16 @@ export default function StudentArea({ supabaseClient }) {
     return () => clearTimeout(timer)
   }, [student])
 
-  // 2. SINCRONIZAÇÃO EM TEMPO REAL CIRÚRGICA (Filtro por ID = Egress Praticamente Zero)
-  useEffect(() => {
-    const studentId = current?.id || student?.id
-    if (!studentId || !supabaseClient) return
+  const current = useMemo(() => {
+    if (!student?.id && !student?.code) return null
+    return (
+      data.students?.find(
+        (item) => item.id === student?.id || item.code === student?.code
+      ) || null
+    )
+  }, [data, student])
 
-    const channel = supabaseClient
-      .channel(`student-updates-${studentId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'students',
-          filter: `id=eq.${studentId}` // <-- Garante consumo de banda cirúrgico
-        },
-        (payload) => {
-          const updatedData = payload.new
-          if (updatedData) {
-            setCurrent(updatedData)
-            localStorage.setItem(`dlc_student_profile_${studentId}`, JSON.stringify(updatedData))
-            setSyncedAt(
-              new Date().toLocaleTimeString('pt-BR', {
-                hour: '2-digit',
-                minute: '2-digit',
-              })
-            )
-          }
-        }
-      )
-      .subscribe()
-
-    return () => {
-      supabaseClient.removeChannel(channel)
-    }
-  }, [current?.id, student?.id, supabaseClient])
-
- const workouts = current?.workouts || current?.treinos || {}
+  const workouts = current?.workouts || {}
   const activeDays = Array.isArray(current?.activeDays) && current.activeDays.length > 0
     ? DAYS.filter((day) => current.activeDays.includes(day))
     : DAYS
@@ -196,7 +159,6 @@ export default function StudentArea({ supabaseClient }) {
     selectedWorkoutDay && selectedWorkoutDay !== 'ALL' && activeDays.includes(selectedWorkoutDay)
       ? selectedWorkoutDay
       : activeDays[0] || 'A'
-
   const workout = workouts[currentDay] || {
     title: 'Treino',
     focus: '',
@@ -209,6 +171,7 @@ export default function StudentArea({ supabaseClient }) {
     while (i < exercisesList.length) {
       const currentEx = exercisesList[i]
       const groupKey = (currentEx.group || '').trim()
+
       if (groupKey) {
         const groupItems = [currentEx]
         let j = i + 1
@@ -238,6 +201,7 @@ export default function StudentArea({ supabaseClient }) {
     const original = workout.exercises || []
     const groupedMap = new Map()
     const ungrouped = []
+
     original.forEach((ex) => {
       const groupKey = (ex.group || '').trim()
       if (groupKey) {
@@ -249,11 +213,13 @@ export default function StudentArea({ supabaseClient }) {
         ungrouped.push(ex)
       }
     })
+
     const result = []
     groupedMap.forEach((exercisesInGroup) => {
       result.push(...exercisesInGroup)
     })
     result.push(...ungrouped)
+
     return result
   }, [workout.exercises, selectedWorkoutDay])
 
@@ -262,6 +228,7 @@ export default function StudentArea({ supabaseClient }) {
   }, [sortedExercises])
 
   const totalExercises = sortedExercises.length
+
   const completedCount = useMemo(() => {
     return sortedExercises.filter((ex) => {
       const totalSets = parseInt(ex.sets) || 1
@@ -273,11 +240,26 @@ export default function StudentArea({ supabaseClient }) {
   const progressPercent = totalExercises > 0 ? Math.round((completedCount / totalExercises) * 100) : 0
 
   useEffect(() => {
+    const stop = subscribeData((next) => {
+      setData(next)
+      setSyncedAt(
+        new Date().toLocaleTimeString('pt-BR', {
+          hour: '2-digit',
+          minute: '2-digit',
+        })
+      )
+    })
+    return stop
+  }, [])
+
+  useEffect(() => {
     let interval = null
     if (timerActive && timerSeconds > 0) {
       interval = setInterval(() => {
         setTimerSeconds((sec) => {
-          if (sec === 10) playBeep(false)
+          if (sec === 10) {
+            playBeep(false)
+          }
           if (sec <= 1) {
             playBeep(true)
             setTimerActive(false)
@@ -317,20 +299,22 @@ export default function StudentArea({ supabaseClient }) {
   function handleSetClick(exercise, setIndex) {
     const totalSets = parseInt(exercise.sets) || 1
     const currentDone = exerciseProgress[exercise.id] || 0
+
     let nextDone = setIndex + 1
     if (currentDone === nextDone) {
       nextDone = setIndex
-    }
-    const updatedProgress = {
+    }const updatedProgress = {
       ...exerciseProgress,
       [exercise.id]: nextDone,
     }
     setExerciseProgress(updatedProgress)
+
     const allDone = sortedExercises.every((ex) => {
       const sTotal = parseInt(ex.sets) || 1
       const sDone = updatedProgress[ex.id] || 0
       return sDone >= sTotal
     })
+
     if (allDone && totalExercises > 0) {
       setShowFinishedScreen(true)
     }
@@ -362,9 +346,11 @@ export default function StudentArea({ supabaseClient }) {
         return `*${idx + 1}. ${ex.name}*${groupTag} (Séries: ${ex.sets}, Repetições: ${ex.reps})\nCarga: `
       })
       .join('\n\n')
+
     const message = encodeURIComponent(
       `Olá Danilo! Aqui estão as cargas e o feedback de *${studentName}* referentes ao *${workoutTitle}* (${currentDay}):\n\n${exercisesList}\n\nObservações / Dúvidas:`
     )
+
     const phone = '5527996247906'
     window.open(`https://wa.me/${phone}?text=${message}`, '_blank', 'noopener,noreferrer')
   }
@@ -492,6 +478,7 @@ export default function StudentArea({ supabaseClient }) {
             </button>
           </div>
         </div>
+
         <div className="mx-auto max-w-md px-4 pb-2.5 flex items-center justify-between border-t border-white/5 pt-2">
           <div>
             <p className="text-xs text-zinc-400">
@@ -534,6 +521,7 @@ export default function StudentArea({ supabaseClient }) {
                   {latestEvaluation ? 'Ver Detalhes →' : 'Aguardando →'}
                 </span>
               </div>
+
               {latestEvaluation ? (
                 <div className="grid grid-cols-3 gap-2.5 pt-2 border-t border-white/10">
                   <div className="rounded-xl bg-ink-950/60 p-2 text-center border border-white/5">
@@ -600,6 +588,7 @@ export default function StudentArea({ supabaseClient }) {
             <div className="space-y-3.5 pt-2">
               {activeDays.map((dayKey) => {
                 const wData = workouts[dayKey]
+
                 return (
                   <button
                     key={dayKey}
@@ -614,6 +603,7 @@ export default function StudentArea({ supabaseClient }) {
                       <span className="text-[9px] uppercase tracking-widest font-bold opacity-80 leading-none mb-0.5">Treino</span>
                       {dayKey}
                     </div>
+
                     <div className="flex-1 min-w-0">
                       <h2 className="font-display text-xl uppercase text-white tracking-wide group-hover:text-gold-300 transition-colors leading-snug">
                         {wData?.title || `Treino ${dayKey}`}
@@ -636,6 +626,7 @@ export default function StudentArea({ supabaseClient }) {
               </h1>
               <p className="text-xs text-zinc-400 mt-1">Lista completa com os blocos conjugados organizados.</p>
             </div>
+
             <div className="space-y-5">
               {activeDays.map((dKey) => {
                 const wData = workouts[dKey]
@@ -656,6 +647,7 @@ export default function StudentArea({ supabaseClient }) {
                 groupedMap.forEach((groupItems) => allOrdered.push(...groupItems))
                 allOrdered.push(...ungrouped)
                 const blocksForDay = getStructuredBlocks(allOrdered)
+
                 return (
                   <div 
                     key={dKey} 
@@ -677,6 +669,7 @@ export default function StudentArea({ supabaseClient }) {
                           )}
                         </div>
                       </div>
+
                       <button
                         type="button"
                         onClick={() => setSelectedObs({ 
@@ -688,6 +681,7 @@ export default function StudentArea({ supabaseClient }) {
                         OBS
                       </button>
                     </div>
+
                     {blocksForDay.length === 0 ? (
                       <p className="text-xs text-zinc-500 italic py-2 text-center">
                         Nenhum exercício no Treino {dKey}.
@@ -813,11 +807,13 @@ export default function StudentArea({ supabaseClient }) {
             <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-gold-400 to-gold-600 text-ink-950 shadow-2xl shadow-gold-400/30">
               <Trophy size={48} />
             </div>
+
             <div>
               <p className="text-xs uppercase font-bold tracking-widest text-gold-400">Missão Cumprida</p>
               <h2 className="font-display text-3xl uppercase tracking-wide mt-1">Treino Concluído!</h2>
               <p className="text-sm text-zinc-300 mt-2">Você completou {completedCount} de {totalExercises} exercícios com sucesso.</p>
             </div>
+
             <div className="rounded-2xl border border-white/10 bg-ink-900 p-5 max-w-xs mx-auto space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs text-zinc-400 uppercase tracking-wider">Tempo Total:</span>
@@ -828,6 +824,7 @@ export default function StudentArea({ supabaseClient }) {
                 <span className="font-display text-xl text-emerald-400 font-bold">{progressPercent}%</span>
               </div>
             </div>
+
             <div className="space-y-3 pt-2">
               <button
                 type="button"
@@ -837,6 +834,7 @@ export default function StudentArea({ supabaseClient }) {
                 <MessageCircle size={18} fill="currentColor" />
                 Enviar Feedback e Cargas ao Professor
               </button>
+
               <button
                 type="button"
                 onClick={() => {
@@ -849,7 +847,8 @@ export default function StudentArea({ supabaseClient }) {
               </button>
             </div>
           </div>
-        ) : !inWorkoutMode ? (<div>
+        ) : !inWorkoutMode ? (
+          <div>
             <div className="flex items-center justify-between">
               <p className="text-[12px] uppercase tracking-[0.2em] text-gold-400 font-bold">
                 {workout.focus || `Treino ${currentDay}`}
@@ -861,12 +860,14 @@ export default function StudentArea({ supabaseClient }) {
             <h1 className="mt-1 font-display text-2xl uppercase">
               {workout.title} ({currentDay})
             </h1>
+
             <div className="mt-3.5 h-2.5 w-full overflow-hidden rounded-full bg-ink-800 border border-white/5">
               <div
                 className="h-full bg-gold-400 transition-all duration-300 shadow-sm shadow-gold-400/50"
                 style={{ width: `${progressPercent}%` }}
               />
             </div>
+
             <button
               type="button"
               onClick={startWorkoutSession}
@@ -875,6 +876,7 @@ export default function StudentArea({ supabaseClient }) {
               <FlameKindling size={20} />
               🔥 Iniciar Modo Treino Imersivo
             </button>
+
             <button
               type="button"
               onClick={sendWhatsAppFeedback}
@@ -883,6 +885,7 @@ export default function StudentArea({ supabaseClient }) {
               <MessageCircle size={18} />
               Enviar cargas e feedback no WhatsApp
             </button>
+
             <div className="mt-5 space-y-4">
               {structuredExercises.map((block, bIndex) => {
                 if (block.type === 'group') {
@@ -902,12 +905,14 @@ export default function StudentArea({ supabaseClient }) {
                           Conjugado
                         </span>
                       </div>
+
                       <div className="space-y-3.5">
                         {block.exercises.map((exercise, indexInGroup) => {
                           const videoId = youtubeId(exercise.video)
                           const totalSets = parseInt(exercise.sets) || 1
                           const doneSets = exerciseProgress[exercise.id] || 0
                           const isAllDone = doneSets >= totalSets
+
                           return (
                             <article
                               key={exercise.id || `group-ex-${indexInGroup}`}
@@ -925,6 +930,7 @@ export default function StudentArea({ supabaseClient }) {
                                   {exercise.name}
                                 </h2>
                               </div>
+
                               <div className="flex items-stretch gap-3 mb-3">
                                 <div className="w-28 shrink-0 flex flex-col">
                                   {exercise.video ? (
@@ -958,6 +964,7 @@ export default function StudentArea({ supabaseClient }) {
                                     </div>
                                   )}
                                 </div>
+
                                 <div className="flex-1 min-w-0 flex flex-col gap-2">
                                   <div className="grid grid-cols-2 gap-2">
                                     <div className="rounded-xl bg-ink-700 p-2 text-center border border-white/5 flex flex-col justify-center">
@@ -969,6 +976,7 @@ export default function StudentArea({ supabaseClient }) {
                                       <p className="font-display text-lg text-gold-400 font-extrabold mt-0.5">{exercise.reps}</p>
                                     </div>
                                   </div>
+
                                   {exercise.notes ? (
                                     <div 
                                       onClick={() => setSelectedObs({ title: exercise.name, notes: exercise.notes })}
@@ -985,6 +993,7 @@ export default function StudentArea({ supabaseClient }) {
                                   )}
                                 </div>
                               </div>
+
                               <div className="pt-2.5 border-t border-white/10 space-y-1.5">
                                 <div className="flex items-center justify-center text-[10px] uppercase tracking-wider text-zinc-400 font-bold gap-1">
                                   <span>Séries ({doneSets}/{totalSets})</span>
@@ -1024,6 +1033,7 @@ export default function StudentArea({ supabaseClient }) {
                   const totalSets = parseInt(exercise.sets) || 1
                   const doneSets = exerciseProgress[exercise.id] || 0
                   const isAllDone = doneSets >= totalSets
+
                   return (
                     <article
                       key={exercise.id || `single-${bIndex}`}
@@ -1041,6 +1051,7 @@ export default function StudentArea({ supabaseClient }) {
                           {exercise.name}
                         </h2>
                       </div>
+
                       <div className="flex items-stretch gap-3.5 mb-3.5">
                         <div className="w-32 shrink-0 flex flex-col">
                           {exercise.video ? (
@@ -1074,6 +1085,7 @@ export default function StudentArea({ supabaseClient }) {
                             </div>
                           )}
                         </div>
+
                         <div className="flex-1 min-w-0 flex flex-col gap-2.5">
                           <div className="grid grid-cols-2 gap-2.5">
                             <div className="rounded-xl bg-ink-700 p-2.5 text-center border border-white/5 flex flex-col justify-center">
@@ -1085,6 +1097,7 @@ export default function StudentArea({ supabaseClient }) {
                               <p className="font-display text-xl text-gold-400 font-extrabold mt-0.5">{exercise.reps}</p>
                             </div>
                           </div>
+
                           {exercise.notes ? (
                             <div 
                               onClick={() => setSelectedObs({ title: exercise.name, notes: exercise.notes })}
@@ -1101,6 +1114,7 @@ export default function StudentArea({ supabaseClient }) {
                           )}
                         </div>
                       </div>
+
                       <div className="pt-3 border-t border-white/10 space-y-2">
                         <div className="flex items-center justify-center text-[11px] uppercase tracking-wider text-zinc-400 font-bold gap-1 text-center">
                           <span>Progresso das Séries</span>
@@ -1163,6 +1177,7 @@ export default function StudentArea({ supabaseClient }) {
                 </button>
               </div>
             </div>
+
             <div className="flex items-center justify-between text-xs font-bold text-zinc-400 px-1">
               <span>Bloco {workoutActiveIndex + 1} de {structuredExercises.length}</span>
               <span className="text-gold-400">{progressPercent}% concluído</span>
@@ -1173,9 +1188,11 @@ export default function StudentArea({ supabaseClient }) {
                 style={{ width: `${progressPercent}%` }}
               />
             </div>
+
             {(() => {
               const currentBlock = structuredExercises[workoutActiveIndex]
               if (!currentBlock) return null
+
               if (currentBlock.type === 'group') {
                 return (
                   <div className="rounded-3xl border-2 border-gold-400 bg-ink-900 p-5 shadow-2xl space-y-5">
@@ -1190,12 +1207,14 @@ export default function StudentArea({ supabaseClient }) {
                         Treino Conjugado
                       </span>
                     </div>
+
                     <div className="space-y-5">
                       {currentBlock.exercises.map((exercise, idx) => {
                         const videoId = youtubeId(exercise.video)
                         const totalSets = parseInt(exercise.sets) || 1
                         const doneSets = exerciseProgress[exercise.id] || 0
                         const isAllDone = doneSets >= totalSets
+
                         return (
                           <div key={exercise.id || idx} className="rounded-2xl border border-white/15 bg-ink-800 p-4 space-y-3">
                             <div>
@@ -1206,6 +1225,7 @@ export default function StudentArea({ supabaseClient }) {
                                 {exercise.name}
                               </h3>
                             </div>
+
                             {exercise.video && (
                               <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-gold-400/30 bg-black">
                                 {videoId ? (
@@ -1235,6 +1255,7 @@ export default function StudentArea({ supabaseClient }) {
                                 )}
                               </div>
                             )}
+
                             <div className="grid grid-cols-2 gap-2.5">
                               <div className="rounded-xl bg-ink-700 p-2.5 text-center border border-white/5">
                                 <p className="text-[9px] uppercase tracking-wider text-zinc-400 font-bold">Séries</p>
@@ -1245,6 +1266,7 @@ export default function StudentArea({ supabaseClient }) {
                                 <p className="font-display text-xl text-gold-400 font-extrabold mt-0.5">{exercise.reps}</p>
                               </div>
                             </div>
+
                             {exercise.notes && (
                               <div className="rounded-xl bg-gold-400/10 border border-gold-400/25 p-2.5 text-xs text-zinc-200">
                                 <div className="flex items-center gap-1.5 text-gold-400 font-bold uppercase text-[10px] tracking-wider mb-1">
@@ -1253,6 +1275,7 @@ export default function StudentArea({ supabaseClient }) {
                                 <p>{exercise.notes}</p>
                               </div>
                             )}
+
                             <div className="space-y-1.5 pt-1">
                               <div className="flex items-center justify-center text-[11px] font-bold uppercase text-zinc-400 gap-1">
                                 <span>Séries ({doneSets}/{totalSets})</span>
@@ -1265,8 +1288,7 @@ export default function StudentArea({ supabaseClient }) {
                                     <button
                                       key={sIdx}
                                       type="button"
-                                      onClick={() => handleSetClick(exercise, sIdx)}
-                                      className={`flex-1 py-2.5 rounded-xl border text-xs font-display font-extrabold uppercase transition-all flex items-center justify-center gap-1 ${
+                                      onClick={() => handleSetClick(exercise, sIdx)}className={`flex-1 py-2.5 rounded-xl border text-xs font-display font-extrabold uppercase transition-all flex items-center justify-center gap-1 ${
                                         isDone
                                           ? 'bg-emerald-500 text-ink-950 border-emerald-400 shadow-md'
                                           : 'bg-ink-700 text-gold-300 border-gold-400/40 hover:bg-gold-400 hover:text-ink-950'
@@ -1284,6 +1306,7 @@ export default function StudentArea({ supabaseClient }) {
                         )
                       })}
                     </div>
+
                     <div className="flex items-center justify-between pt-3 border-t border-white/10">
                       <button
                         type="button"
@@ -1296,6 +1319,7 @@ export default function StudentArea({ supabaseClient }) {
                       >
                         <ChevronLeft size={16} /> Anterior
                       </button>
+
                       {workoutActiveIndex < structuredExercises.length - 1 ? (
                         <button
                           type="button"
@@ -1325,6 +1349,7 @@ export default function StudentArea({ supabaseClient }) {
                 const totalSets = parseInt(exercise.sets) || 1
                 const doneSets = exerciseProgress[exercise.id] || 0
                 const isAllDone = doneSets >= totalSets
+
                 return (
                   <div className="rounded-2xl border border-gold-400/50 bg-ink-900 p-5 shadow-2xl space-y-4">
                     <div>
@@ -1332,6 +1357,7 @@ export default function StudentArea({ supabaseClient }) {
                         {exercise.name}
                       </h2>
                     </div>
+
                     {exercise.video && (
                       <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-gold-400/30 bg-black">
                         {videoId ? (
@@ -1361,6 +1387,7 @@ export default function StudentArea({ supabaseClient }) {
                         )}
                       </div>
                     )}
+
                     <div className="grid grid-cols-2 gap-3">
                       <div className="rounded-xl bg-ink-800 p-3 text-center border border-white/5">
                         <p className="text-[10px] uppercase tracking-wider text-zinc-400 font-bold">Séries</p>
@@ -1371,6 +1398,7 @@ export default function StudentArea({ supabaseClient }) {
                         <p className="font-display text-2xl text-gold-400 font-extrabold mt-0.5">{exercise.reps}</p>
                       </div>
                     </div>
+
                     {exercise.notes && (
                       <div className="rounded-xl bg-gold-400/10 border border-gold-400/25 p-3 text-xs leading-relaxed text-zinc-200">
                         <div className="flex items-center gap-1.5 text-gold-400 font-bold uppercase text-[10px] tracking-wider mb-1">
@@ -1379,6 +1407,7 @@ export default function StudentArea({ supabaseClient }) {
                         <p>{exercise.notes}</p>
                       </div>
                     )}
+
                     <div className="space-y-2 pt-2">
                       <div className="flex items-center justify-center text-xs font-bold uppercase tracking-wider text-zinc-400 gap-1 text-center">
                         <span>Progresso das Séries</span>
@@ -1407,6 +1436,7 @@ export default function StudentArea({ supabaseClient }) {
                         })}
                       </div>
                     </div>
+
                     <div className="flex items-center justify-between pt-3 border-t border-white/10">
                       <button
                         type="button"
@@ -1419,6 +1449,7 @@ export default function StudentArea({ supabaseClient }) {
                       >
                         <ChevronLeft size={16} /> Anterior
                       </button>
+
                       {workoutActiveIndex < structuredExercises.length - 1 ? (
                         <button
                           type="button"
@@ -1446,7 +1477,8 @@ export default function StudentArea({ supabaseClient }) {
             })()}
           </div>
         )}
-      </main>{/* Botões Flutuantes (WhatsApp & Cronómetro) */}
+      </main>
+
       <div className="fixed bottom-6 right-4 z-45 flex flex-col items-end gap-3">
         <button
           onClick={sendRealtimeDoubt}
@@ -1503,7 +1535,8 @@ export default function StudentArea({ supabaseClient }) {
             </span>
           </button>
         </div>
-      </div>{/* Modal de Avaliação Física */}
+      </div>
+
       {isEvaluationOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm"
@@ -1770,7 +1803,6 @@ export default function StudentArea({ supabaseClient }) {
         </div>
       )}
 
-      {/* Modal de Vídeo do YouTube */}
       {selectedVideo && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm"
@@ -1818,7 +1850,6 @@ export default function StudentArea({ supabaseClient }) {
         </div>
       )}
 
-      {/* Modal de Observações */}
       {selectedObs && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
@@ -1860,3 +1891,4 @@ export default function StudentArea({ supabaseClient }) {
     </div>
   )
 }
+
