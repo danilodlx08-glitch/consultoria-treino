@@ -195,358 +195,217 @@ export default function AdminPanel() {
     saveData(next)
     setSaved('Salvo na nuvem com sucesso!')
     setTimeout(() => setSaved(''), 2200)
-  }function calculateMetrics() {
-    const weight = parseFloat(evaluationForm.weight)
-    let height = parseFloat(evaluationForm.height)
-    const age = parseInt(evaluationForm.age, 10)
-    const isMale = evaluationForm.sex === 'male'
-    const actFactor = parseFloat(evaluationForm.activityFactor) || 1.375
-    if (!weight || !height) {
-      alert('Preencha ao menos o Peso e a Altura para calcular.')
+  }function fileToDataUrl(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result)
+      reader.onerror = () => reject(new Error('Falha ao ler o ficheiro'))
+      reader.readAsDataURL(file)
+    })
+  }
+
+  async function handleLogoFile(event) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      setLogoError('Envie um ficheiro de imagem (PNG, JPG, WEBP ou SVG).')
       return
     }
-    const heightCm = height < 3 ? height * 100 : height
-    let tmbVal = 0
-    if (age) {
-      if (isMale) {
-        tmbVal = 10 * weight + 6.25 * heightCm - 5 * age + 5
-      } else {
-        tmbVal = 10 * weight + 6.25 * heightCm - 5 * age - 161
-      }
-    } else {
-      tmbVal = isMale ? 24 * weight : 22 * weight
+    if (file.size > 4 * 1024 * 1024) {
+      setLogoError('A imagem deve ter no máximo 4 MB.')
+      return
     }
-    const getVal = tmbVal * actFactor
-    let fatVal = parseFloat(evaluationForm.fatPercentage)
-    const waist = parseFloat(evaluationForm.waist)
-    const neck = parseFloat(evaluationForm.neck)
-    const hips = parseFloat(evaluationForm.hips)
-    if (waist && neck) {
-      if (isMale && waist > neck) {
-        fatVal = 86.010 * Math.log10(waist - neck) - 70.041 * Math.log10(heightCm) + 36.76
-      } else if (!isMale && hips && (waist + hips) > neck) {
-        fatVal = 163.205 * Math.log10(waist + hips - neck) - 97.684 * Math.log10(heightCm) - 78.387
-      }
-    }
-    if (!fatVal || isNaN(fatVal) || fatVal <= 0) {
-      const heightM = heightCm / 100
-      const bmi = weight / (heightM * heightM)
-      const userAge = age || 25
-      const sexVal = isMale ? 1 : 0
-      fatVal = (1.20 * bmi) + (0.23 * userAge) - (10.8 * sexVal) - 5.4
-    }
-    fatVal = Math.max(3, Math.min(60, fatVal))
-    const leanMassVal = weight * (1 - fatVal / 100)
-    setEvaluationForm((prev) => ({
-      ...prev,
-      tmb: Math.round(tmbVal).toString(),
-      get: Math.round(getVal).toString(),
-      fatPercentage: fatVal.toFixed(1),
-      leanMass: leanMassVal.toFixed(1),
-    }))
-  }
-
-  function handleSaveEvaluation(e) {
-    e.preventDefault()
-    if (!evaluatingStudent) return
-    const newEvaluation = {
-      date: evaluationForm.date || new Date().toLocaleDateString('pt-BR'),
-      weight: Number(evaluationForm.weight) || 0,
-      height: Number(evaluationForm.height) || 0,
-      fatPercentage: Number(evaluationForm.fatPercentage) || 0,
-      leanMass: Number(evaluationForm.leanMass) || 0,
-      tmb: Number(evaluationForm.tmb) || 0,
-      get: Number(evaluationForm.get) || 0,
-      circumferences: {
-        neck: Number(evaluationForm.neck) || 0,
-        chest: Number(evaluationForm.chest) || 0,
-        arm: Number(evaluationForm.arm) || 0,
-        waist: Number(evaluationForm.waist) || 0,
-        hips: Number(evaluationForm.hips) || 0,
-        thigh: Number(evaluationForm.thigh) || 0,
-        calf: Number(evaluationForm.calf) || 0,
-      },
-    }
-    const updatedStudents = data.students.map((student) => {
-      if (student.id === evaluatingStudent.id) {
-        return {
-          ...student,
-          evaluations: [...(student.evaluations || []), newEvaluation],
-          updatedAt: new Date().toISOString(),
-        }
-      }
-      return student
-    })
-    persist({ ...data, students: updatedStudents })
-    setShowEvaluationModal(false)
-    setEvaluatingStudent(null)
-    setEvaluationForm(emptyEvaluationForm())
-    setSaved('Avaliação física salva com sucesso!')
-    setTimeout(() => setSaved(''), 2200)
-  }
-
-  const libraryExercises = data.exercisesLibrary || []
-
-  const availableMuscles = useMemo(() => {
-    const muscles = new Set()
-    libraryExercises.forEach((item) => {
-      if (item.muscle?.trim()) {
-        muscles.add(item.muscle.trim().toUpperCase())
-      }
-    })
-    return ['TODOS', ...Array.from(muscles)]
-  }, [libraryExercises])
-
-  const filteredLibrary = useMemo(() => {
-    const term = librarySearch.trim().toLowerCase()
-    return libraryExercises.filter((exercise) => {
-      const matchesSearch =
-        !term ||
-        [exercise.name, exercise.muscle, exercise.notes]
-          .filter(Boolean)
-          .join(' ')
-          .toLowerCase()
-          .includes(term)
-      const matchesMuscle =
-        selectedMuscleFilter === 'TODOS' ||
-        exercise.muscle?.trim().toUpperCase() === selectedMuscleFilter
-      return matchesSearch && matchesMuscle
-    })
-  }, [libraryExercises, librarySearch, selectedMuscleFilter])
-
-  function addCurrentExerciseToLibrary(exercise) {
-    const next = addExerciseToLibrary(data, {
-      name: exercise.name,
-      muscle: exercise.muscle || '',
-      sets: exercise.sets || '',
-      reps: exercise.reps || '',
-      notes: exercise.notes || '',
-      video: exercise.video || '',
-      group: exercise.group || '',
-    })
-    persist(next)
-  }
-
-  function propagateLibraryExerciseUpdate(currentState, updatedExercise, originalExerciseName) {
-    const updatedStudents = currentState.students.map((student) => {
-      if (!student.workouts) return student
-      let studentUpdated = false
-      const nextWorkouts = { ...student.workouts }
-      DAYS.forEach((d) => {
-        if (nextWorkouts[d] && nextWorkouts[d].exercises) {
-          const newExercises = nextWorkouts[d].exercises.map((ex) => {
-            const isMatch =
-              (ex.libraryId && ex.libraryId === updatedExercise.id) ||
-              (ex.name && originalExerciseName && ex.name.trim().toLowerCase() === originalExerciseName.trim().toLowerCase())
-            if (isMatch) {
-              studentUpdated = true
-              return {
-                ...ex,
-                libraryId: updatedExercise.id,
-                name: updatedExercise.name,
-                muscle: updatedExercise.muscle || ex.muscle,
-                notes: updatedExercise.notes || ex.notes,
-                video: updatedExercise.video,
-                group: updatedExercise.group || ex.group,
-              }
-            }
-            return ex
-          })
-          if (studentUpdated) {
-            nextWorkouts[d] = {
-              ...nextWorkouts[d],
-              exercises: newExercises,
-            }
-          }
-        }
-      })
-      if (studentUpdated) {
-        return {
-          ...student,
-          workouts: nextWorkouts,
-          updatedAt: new Date().toISOString(),
-        }
-      }
-      return student
-    })
-    return updatedStudents
-  }
-
-  function saveNewLibraryExercise(event) {
-    event.preventDefault()
-    if (!libraryForm.name.trim()) return
-    if (editingLibraryId) {
-      const originalLibItem = (data.exercisesLibrary || []).find((e) => e.id === editingLibraryId)
-      const originalName = originalLibItem ? originalLibItem.name : ''
-      const updatedLibExercise = {
-        id: editingLibraryId,
-        ...libraryForm,
-        name: libraryForm.name.trim(),
-      }
-      const nextBase = updateLibraryExercise(data, editingLibraryId, updatedLibExercise)
-      const updatedStudents = propagateLibraryExerciseUpdate(
-        nextBase,
-        updatedLibExercise,
-        originalName
-      )
+    try {
+      const dataUrl = await fileToDataUrl(file)
+      const result = await uploadLogo(dataUrl)
       persist({
-        ...nextBase,
-        students: updatedStudents,
+        ...data,
+        brand: {
+          ...(data.brand || {}),
+          logo: result.logo,
+        },
       })
-      setSaved('Exercício atualizado na biblioteca e em todos os alunos!')
-    } else {
-      const next = addExerciseToLibrary(data, {
-        ...libraryForm,
-        name: libraryForm.name.trim(),
-      })
-      persist(next)
-      setSaved('Novo exercício salvo na biblioteca!')
+      setLogoError('')
+    } catch {
+      setLogoError('Não foi possível carregar a imagem. Tente outro ficheiro.')
     }
-    setLibraryForm(emptyLibraryExercise())
-    setShowNewLibraryExercise(false)
-    setEditingLibraryId(null)
-    setTimeout(() => setSaved(''), 2500)
   }
 
-  function startEditingLibrary(exercise) {
-    setEditingLibraryId(exercise.id)
-    setLibraryForm({
-      name: exercise.name || '',
-      muscle: exercise.muscle || '',
-      sets: exercise.sets || '',
-      reps: exercise.reps || '',
-      notes: exercise.notes || '',
-      video: exercise.video || '',
-      group: exercise.group || '',
-    })
-    setShowNewLibraryExercise(true)
-  }
-
-  function deleteLibraryExercise(exerciseId) {
-    const exercise = libraryExercises.find((item) => item.id === exerciseId)
-    if (!exercise) return
-    const confirmed = window.confirm(`Excluir "${exercise.name}" da biblioteca?`)
-    if (!confirmed) return
-    const next = removeExerciseFromLibrary(data, exerciseId)
-    persist(next)
-  }
-
-  function addFromLibraryToCurrentStudent(exerciseId) {
-    if (!selectedStudent) return
-    const next = addLibraryExerciseToWorkout(data, selectedStudent.id, day, exerciseId)
-    persist(next)
-    setSaved('Exercício adicionado ao treino do aluno!')
-    setTimeout(() => setSaved(''), 2200)
-  }
-
-  function updateStudentPlanCount(studentId, countValue) {
-    const count = Math.max(1, Math.min(5, Number(countValue) || 5))
-    const activeDays = DAYS.slice(0, count)
-    const updatedStudents = data.students.map((student) =>
-      student.id === studentId
-        ? { ...student, activeDays, updatedAt: new Date().toISOString() }
-        : student
-    )
-    persist({ ...data, students: updatedStudents })
-    if (!activeDays.includes(day)) setDay(activeDays[0])
-    setSaved(`Quantidade de planilhas atualizada para ${count}. Os treinos ocultos foram preservados.`)
-    setTimeout(() => setSaved(''), 3000)
-  }
-
-  function addStudent(event) {
-    event.preventDefault()
-    if (!studentForm.name) return
-    const code = (studentForm.code || generateAccessCode()).toUpperCase()
-    const password = studentForm.password || generatePassword()
-    if (data.students.some((item) => item.code === code)) return
-    const count = Math.max(1, Math.min(5, Number(studentForm.planCount) || 5))
-    const nextStudent = {
-      id: createId(),
-      name: studentForm.name,
-      code,
-      password,
-      active: true,
-      activeDays: DAYS.slice(0, count),
-      updatedAt: new Date().toISOString(),
-      workouts: cloneWorkouts(data.workouts),
-      evaluations: [],
-    }
+  async function resetLogo() {
     persist({
       ...data,
-      students: [nextStudent, ...data.students],
+      brand: { logo: '/logo.png' },
     })
-    setSelectedStudentId(nextStudent.id)
-    setStudentForm({
-      name: '',
-      code: generateAccessCode(),
-      password: generatePassword(),
-      planCount: '5',
-    })
-    setTab('workouts')
+    setLogoError('')
   }
 
-  function saveStudentCredentials(studentId) {
-    const newCode = editStudentForm.code.trim().toUpperCase()
-    const newPass = editStudentForm.password.trim()
-    const count = Math.max(1, Math.min(5, Number(editStudentForm.planCount) || 5))
-    const activeDays = DAYS.slice(0, count)
-    if (!newCode || !newPass) return
-    const updatedStudents = data.students.map((st) =>
-      st.id === studentId
-        ? { ...st, code: newCode, password: newPass, activeDays, updatedAt: new Date().toISOString() }
-        : st
-    )
-    persist({ ...data, students: updatedStudents })
-    setEditingStudentCredsId(null)
-    setSaved('Credenciais e planilhas do aluno atualizadas!')
-    setTimeout(() => setSaved(''), 2200)
+  function studentWorkouts() {
+    return selectedStudent?.workouts || cloneWorkouts(data.workouts)
   }
 
-  function toggleStudent(id) {
+  function persistStudentWorkouts(workouts) {
+    if (!selectedStudent) return
     persist({
       ...data,
       students: data.students.map((item) =>
-        item.id === id ? { ...item, active: !item.active } : item
+        item.id === selectedStudent.id
+          ? {
+              ...item,
+              workouts,
+              updatedAt: new Date().toISOString(),
+            }
+          : item
       ),
     })
   }
 
-  async function removeStudent(id) {
-    const confirmed = window.confirm('Deseja realmente excluir este aluno?')
+  // --- Função para excluir uma avaliação física específica do aluno ---
+  function handleDeleteEvaluation(studentId, evalIndex) {
+    const confirmed = window.confirm('Deseja realmente excluir esta avaliação física?')
     if (!confirmed) return
-    const { error } = await supabase.from('alunos').delete().eq('id', id)
-    if (error) {
-      console.error('Erro ao excluir aluno no Supabase:', error)
-      alert('Erro ao excluir aluno na base de dados.')
-      return
-    }
-    const next = data.students.filter((item) => item.id !== id)
-    persist({ ...data, students: next })
-    if (selectedStudentId === id) {
-      setSelectedStudentId(next[0]?.id || '')
-    }
-    setSaved('Aluno excluído com sucesso!')
+
+    const updatedStudents = data.students.map((student) => {
+      if (student.id === studentId) {
+        const evaluations = [...(student.evaluations || [])]
+        evaluations.splice(evalIndex, 1) // Remove o item pelo índice exato
+        return {
+          ...student,
+          evaluations,
+          updatedAt: new Date().toISOString(),
+        }
+      }
+      return student
+    })
+
+    persist({ ...data, students: updatedStudents })
+    setSaved('Avaliação excluída com sucesso!')
     setTimeout(() => setSaved(''), 2200)
   }
 
-  function copyCredentials(student) {
-    const text = `Acesso Danilo Lopes\nCódigo: ${student.code}\nSenha: ${student.password}`
-    if (navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(text)
-      setSaved(`Credenciais de ${student.name} copiadas!`)
+  function updateWorkoutMeta(field, value) {
+    const workouts = studentWorkouts()
+    persistStudentWorkouts({
+      ...workouts,
+      [day]: {
+        ...workouts[day],
+        [field]: value,
+      },
+    })
+  }
+
+  function updateExercise(exerciseId, field, value) {
+    const workouts = studentWorkouts()
+    const exercises = workouts[day].exercises.map((item) =>
+      item.id === exerciseId
+        ? { ...item, [field]: value }
+        : item
+    )
+    persistStudentWorkouts({
+      ...workouts,
+      [day]: { ...workouts[day], exercises },
+    })
+  }
+
+  function addExercise() {
+    const workouts = studentWorkouts()
+    persistStudentWorkouts({
+      ...workouts,
+      [day]: {
+        ...workouts[day],
+        exercises: [...workouts[day].exercises, emptyExercise()],
+      },
+    })
+  }
+
+  function removeExercise(exerciseId) {
+    const workouts = studentWorkouts()
+    persistStudentWorkouts({
+      ...workouts,
+      [day]: {
+        ...workouts[day],
+        exercises: workouts[day].exercises.filter((item) => item.id !== exerciseId),
+      },
+    })
+  }
+
+  function moveExercise(index, direction) {
+    const workouts = studentWorkouts()
+    const exercises = [...workouts[day].exercises]
+    const targetIndex = direction === 'up' ? index - 1 : index + 1
+    if (targetIndex < 0 || targetIndex >= exercises.length) return
+    const temp = exercises[index]
+    exercises[index] = exercises[targetIndex]
+    exercises[targetIndex] = temp
+    persistStudentWorkouts({
+      ...workouts,
+      [day]: { ...workouts[day], exercises },
+    })
+  }
+
+  function replaceExerciseWithLibrary(libraryExerciseId) {
+    if (!replacingExerciseId || !selectedStudent) return
+    const libEx = (data.exercisesLibrary || []).find((e) => e.id === libraryExerciseId)
+    if (!libEx) return
+    const workouts = studentWorkouts()
+    const exercises = workouts[day].exercises.map((item) => {
+      if (item.id === replacingExerciseId) {
+        return {
+          ...item,
+          libraryId: libEx.id,
+          name: libEx.name,
+          muscle: libEx.muscle || '',
+          sets: libEx.sets || item.sets || '3',
+          reps: libEx.reps || item.reps || '10-12',
+          notes: libEx.notes || item.notes || '',
+          video: libEx.video || item.video || '',
+          group: libEx.group || item.group || '',
+        }
+      }
+      return item
+    })
+    persistStudentWorkouts({
+      ...workouts,
+      [day]: { ...workouts[day], exercises },
+    })
+    setReplaceModalOpen(false)
+    setReplacingExerciseId(null)
+    setSaved('Exercício substituído com sucesso na mesma posição!')
+    setTimeout(() => setSaved(''), 2200)
+  }
+
+  function toggleExerciseExpand(id) {
+    setExpandedExercises((prev) => ({
+      ...prev,
+      [id]: prev[id] === false ? true : false,
+    }))
+  }
+
+  function copyWorkoutFromDay(sourceDay) {
+    if (sourceDay === day) return
+    const workouts = studentWorkouts()
+    const sourceWorkout = workouts[sourceDay]
+    if (!sourceWorkout || !sourceWorkout.exercises.length) {
+      setSaved(`O treino ${sourceDay} está vazio.`)
       setTimeout(() => setSaved(''), 2200)
+      return
     }
-  }
-
-  function exit() {
-    logoutAdmin()
-    navigate('/')
-  }
-
-  const currentWorkout = studentWorkouts()[day] || {
-    title: '',
-    focus: '',
-    exercises: [],
+    const confirmed = window.confirm(`Deseja copiar todos os exercícios do Treino ${sourceDay} para o Treino ${day}?`)
+    if (!confirmed) return
+    const clonedExercises = sourceWorkout.exercises.map((ex) => ({
+      ...ex,
+      id: createId(),
+    }))
+    persistStudentWorkouts({
+      ...workouts,
+      [day]: {
+        title: sourceWorkout.title,
+        focus: sourceWorkout.focus,
+        exercises: clonedExercises,
+      },
+    })
+    setSaved(`Treino ${day} atualizado com base no Treino ${sourceDay}!`)
+    setTimeout(() => setSaved(''), 2200)
   }function calculateMetrics() {
     const weight = parseFloat(evaluationForm.weight)
     let height = parseFloat(evaluationForm.height)
