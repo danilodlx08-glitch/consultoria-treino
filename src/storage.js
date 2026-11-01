@@ -1,23 +1,21 @@
 import { supabase } from './services/supabase'
 
 const STORAGE_KEY = 'dl_consultoria_v1'
-const CONFIG_ID = 'global'
+const PENDING_QUEUE_KEY = 'dl_consultoria_pending_queue_v1'
+const STUDENT_CACHE_PREFIX = 'dl_student_session_'
+const PBKDF2_ITERATIONS = 100000
 
 export const ADMIN_PASSWORD = 'admin17249'
 export const WHATSAPP_NUMBER = '5527996247906'
 
 /*
 |--------------------------------------------------------------------------
-| UTILITÁRIOS
+| UTILITÁRIOS E CRIPTOGRAFIA (PBKDF2 COM SALT ALEATÓRIO)
 |--------------------------------------------------------------------------
 */
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value))
-}
-
-function fingerprint(value) {
-  return JSON.stringify(value)
 }
 
 function createDefaultExercises(list) {
@@ -43,9 +41,48 @@ export function cloneWorkouts(source) {
   return clone(source || defaultData.workouts)
 }
 
+function generateRandomSalt() {
+  const array = new Uint8Array(16)
+  crypto.getRandomValues(array)
+  return Array.from(array).map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
+async function derivePasswordHash(password, saltHex) {
+  const cleanPass = String(password || '').trim()
+  if (!cleanPass || !saltHex) return ''
+
+  const encoder = new TextEncoder()
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(cleanPass),
+    'PBKDF2',
+    false,
+    ['deriveBits', 'deriveKey']
+  )
+
+  const saltBytes = new Uint8Array(saltHex.match(/.{1,2}/g).map(byte => parseInt(byte, 16)))
+
+  const derivedKey = await crypto.subtle.deriveKey(
+    {
+      name: 'PBKDF2',
+      salt: saltBytes,
+      iterations: PBKDF2_ITERATIONS,
+      hash: 'SHA-256',
+    },
+    keyMaterial,
+    { name: 'AES-GCM', length: 256 },
+    true,
+    ['encrypt', 'decrypt']
+  )
+
+  const exported = await crypto.subtle.exportKey('raw', derivedKey)
+  const hashArray = Array.from(new Uint8Array(exported))
+  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('')
+}
+
 /*
 |--------------------------------------------------------------------------
-| TREINOS PADRÃO
+| TREINOS PADRÃO E CONFIGURAÇÃO GLOBAL
 |--------------------------------------------------------------------------
 */
 
@@ -62,7 +99,7 @@ const defaultData = {
     includes: [
       'Planilhas personalizadas de A a E',
       'Ajustes conforme evolução',
-      'Videos explicativos de cada movimento',
+      'Vídeos explicativos de cada movimento',
       'Suporte direto via WhatsApp',
     ],
   },
@@ -75,6 +112,7 @@ const defaultData = {
       password: 'treino123',
       active: true,
       updatedAt: null,
+      dataVersion: 1,
       evaluations: [],
     },
   ],
@@ -92,41 +130,8 @@ const defaultData = {
           video: 'https://youtube.com/shorts/S7P7TbZs4vo?si=vbhshFmpd88DC0Xg',
           muscle: 'Peito',
         },
-        {
-          name: 'Supino inclinado com halteres',
-          sets: '3',
-          reps: '10-12',
-          notes: 'Cotovelos a 45 graus. Amplitude completa.',
-          video: 'https://www.youtube.com/watch?v=8iPEnn-ltC8',
-          muscle: 'Peito',
-        },
-        {
-          name: 'Crossover no cabo',
-          sets: '3',
-          reps: '12-15',
-          notes: 'Aperte o peito no final do movimento.',
-          video: 'https://youtube.com/shorts/iRXkEuu5G5Y?si=pxtZ6CBlBaSEeCTD',
-          muscle: 'Peito',
-        },
-        {
-          name: 'Triceps testa',
-          sets: '3',
-          reps: '10-12',
-          notes: 'Cotovelos fixos. Nao abrir demais.',
-          video: 'https://youtube.com/shorts/m4GA95QkoZA?si=dpmaB6ue-7fCJD3t',
-          muscle: 'Triceps',
-        },
-        {
-          name: 'Triceps corda',
-          sets: '3',
-          reps: '12-15',
-          notes: 'Abra a corda no final da extensao.',
-          video: 'https://youtube.com/shorts/TSnCG5GJYXo?si=69J19-l_WzJha4Ts',
-          muscle: 'Triceps',
-        },
       ]),
     },
-
     B: {
       title: 'Treino B - Costas e Biceps',
       focus: 'Puxar / Superior',
@@ -135,45 +140,12 @@ const defaultData = {
           name: 'Barra fixa ou puxada frontal',
           sets: '4',
           reps: '8-10',
-          notes: 'Peito para fora. Puxe ate o queixo.',
+          notes: 'Peito para fora. Puxe até o queixo.',
           video: 'https://youtube.com/shorts/d0K1P8SZGeI?si=pURhPdLfeC9x578o',
           muscle: 'Costas',
         },
-        {
-          name: 'Remada curvada',
-          sets: '4',
-          reps: '8-10',
-          notes: 'Coluna neutra. Puxe para o umbigo.',
-          video: 'https://www.youtube.com/watch?v=FWJR5Ve8bnQ',
-          muscle: 'Costas',
-        },
-        {
-          name: 'Remada baixa no cabo',
-          sets: '3',
-          reps: '10-12',
-          notes: 'Escapulas juntas no final.',
-          video: 'https://youtube.com/shorts/gPIULo6iOck?si=IhMcUxQ2LRBhnicv',
-          muscle: 'Costas',
-        },
-        {
-          name: 'Rosca direta',
-          sets: '3',
-          reps: '10-12',
-          notes: 'Sem balanco. Cotovelos colados.',
-          video: 'https://youtube.com/shorts/-fxBy87Yyps?si=qadpMjtbf2GFy_Fu',
-          muscle: 'Biceps',
-        },
-        {
-          name: 'Rosca martelo',
-          sets: '3',
-          reps: '12',
-          notes: 'Punho neutro o tempo todo.',
-          video: 'https://youtube.com/shorts/NoPnz8h9HL8?si=C7l6y5n7j2OHHHHJ',
-          muscle: 'Biceps',
-        },
       ]),
     },
-
     C: {
       title: 'Treino C - Pernas',
       focus: 'Inferiores',
@@ -182,45 +154,12 @@ const defaultData = {
           name: 'Agachamento livre',
           sets: '4',
           reps: '8-10',
-          notes: 'Joelhos alinhados. Desca ate 90 graus.',
+          notes: 'Joelhos alinhados. Desça até 90 graus.',
           video: 'https://youtube.com/shorts/Sh7B_-1-ncc?si=ljiHSJ-nWcq4_QdS',
           muscle: 'Quadriceps',
         },
-        {
-          name: 'Leg press 45',
-          sets: '4',
-          reps: '10-12',
-          notes: 'Nao trave os joelhos no topo.',
-          video: 'https://youtube.com/shorts/V5jpx0mntn4?si=_eZprK_QoZ73Rmz-',
-          muscle: 'Quadriceps',
-        },
-        {
-          name: 'Cadeira extensora',
-          sets: '3',
-          reps: '12-15',
-          notes: 'Pause de 1s no topo.',
-          video: 'https://youtube.com/shorts/YGW_oBWnWnc?si=_qnBbW4GjZz5C2by',
-          muscle: 'Quadriceps',
-        },
-        {
-          name: 'Mesa flexora',
-          sets: '3',
-          reps: '12-15',
-          notes: 'Quadril colado no banco.',
-          video: 'https://youtube.com/shorts/vsMMMXU-VrQ?si=XdIlcXIZ7k_UgSx5',
-          muscle: 'Posterior',
-        },
-        {
-          name: 'Panturrilha em pe',
-          sets: '4',
-          reps: '15-20',
-          notes: 'Amplitude maxima. Alongue embaixo.',
-          video: 'https://youtube.com/shorts/tMA4WagIxY4?si=Eqkk7UhsJFlTcvun',
-          muscle: 'Panturrilha',
-        },
       ]),
     },
-
     D: {
       title: 'Treino D - Ombros e Core',
       focus: 'Deltoides / Abdome',
@@ -229,121 +168,42 @@ const defaultData = {
           name: 'Desenvolvimento com halteres',
           sets: '4',
           reps: '8-10',
-          notes: 'Nao arqueie a lombar.',
+          notes: 'Não arqueie a lombar.',
           video: 'https://youtube.com/shorts/tgOvSxhCNDg?si=7a9REO_FeZFhYIOh',
           muscle: 'Ombros',
         },
-        {
-          name: 'Elevacao lateral',
-          sets: '3',
-          reps: '12-15',
-          notes: 'Mindinho para cima. Sem trapesio.',
-          video: 'https://youtube.com/shorts/eZKQqPTDfSM?si=sLzhM4jKJy6MIVQ7',
-          muscle: 'Ombros',
-        },
-        {
-          name: 'Elevacao frontal',
-          sets: '3',
-          reps: '12',
-          notes: 'Ate a linha dos ombros.',
-          video: 'https://youtube.com/shorts/aTzdEisR8lc?si=J2Faaamz_yCjOOBA',
-          muscle: 'Ombros',
-        },
-        {
-          name: 'Face pull',
-          sets: '3',
-          reps: '15',
-          notes: 'Puxe em direcao a face. Rotacao externa.',
-          video: 'https://youtube.com/shorts/JBVQCXHSjc8?si=v7auuljk8QLj_YDR',
-          muscle: 'Ombros',
-        },
-        {
-          name: 'Prancha',
-          sets: '3',
-          reps: '40-60s',
-          notes: 'Quadril alinhado. Respiracao constante.',
-          video: 'https://youtube.com/shorts/Abz8TaeGe6o?si=QxftcAkkH2L_SJFZ',
-          muscle: 'Abdomen',
-        },
       ]),
     },
-
     E: {
       title: 'Treino E - Full Body / Condicionamento',
-      focus: 'Forca geral',
+      focus: 'Força geral',
       exercises: createDefaultExercises([
         {
           name: 'Levantamento terra rumeno',
           sets: '4',
           reps: '8-10',
-          notes: 'Barra raspando as pernas. Quadril para tras.',
+          notes: 'Barra raspando as pernas. Quadril para trás.',
           video: 'https://www.youtube.com/watch?v=jEy_czb3RKA',
           muscle: 'Posterior',
-        },
-        {
-          name: 'Afundo caminhando',
-          sets: '3',
-          reps: '10/lado',
-          notes: 'Passo medio. Joelho nao ultrapassa o pe.',
-          video: 'https://www.youtube.com/watch?v=D7KaRcUTQeE',
-          muscle: 'Gluteos',
-        },
-        {
-          name: 'Flexao de bracos',
-          sets: '3',
-          reps: 'max',
-          notes: 'Corpo alinhado. Peito proximo ao chao.',
-          video: 'https://www.youtube.com/watch?v=IODxDxX7oi4',
-          muscle: 'Peito',
-        },
-        {
-          name: 'Remada unilateral',
-          sets: '3',
-          reps: '10/lado',
-          notes: 'Nao gire o tronco.',
-          video: 'https://www.youtube.com/watch?v=pYcpY20QaE8',
-          muscle: 'Costas',
-        },
-        {
-          name: 'Abdominal infra',
-          sets: '3',
-          reps: '12-15',
-          notes: 'Lombar colada. Suba controlado.',
-          video: 'https://www.youtube.com/watch?v=5ER5Of4M69I',
-          muscle: 'Abdomen',
         },
       ]),
     },
   },
 }
 
-/*
-|--------------------------------------------------------------------------
-| BIBLIOTECA DE EXERCÍCIOS
-|--------------------------------------------------------------------------
-*/
-
 function buildInitialLibrary() {
   const exercises = Object.values(defaultData.workouts).flatMap(
     (workout) => workout.exercises || []
   )
-
   const unique = []
   const names = new Set()
 
   for (const exercise of exercises) {
     const key = String(exercise.name || '').trim().toLowerCase()
-
     if (!key || names.has(key)) continue
-
     names.add(key)
-
-    unique.push({
-      ...clone(exercise),
-      id: createId(),
-    })
+    unique.push({ ...clone(exercise), id: createId() })
   }
-
   return unique
 }
 
@@ -357,7 +217,6 @@ defaultData.exercisesLibrary = buildInitialLibrary()
 
 function normalizeWorkout(workout, fallback = {}) {
   const source = workout || {}
-
   return {
     ...fallback,
     ...source,
@@ -374,7 +233,6 @@ function normalizeWorkout(workout, fallback = {}) {
 function normalizeStudent(student, templateWorkouts) {
   const source = student || {}
   const sourceWorkouts = source.workouts || {}
-
   const workouts = {}
 
   for (const day of ['A', 'B', 'C', 'D', 'E']) {
@@ -382,12 +240,6 @@ function normalizeStudent(student, templateWorkouts) {
       sourceWorkouts[day],
       templateWorkouts[day]
     )
-  }
-
-  for (const [day, workout] of Object.entries(sourceWorkouts)) {
-    if (!workouts[day]) {
-      workouts[day] = normalizeWorkout(workout)
-    }
   }
 
   const validDays = ['A', 'B', 'C', 'D', 'E']
@@ -404,39 +256,27 @@ function normalizeStudent(student, templateWorkouts) {
   return {
     id: source.id || createId(),
     name: source.name || source.nome || 'Aluno',
-    code: String(
-      source.code || generateAccessCode()
-    ).toUpperCase(),
+    code: String(source.code || generateAccessCode()).toUpperCase(),
     password: String(source.password || generatePassword()),
     active: source.active !== false,
     updatedAt: source.updatedAt || source.updated_at || null,
+    dataVersion: Number(source.dataVersion || source.data_version || 1),
     activeDays: activeDays.length > 0 ? activeDays : [...validDays],
     workouts,
-    evaluations: Array.isArray(source.evaluations)
-      ? source.evaluations
-      : [],
+    evaluations: Array.isArray(source.evaluations) ? source.evaluations : [],
+    _writeTimestamp: source._writeTimestamp || '',
   }
 }
 
-/*
-|--------------------------------------------------------------------------
-| MESCLAGEM DOS DADOS
-|--------------------------------------------------------------------------
-*/
-
 export function mergeData(parsed) {
   const source = parsed || {}
-
   const workouts = {
     ...clone(defaultData.workouts),
     ...(source.workouts || {}),
   }
 
   for (const day of ['A', 'B', 'C', 'D', 'E']) {
-    workouts[day] = normalizeWorkout(
-      source.workouts?.[day],
-      defaultData.workouts[day]
-    )
+    workouts[day] = normalizeWorkout(source.workouts?.[day], defaultData.workouts[day])
   }
 
   const studentsSource = Array.isArray(source.students)
@@ -448,11 +288,7 @@ export function mergeData(parsed) {
     : clone(defaultData.exercisesLibrary)
 
   return {
-    brand: {
-      ...defaultData.brand,
-      ...(source.brand || {}),
-    },
-
+    brand: { ...defaultData.brand, ...(source.brand || {}) },
     plan: {
       ...defaultData.plan,
       ...(source.plan || {}),
@@ -460,45 +296,30 @@ export function mergeData(parsed) {
         ? source.plan.includes
         : clone(defaultData.plan.includes),
     },
-
-    students: studentsSource.map((student) =>
-      normalizeStudent(student, workouts)
-    ),
-
+    students: studentsSource.map((student) => normalizeStudent(student, workouts)),
     workouts,
-
     exercisesLibrary,
   }
 }
 
 /*
 |--------------------------------------------------------------------------
-| LOCAL STORAGE E AVISO DE ALTERAÇÕES LOCAIS
+| PERSISTÊNCIA LOCAL (LOCALSTORAGE)
 |--------------------------------------------------------------------------
 */
 
 function notifyLocalChange(data) {
   if (typeof window === 'undefined') return
-
   window.dispatchEvent(
-    new CustomEvent('dl:local-data-changed', {
-      detail: data,
-    })
+    new CustomEvent('dl:local-data-changed', { detail: data })
   )
 }
 
 export function loadData() {
   try {
-    if (typeof localStorage === 'undefined') {
-      return clone(defaultData)
-    }
-
+    if (typeof localStorage === 'undefined') return clone(defaultData)
     const raw = localStorage.getItem(STORAGE_KEY)
-
-    if (!raw) {
-      return clone(defaultData)
-    }
-
+    if (!raw) return clone(defaultData)
     return mergeData(JSON.parse(raw))
   } catch (error) {
     console.error('Erro ao carregar os dados locais:', error)
@@ -506,23 +327,21 @@ export function loadData() {
   }
 }
 
-function saveLocalData(data) {
+export function saveLocalData(data) {
   try {
     if (typeof localStorage === 'undefined') return false
-
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
     notifyLocalChange(data)
-
     return true
   } catch (error) {
-    console.error('Erro ao salvar os dados localmente:', error)
+    console.error('Erro ao salvar dados localmente:', error)
     return false
   }
 }
 
 /*
 |--------------------------------------------------------------------------
-| CONVERSÃO PARA O SUPABASE
+| CONVERSÃO PARA SUPABASE
 |--------------------------------------------------------------------------
 */
 
@@ -533,13 +352,11 @@ function studentToRow(student) {
     code: student.code,
     password: student.password,
     active: student.active !== false,
-    active_days: Array.isArray(student.activeDays)
-      ? student.activeDays
-      : ['A', 'B', 'C', 'D', 'E'],
+    active_days: Array.isArray(student.activeDays) ? student.activeDays : ['A', 'B', 'C', 'D', 'E'],
     workouts: student.workouts || {},
-    evaluations: Array.isArray(student.evaluations)
-      ? student.evaluations
-      : [],
+    evaluations: Array.isArray(student.evaluations) ? student.evaluations : [],
+    data_version: Number(student.dataVersion || 1),
+    updated_at: new Date().toISOString(),
   }
 }
 
@@ -554,11 +371,8 @@ function rowToStudent(row, templateWorkouts) {
       activeDays: row.active_days || row.activeDays,
       workouts: row.workouts,
       evaluations: row.evaluations,
-      updatedAt:
-        row.updatedAt ||
-        row.updated_at ||
-        row.updated_at_client ||
-        null,
+      dataVersion: row.data_version || 1,
+      updatedAt: row.updated_at || null,
     },
     templateWorkouts
   )
@@ -566,437 +380,445 @@ function rowToStudent(row, templateWorkouts) {
 
 /*
 |--------------------------------------------------------------------------
-| CONTROLE DA PUBLICAÇÃO
+| CACHE INDIVIDUAL E AUTENTICAÇÃO
 |--------------------------------------------------------------------------
 */
 
-const persistedStudents = new Map()
-const remoteStudentIds = new Set()
-const pendingStudentWrites = new Map()
-const pendingStudentDeletes = new Set()
+export function getLocalStudentCache(code) {
+  try {
+    const cleanCode = String(code || '').trim().toUpperCase()
+    const cachedKey = `${STUDENT_CACHE_PREFIX}${cleanCode}`
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(cachedKey) : null
+    if (!raw) return null
+    return JSON.parse(raw)
+  } catch (e) {
+    return null
+  }
+}
 
-let studentsBaselineReady = false
+function purgeStudentCacheById(studentId) {
+  if (typeof localStorage === 'undefined' || !studentId) return
+  try {
+    const keysToRemove = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key && key.startsWith(STUDENT_CACHE_PREFIX)) {
+        try {
+          const cached = JSON.parse(localStorage.getItem(key))
+          if (cached && cached.id === studentId) {
+            keysToRemove.push(key)
+          }
+        } catch (_) {}
+      }
+    }
+    keysToRemove.forEach((k) => localStorage.removeItem(k))
+  } catch (e) {
+    console.error('Erro ao purgar cache por ID:', e)
+  }
+}
 
-let persistedLibraryFingerprint = null
-let libraryBaselineReady = false
-let pendingLibrary = null
+export async function saveStudentCache(code, studentData, rawPassword = '') {
+  try {
+    if (typeof localStorage === 'undefined' || !code) return false
+    const cleanCode = String(code || '').trim().toUpperCase()
+    const sanitized = normalizeStudent(studentData, defaultData.workouts)
+    delete sanitized._writeTimestamp
 
+    purgeStudentCacheById(sanitized.id)
+
+    const passToHash = rawPassword || sanitized.password
+    if (passToHash) {
+      const salt = generateRandomSalt()
+      sanitized.passwordSalt = salt
+      sanitized.passwordHash = await derivePasswordHash(passToHash, salt)
+    }
+
+    delete sanitized.password
+    localStorage.setItem(`${STUDENT_CACHE_PREFIX}${cleanCode}`, JSON.stringify(sanitized))
+    return true
+  } catch (e) {
+    console.error('Erro ao guardar cache do aluno:', e)
+    return false
+  }
+}
+
+export async function checkStudentVersion(code, password) {
+  const cleanCode = String(code || '').trim().toUpperCase()
+  const cleanPass = String(password || '').trim()
+
+  if (!cleanCode || !cleanPass) {
+    throw new Error('Informe o código e a senha de acesso.')
+  }
+
+  const localCache = getLocalStudentCache(cleanCode)
+
+  if (!navigator.onLine) {
+    if (localCache && localCache.passwordHash && localCache.passwordSalt) {
+      const inputHash = await derivePasswordHash(cleanPass, localCache.passwordSalt)
+      if (localCache.passwordHash !== inputHash) {
+        throw new Error('Senha incorreta. Verifique os seus dados.')
+      }
+      return { status: 'OFFLINE_CACHE', student: localCache }
+    }
+    throw new Error('Você está sem internet e não possui dados salvos ou credenciais válidas neste dispositivo.')
+  }
+
+  try {
+    const { data: row, error } = await supabase
+      .from('alunos')
+      .select('id, password, active, data_version')
+      .eq('code', cleanCode)
+      .maybeSingle()
+
+    if (error) throw new Error('NETWORK_ERROR')
+    if (!row) throw new Error('AUTH_INVALID_CODE')
+    if (row.password !== cleanPass) throw new Error('AUTH_INVALID_PASSWORD')
+    if (row.active === false) throw new Error('AUTH_INACTIVE')
+
+    return processVersionCheckResult(row.id, row.data_version, localCache, cleanCode, cleanPass)
+  } catch (err) {
+    if (err.message === 'AUTH_INVALID_CODE') {
+      throw new Error('Código de acesso inválido ou aluno não encontrado.')
+    }
+    if (err.message === 'AUTH_INVALID_PASSWORD') {
+      throw new Error('Senha incorreta. Verifique os seus dados.')
+    }
+    if (err.message === 'AUTH_INACTIVE') {
+      throw new Error('Este acesso encontra-se desativado. Contacte o professor.')
+    }
+
+    const isNetworkError =
+      err.message === 'NETWORK_ERROR' ||
+      err.name === 'TypeError' ||
+      err.message?.includes('Failed to fetch') ||
+      err.message?.includes('NetworkError')
+
+    if (isNetworkError && localCache && localCache.passwordHash && localCache.passwordSalt) {
+      const inputHash = await derivePasswordHash(cleanPass, localCache.passwordSalt)
+      if (localCache.passwordHash !== inputHash) {
+        throw new Error('Senha incorreta. Verifique os seus dados.')
+      }
+      return { status: 'OFFLINE_CACHE', student: localCache }
+    }
+
+    throw err
+  }
+}
+
+async function processVersionCheckResult(studentId, remoteVersionVal, localCache, cleanCode, cleanPass) {
+  const remoteVersion = Number(remoteVersionVal || 1)
+  const localVersion = Number(localCache?.dataVersion || 0)
+
+  if (localCache && (!localCache.passwordHash || !localCache.passwordSalt)) {
+    await saveStudentCache(cleanCode, localCache, cleanPass)
+  }
+
+  if (!localCache) {
+    return { status: 'FIRST_ACCESS', studentId, remoteVersion }
+  }
+
+  if (localVersion >= remoteVersion) {
+    return { status: 'UP_TO_DATE', studentId, localCache, remoteVersion }
+  } else {
+    return { status: 'UPDATE_AVAILABLE', studentId, localCache, remoteVersion }
+  }
+}
+
+export async function fetchSingleStudentData(studentId, code) {
+  const cleanCode = String(code || '').trim().toUpperCase()
+  const { data: row, error } = await supabase
+    .from('alunos')
+    .select('*')
+    .eq('id', studentId)
+    .single()
+
+  if (error || !row) {
+    throw new Error('Erro ao baixar atualizações do aluno.')
+  }
+
+  if (row.id !== studentId || String(row.code).trim().toUpperCase() !== cleanCode) {
+    throw new Error('Erro de validação de identidade do aluno.')
+  }
+
+  if (row.active === false) {
+    throw new Error('Este acesso encontra-se desativado.')
+  }
+
+  const baseWorkouts = clone(defaultData.workouts)
+  const student = rowToStudent(row, baseWorkouts)
+  
+  await saveStudentCache(code, student, student.password)
+  return student
+}
+
+/*
+|--------------------------------------------------------------------------
+| CONTROLE DE SALVAMENTO E PUBLICAÇÃO
+|--------------------------------------------------------------------------
+*/
+
+let pendingStudentWrites = new Map()
+let pendingStudentDeletes = new Set()
+let globalConfigDirty = false
+let globalConfigTimestamp = ''
 let saveQueue = Promise.resolve()
 
-function getStudentFingerprint(student) {
-  return fingerprint(studentToRow(student))
+function loadPendingQueue() {
+  if (typeof localStorage === 'undefined') return
+  try {
+    const raw = localStorage.getItem(PENDING_QUEUE_KEY)
+    if (!raw) return
+    const parsed = JSON.parse(raw)
+    if (parsed.writes) {
+      pendingStudentWrites = new Map(parsed.writes)
+    }
+    if (parsed.deletes) {
+      pendingStudentDeletes = new Set(parsed.deletes)
+    }
+    if (parsed.globalConfigDirty) {
+      globalConfigDirty = parsed.globalConfigDirty
+      globalConfigTimestamp = parsed.globalConfigTimestamp || createId()
+    }
+  } catch (e) {
+    console.error('Erro ao carregar fila pendente:', e)
+  }
 }
 
-function getRowFingerprint(row) {
-  return fingerprint({
-    id: row.id,
-    nome: row.nome,
-    code: row.code,
-    password: row.password,
-    active: row.active !== false,
-    active_days:
-      row.active_days ||
-      row.activeDays ||
-      ['A', 'B', 'C', 'D', 'E'],
-    workouts: row.workouts || {},
-    evaluations: row.evaluations || [],
-  })
+function persistPendingQueue() {
+  if (typeof localStorage === 'undefined') return
+  try {
+    const payload = {
+      writes: Array.from(pendingStudentWrites.entries()),
+      deletes: Array.from(pendingStudentDeletes),
+      globalConfigDirty,
+      globalConfigTimestamp,
+    }
+    localStorage.setItem(PENDING_QUEUE_KEY, JSON.stringify(payload))
+  } catch (e) {
+    console.error('Erro ao persistir fila pendente:', e)
+  }
 }
 
-function enqueueSave(operation) {
-  saveQueue = saveQueue
-    .catch((error) => {
-      console.error('Erro anterior na fila de publicação:', error)
-    })
-    .then(operation)
-
-  return saveQueue
-}/*
-|--------------------------------------------------------------------------
-| BUSCAR DADOS REMOTOS
-|--------------------------------------------------------------------------
-*/
+loadPendingQueue()
 
 export async function fetchData() {
   const localData = loadData()
-
   try {
-    const {
-      data: alunosData,
-      error: alunosError,
-    } = await supabase
-      .from('alunos')
-      .select('*')
-
+    const { data: alunosData, error: alunosError } = await supabase.from('alunos').select('*')
     if (alunosError) throw alunosError
 
     const rows = Array.isArray(alunosData) ? alunosData : []
-
-    persistedStudents.clear()
-    remoteStudentIds.clear()
-
-    for (const row of rows) {
-      if (!row?.id) continue
-
-      remoteStudentIds.add(row.id)
-      persistedStudents.set(row.id, getRowFingerprint(row))
-    }
-
-    studentsBaselineReady = true
-
     const remoteStudents = new Map()
 
     for (const row of rows) {
-      if (!row?.id || pendingStudentDeletes.has(row.id)) continue
+      if (!row?.id) continue
+      if (pendingStudentDeletes.has(row.id)) continue
 
-      remoteStudents.set(
-        row.id,
-        rowToStudent(row, localData.workouts)
-      )
+      if (pendingStudentWrites.has(row.id)) {
+        remoteStudents.set(row.id, pendingStudentWrites.get(row.id))
+        continue
+      }
+
+      remoteStudents.set(row.id, rowToStudent(row, localData.workouts))
     }
 
-    // Preserva alterações locais ainda não publicadas.
-    for (const [studentId, pendingStudent] of pendingStudentWrites) {
-      if (pendingStudentDeletes.has(studentId)) continue
-
-      remoteStudents.set(
-        studentId,
-        normalizeStudent(pendingStudent, localData.workouts)
-      )
-    }
-
-    // Se o banco estiver vazio, mantém os dados locais existentes.
-    if (rows.length === 0 && remoteStudents.size === 0) {
-      for (const student of localData.students) {
-        if (pendingStudentDeletes.has(student.id)) continue
-
-        remoteStudents.set(
-          student.id,
-          normalizeStudent(student, localData.workouts)
-        )
+    for (const [id, student] of pendingStudentWrites.entries()) {
+      if (!rows.some(r => r.id === id)) {
+        remoteStudents.set(id, student)
       }
     }
 
-    const {
-      data: configData,
-      error: configError,
-    } = await supabase
-      .from('config')
-      .select('*')
-      .eq('id', CONFIG_ID)
-      .maybeSingle()
+    let globalConfig = {
+      brand: localData.brand,
+      plan: localData.plan,
+      exercisesLibrary: localData.exercisesLibrary,
+    }
 
-    let exercisesLibrary = localData.exercisesLibrary
+    if (!globalConfigDirty) {
+      const { data: configRow, error: configError } = await supabase
+        .from('config')
+        .select('*')
+        .eq('id', 'global')
+        .maybeSingle()
 
-    if (configError) {
-      console.error(
-        'Erro ao buscar a biblioteca de exercícios:',
-        configError
-      )
-    } else if (
-      configData &&
-      Array.isArray(configData.exercicesLibrary)
-    ) {
-      persistedLibraryFingerprint = fingerprint(
-        configData.exercicesLibrary
-      )
-
-      libraryBaselineReady = true
-
-      exercisesLibrary = pendingLibrary
-        ? clone(pendingLibrary)
-        : configData.exercicesLibrary
-    } else {
-      if (!libraryBaselineReady && !pendingLibrary) {
-        pendingLibrary = clone(localData.exercisesLibrary)
-      }
-
-      if (pendingLibrary) {
-        exercisesLibrary = clone(pendingLibrary)
+      if (!configError && configRow) {
+        globalConfig = {
+          brand: configRow.brand || localData.brand,
+          plan: configRow.plan || localData.plan,
+          exercisesLibrary: configRow.exercises_library || localData.exercisesLibrary,
+        }
       }
     }
 
     const result = mergeData({
       ...localData,
+      ...globalConfig,
       students: Array.from(remoteStudents.values()),
-      exercisesLibrary,
     })
 
-    // Atualiza o cache local com a versão remota mais recente.
     saveLocalData(result)
-
     return result
   } catch (error) {
-    console.error('Erro ao buscar dados no Supabase:', error)
-
-    // Falha de rede não apaga o cache local.
-    return mergeData({
-      ...localData,
-      students: localData.students.filter(
-        (student) => !pendingStudentDeletes.has(student.id)
-      ),
-      exercisesLibrary: pendingLibrary || localData.exercisesLibrary,
-    })
+    console.error('Erro ao carregar dados:', error)
+    return localData
   }
 }
 
-/*
-|--------------------------------------------------------------------------
-| SALVAR LOCALMENTE — SEM PUBLICAR
-|--------------------------------------------------------------------------
-*/
-
-export async function saveData(data) {
-  let snapshot
-
+export function saveData(data) {
   try {
-    snapshot = clone(data)
+    const snapshot = clone(data)
+    const successLocal = saveLocalData(snapshot)
+    if (!successLocal) {
+      return { success: false, localSaved: false, error: new Error('Falha ao escrever no armazenamento local.') }
+    }
+    return { success: true, localSaved: true, pending: true }
   } catch (error) {
-    console.error('Erro ao preparar os dados:', error)
-
-    return {
-      success: false,
-      localSaved: false,
-      error,
-    }
-  }
-
-  const localSaved = saveLocalData(snapshot)
-
-  if (!localSaved) {
-    return {
-      success: false,
-      localSaved: false,
-      remoteSaved: false,
-      pending: true,
-    }
-  }
-
-  if (Array.isArray(snapshot.students)) {
-    const snapshotIds = new Set()
-
-    for (const student of snapshot.students) {
-      if (!student?.id) continue
-
-      snapshotIds.add(student.id)
-
-      pendingStudentDeletes.delete(student.id)
-
-      pendingStudentWrites.set(
-        student.id,
-        normalizeStudent(
-          student,
-          snapshot.workouts || defaultData.workouts
-        )
-      )
-    }
-
-    // Registra exclusões de alunos que já foram identificados no banco.
-    if (studentsBaselineReady) {
-      for (const remoteId of remoteStudentIds) {
-        if (!snapshotIds.has(remoteId)) {
-          pendingStudentWrites.delete(remoteId)
-          pendingStudentDeletes.add(remoteId)
-        }
-      }
-    }
-  }
-
-  if (Array.isArray(snapshot.exercisesLibrary)) {
-    const nextFingerprint = fingerprint(snapshot.exercisesLibrary)
-
-    if (
-      !libraryBaselineReady ||
-      nextFingerprint !== persistedLibraryFingerprint
-    ) {
-      pendingLibrary = clone(snapshot.exercisesLibrary)
-    }
-  }
-
-  return {
-    success: true,
-    localSaved: true,
-    remoteSaved: false,
-    pending:
-      pendingStudentWrites.size > 0 ||
-      pendingStudentDeletes.size > 0 ||
-      pendingLibrary !== null,
+    console.error('Erro ao salvar dados localmente:', error)
+    return { success: false, localSaved: false, error }
   }
 }
 
-/*
-|--------------------------------------------------------------------------
-| PUBLICAR ALTERAÇÕES NO SUPABASE
-|--------------------------------------------------------------------------
-|
-| Esta função só deve ser chamada quando o administrador clicar
-| no botão de publicação.
-|
-*/
+export function markStudentAsPending(student) {
+  if (!student?.id) return
+  pendingStudentDeletes.delete(student.id)
+  
+  const normalized = normalizeStudent(student, defaultData.workouts)
+  normalized._writeTimestamp = createId()
+  pendingStudentWrites.set(student.id, normalized)
+  persistPendingQueue()
+}
+
+export function removeStudentRecord(id, studentCode = '') {
+  pendingStudentWrites.delete(id)
+  pendingStudentDeletes.add(id)
+  persistPendingQueue()
+  purgeStudentCacheById(id)
+
+  const cleanCode = String(studentCode || '').trim().toUpperCase()
+
+  if (cleanCode && typeof localStorage !== 'undefined') {
+    localStorage.removeItem(`${STUDENT_CACHE_PREFIX}${cleanCode}`)
+  }
+}
 
 export async function publishData() {
-  return enqueueSave(async () => {
+  saveQueue = saveQueue.then(async () => {
     const errors = []
 
     try {
-      // Garante que a publicação tenha uma referência do estado remoto.
-      if (!studentsBaselineReady || !libraryBaselineReady) {
-        await fetchData()
+      const currentDeletes = Array.from(pendingStudentDeletes)
+      const currentWrites = new Map()
+      for (const [id, student] of pendingStudentWrites.entries()) {
+        currentWrites.set(id, clone(student))
       }
+      
+      const syncGlobalSnapshot = globalConfigDirty
+      const syncGlobalTimestamp = globalConfigTimestamp
+      const localCurrentSnapshot = loadData()
 
-      /*
-       * EXCLUSÕES DE ALUNOS
-       */
-      for (const studentId of Array.from(pendingStudentDeletes)) {
-        const { error } = await supabase
-          .from('alunos')
-          .delete()
-          .eq('id', studentId)
-
+      // 1. Processar exclusões pendentes
+      for (const studentId of currentDeletes) {
+        const { error } = await supabase.from('alunos').delete().eq('id', studentId)
         if (error) {
           errors.push(error)
-          console.error(
-            `Erro ao excluir o aluno ${studentId}:`,
-            error
-          )
-          continue
+        } else {
+          pendingStudentDeletes.delete(studentId)
+          persistPendingQueue()
         }
-
-        pendingStudentDeletes.delete(studentId)
-        pendingStudentWrites.delete(studentId)
-        persistedStudents.delete(studentId)
-        remoteStudentIds.delete(studentId)
       }
 
-      /*
-       * PUBLICAÇÃO DOS ALUNOS
-       */
-      for (const [studentId, student] of Array.from(
-        pendingStudentWrites.entries()
-      )) {
+      // 2. Processar gravações de alunos
+      for (const [studentId, student] of currentWrites.entries()) {
         if (pendingStudentDeletes.has(studentId)) continue
 
-        const row = studentToRow(student)
-        const currentFingerprint = fingerprint(row)
+        const nextVersion = (Number(student.dataVersion) || 1) + 1
+        const payloadStudent = { ...student, dataVersion: nextVersion }
+        delete payloadStudent._writeTimestamp
+        const row = studentToRow(payloadStudent)
 
-        const previousFingerprint = persistedStudents.get(studentId)
-
-        if (
-          studentsBaselineReady &&
-          previousFingerprint === currentFingerprint
-        ) {
-          const latestPending = pendingStudentWrites.get(studentId)
-
-          if (
-            latestPending &&
-            getStudentFingerprint(latestPending) === currentFingerprint
-          ) {
-            pendingStudentWrites.delete(studentId)
-          }
-
-          continue
-        }
-
-        const { error } = await supabase
-          .from('alunos')
-          .upsert(row, { onConflict: 'id' })
-
+        const { error } = await supabase.from('alunos').upsert(row, { onConflict: 'id' })
+        
         if (error) {
           errors.push(error)
-          console.error(
-            `Erro ao publicar o aluno ${student.name}:`,
-            error
-          )
-          continue
-        }
+          console.error(`Erro ao publicar aluno ${student.name}:`, error)
+        } else {
+          const publishedStudentObject = normalizeStudent(payloadStudent, defaultData.workouts)
+          
+          const latestInQueue = pendingStudentWrites.get(studentId)
 
-        persistedStudents.set(studentId, currentFingerprint)
-        remoteStudentIds.add(studentId)
-        studentsBaselineReady = true
+          if (latestInQueue?._writeTimestamp === student._writeTimestamp) {
+            pendingStudentWrites.delete(studentId)
 
-        const latestPending = pendingStudentWrites.get(studentId)
-
-        // Mantém a pendência se o aluno foi editado durante a publicação.
-        if (
-          latestPending &&
-          getStudentFingerprint(latestPending) === currentFingerprint
-        ) {
-          pendingStudentWrites.delete(studentId)
-        }
-      }
-
-      /*
-       * PUBLICAÇÃO DA BIBLIOTECA DE EXERCÍCIOS
-       */
-      if (pendingLibrary) {
-        const librarySnapshot = clone(pendingLibrary)
-        const librarySnapshotFingerprint = fingerprint(librarySnapshot)
-
-        if (
-          !libraryBaselineReady ||
-          librarySnapshotFingerprint !== persistedLibraryFingerprint
-        ) {
-          const { error } = await supabase
-            .from('config')
-            .upsert(
-              {
-                id: CONFIG_ID,
-                exercicesLibrary: librarySnapshot,
-              },
-              { onConflict: 'id' }
+            // Atualiza a versão no armazenamento principal local.
+            const currentData = loadData()
+            const updatedStudents = currentData.students.map((item) =>
+              item.id === studentId
+                ? { ...item, dataVersion: nextVersion }
+                : item
             )
 
-          if (error) {
-            errors.push(error)
-            console.error(
-              'Erro ao publicar a biblioteca de exercícios:',
-              error
+            saveLocalData({
+              ...currentData,
+              students: updatedStudents,
+            })
+
+            persistPendingQueue()
+
+            await saveStudentCache(
+              publishedStudentObject.code,
+              publishedStudentObject,
+              publishedStudentObject.password
             )
           } else {
-            persistedLibraryFingerprint = librarySnapshotFingerprint
-            libraryBaselineReady = true
-
-            if (
-              pendingLibrary &&
-              fingerprint(pendingLibrary) === librarySnapshotFingerprint
-            ) {
-              pendingLibrary = null
+            // Existe uma edição mais recente na fila. Atualiza somente a versão preservando a edição pendente.
+            const latestStudent = pendingStudentWrites.get(studentId)
+            if (latestStudent) {
+              latestStudent.dataVersion = nextVersion
+              pendingStudentWrites.set(studentId, latestStudent)
+              persistPendingQueue()
             }
           }
-        } else {
-          pendingLibrary = null
         }
       }
 
-      const pending =
-        pendingStudentWrites.size > 0 ||
-        pendingStudentDeletes.size > 0 ||
-        pendingLibrary !== null
+      // 3. Publicar configurações globais usando o snapshot estático
+      if (syncGlobalSnapshot) {
+        const configPayload = {
+          id: 'global',
+          brand: localCurrentSnapshot.brand,
+          plan: localCurrentSnapshot.plan,
+          exercises_library: localCurrentSnapshot.exercisesLibrary,
+          updated_at: new Date().toISOString(),
+        }
 
+        const { error: configError } = await supabase.from('config').upsert(configPayload, { onConflict: 'id' })
+        if (configError) {
+          errors.push(configError)
+          console.error('Erro ao publicar configurações globais:', configError)
+        } else {
+          if (globalConfigTimestamp === syncGlobalTimestamp) {
+            globalConfigDirty = false
+            persistPendingQueue()
+          }
+        }
+      }
+
+      const success = errors.length === 0
       return {
-        success: errors.length === 0 && !pending,
-        remoteSaved: errors.length === 0 && !pending,
-        pending,
+        success,
+        message: success
+          ? 'Todas as alterações foram publicadas com sucesso!'
+          : 'Houve um problema ao publicar algumas alterações.',
         errors,
       }
     } catch (error) {
-      console.error('Erro inesperado ao publicar alterações:', error)
-
-      return {
-        success: false,
-        remoteSaved: false,
-        pending: true,
-        errors: [...errors, error],
-      }
+      console.error('Erro inesperado na publicação:', error)
+      return { success: false, message: error.message, errors: [error] }
     }
   })
-}
 
-/*
-|--------------------------------------------------------------------------
-| FUNÇÕES DA BIBLIOTECA DE EXERCÍCIOS
-|--------------------------------------------------------------------------
-*/
+  return saveQueue
+}
 
 export function createLibraryExercise(exercise) {
   return {
@@ -1011,187 +833,70 @@ export function createLibraryExercise(exercise) {
   }
 }
 
+export function markGlobalConfigDirty() {
+  globalConfigDirty = true
+  globalConfigTimestamp = createId()
+  persistPendingQueue()
+}
+
 export function addExerciseToLibrary(data, exercise) {
   const next = clone(data)
-
-  if (!Array.isArray(next.exercisesLibrary)) {
-    next.exercisesLibrary = []
-  }
-
+  if (!Array.isArray(next.exercisesLibrary)) next.exercisesLibrary = []
   next.exercisesLibrary.push(createLibraryExercise(exercise))
-
+  markGlobalConfigDirty()
   return next
 }
 
 export function updateLibraryExercise(data, exerciseId, changes) {
   const next = clone(data)
-
   next.exercisesLibrary = (next.exercisesLibrary || []).map((exercise) =>
-    exercise.id === exerciseId
-      ? {
-          ...exercise,
-          ...changes,
-        }
-      : exercise
+    exercise.id === exerciseId ? { ...exercise, ...changes } : exercise
   )
-
+  markGlobalConfigDirty()
   return next
 }
 
-export function removeLibraryExercise(data, exerciseId) {
+export function removeExerciseFromLibrary(data, exerciseId) {
   const next = clone(data)
-
-  next.exercisesLibrary = (next.exercisesLibrary || []).filter(
-    (exercise) => exercise.id !== exerciseId
-  )
-
+  next.exercisesLibrary = (next.exercisesLibrary || []).filter((e) => e.id !== exerciseId)
+  markGlobalConfigDirty()
   return next
 }
 
-export const removeExerciseFromLibrary = removeLibraryExercise
-
-/*
-|--------------------------------------------------------------------------
-| ADICIONAR EXERCÍCIO DA BIBLIOTECA AO TREINO DO ALUNO
-|--------------------------------------------------------------------------
-*/
-
-export function addLibraryExerciseToWorkout(
-  data,
-  studentId,
-  day,
-  exerciseId
-) {
+export function addLibraryExerciseToWorkout(data, studentId, day, exerciseId) {
   const next = clone(data)
-
-  const student = (next.students || []).find(
-    (item) => item.id === studentId
-  )
-
+  const student = (next.students || []).find((s) => s.id === studentId)
   if (!student) return next
-
-  const libraryExercise = (next.exercisesLibrary || []).find(
-    (item) => item.id === exerciseId
-  )
-
+  const libraryExercise = (next.exercisesLibrary || []).find((item) => item.id === exerciseId)
   if (!libraryExercise) return next
 
-  if (!student.workouts) {
-    student.workouts = clone(next.workouts || defaultData.workouts)
-  }
-
+  if (!student.workouts) student.workouts = clone(defaultData.workouts)
   if (!student.workouts[day]) {
-    student.workouts[day] = {
-      title: `Treino ${day}`,
-      focus: '',
-      exercises: [],
-    }
+    student.workouts[day] = { title: `Treino ${day}`, focus: '', exercises: [] }
   }
 
-  if (!Array.isArray(student.workouts[day].exercises)) {
-    student.workouts[day].exercises = []
-  }
-
-  student.workouts[day].exercises.push({
-    ...clone(libraryExercise),
-    id: createId(),
-  })
-
+  student.workouts[day].exercises.push({ ...clone(libraryExercise), id: createId() })
   student.updatedAt = new Date().toISOString()
-
+  
+  markStudentAsPending(student)
   return next
 }
 
-/*
-|--------------------------------------------------------------------------
-| LOGOMARCA
-|--------------------------------------------------------------------------
-*/
-
 export async function uploadLogo(dataUrl) {
-  return {
-    logo: dataUrl,
-  }
+  markGlobalConfigDirty()
+  return { logo: dataUrl }
 }
 
 export function logoSrc(path) {
   if (!path) return ''
-
-  if (
-    typeof path === 'string' &&
-    (path.startsWith('http://') ||
-      path.startsWith('https://') ||
-      path.startsWith('data:'))
-  ) {
-    return path
-  }
-
   return path
 }
 
-/*
-|--------------------------------------------------------------------------
-| ATUALIZAÇÃO LOCAL
-|--------------------------------------------------------------------------
-|
-| Não consulta o Supabase em intervalos.
-| Os componentes recebem avisos quando os dados locais mudam.
-|
-*/
-
 export function subscribeData(onChange) {
-  if (typeof window === 'undefined') {
-    return () => {}
-  }
-
+  if (typeof window === 'undefined') return () => {}
   const handleLocalChange = (event) => {
-    if (typeof onChange === 'function') {
-      onChange(event.detail || loadData())
-    }
+    if (typeof onChange === 'function') onChange(event.detail || loadData())
   }
-
-  const handleStorageChange = (event) => {
-    if (event.key === STORAGE_KEY && typeof onChange === 'function') {
-      onChange(loadData())
-    }
-  }
-
-  window.addEventListener(
-    'dl:local-data-changed',
-    handleLocalChange
-  )
-
-  window.addEventListener('storage', handleStorageChange)
-
-  return () => {
-    window.removeEventListener(
-      'dl:local-data-changed',
-      handleLocalChange
-    )
-
-    window.removeEventListener('storage', handleStorageChange)
-  }
-}
-
-/*
-|--------------------------------------------------------------------------
-| FORMATAÇÃO E WHATSAPP
-|--------------------------------------------------------------------------
-*/
-
-export function formatBRL(value) {
-  return Number(value || 0).toLocaleString('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  })
-}
-
-export function whatsappLink(plan) {
-  const safePlan = plan || defaultData.plan
-
-  const message =
-    `Ola Danilo! Quero garantir minha vaga na consultoria de treino online ` +
-    `(${safePlan.name} - ${formatBRL(safePlan.price)}).`
-
-  return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`
+  window.addEventListener('dl:local-data-changed', handleLocalChange)
+  return () => window.removeEventListener('dl:local-data-changed', handleLocalChange)
 }
