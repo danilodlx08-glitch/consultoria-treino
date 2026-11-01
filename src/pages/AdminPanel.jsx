@@ -213,10 +213,11 @@ async function persist(next) {
       }
     }
 
-    setSaved('Salvo na nuvem com sucesso!')
+   setSaved('Salvo na nuvem com sucesso!')
     setTimeout(() => setSaved(''), 2200)
   }
-  }function fileToDataUrl(file) {
+
+  function fileToDataUrl(file) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
       reader.onload = () => resolve(reader.result)
