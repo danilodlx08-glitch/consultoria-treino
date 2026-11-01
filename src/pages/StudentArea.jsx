@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ExternalLink, LogOut, RefreshCw, X, Play, Timer, RotateCcw, MessageCircle, Link2, CheckCircle2, Trophy, Lightbulb, ArrowLeft, Activity, Scale, Flame, UserCheck, FlameKindling, ChevronRight, ChevronLeft, Pause, PlayCircle, AlertCircle, Loader2, Dumbbell, ThumbsUp, Award, Zap, ShieldCheck, FileText } from 'lucide-react'
+import { ExternalLink, LogOut, RefreshCw, X, Play, Timer, RotateCcw, MessageCircle, Link2, CheckCircle2, Trophy, Lightbulb, ArrowLeft, Activity, Scale, Flame, UserCheck, FlameKindling, ChevronRight, ChevronLeft, Pause, PlayCircle, AlertCircle, Loader2, Dumbbell, ThumbsUp, Award, Zap, ShieldCheck, FileText, TrendingUp, ArrowUpRight, ArrowDownRight, Minus } from 'lucide-react'
 import Logo from '../components/Logo.jsx'
 import { useAuth } from '../auth.jsx'
 import { loadData, subscribeData } from '../storage'
@@ -86,6 +86,10 @@ export default function StudentArea() {
   const [selectedObs, setSelectedObs] = useState(null)
   const [isEvaluationOpen, setIsEvaluationOpen] = useState(false)
 
+  const [evalTab, setEvalTab] = useState('details')
+  const [compareId1, setCompareId1] = useState('')
+  const [compareId2, setCompareId2] = useState('')
+
   const [exerciseProgress, setExerciseProgress] = useState({})
 
   const [timerSeconds, setTimerSeconds] = useState(0)
@@ -130,6 +134,16 @@ export default function StudentArea() {
   const latestEvaluation = evaluations.length > 0 ? evaluations[evaluations.length - 1] : null
 
   useEffect(() => {
+    if (evaluations.length >= 2) {
+      setCompareId1(evaluations[0].date || evaluations[0].id)
+      setCompareId2(evaluations[evaluations.length - 1].date || evaluations[evaluations.length - 1].id)
+    } else if (evaluations.length === 1) {
+      setCompareId1(evaluations[0].date || evaluations[0].id)
+      setCompareId2(evaluations[0].date || evaluations[0].id)
+    }
+  }, [isEvaluationOpen, evaluations])
+
+  useEffect(() => {
     if (
       selectedWorkoutDay &&
       selectedWorkoutDay !== 'ALL' &&
@@ -149,6 +163,37 @@ export default function StudentArea() {
     title: 'Treino',
     focus: '',
     exercises: [],
+  }
+
+  function getStructuredBlocks(exercisesList) {
+    const blocks = []
+    let i = 0
+    while (i < exercisesList.length) {
+      const currentEx = exercisesList[i]
+      const groupKey = (currentEx.group || '').trim()
+
+      if (groupKey) {
+        const groupItems = [currentEx]
+        let j = i + 1
+        while (j < exercisesList.length && (exercisesList[j].group || '').trim().toLowerCase() === groupKey.toLowerCase()) {
+          groupItems.push(exercisesList[j])
+          j++
+        }
+        blocks.push({
+          type: 'group',
+          groupName: groupKey,
+          exercises: groupItems,
+        })
+        i = j
+      } else {
+        blocks.push({
+          type: 'single',
+          exercise: currentEx,
+        })
+        i++
+      }
+    }
+    return blocks
   }
 
   const sortedExercises = useMemo(() => {
@@ -178,38 +223,8 @@ export default function StudentArea() {
     return result
   }, [workout.exercises, selectedWorkoutDay])
 
-  // Estrutura agrupada para blocos (Bi-set / Tri-set)
   const structuredExercises = useMemo(() => {
-    const list = sortedExercises
-    const blocks = []
-    let i = 0
-
-    while (i < list.length) {
-      const currentEx = list[i]
-      const groupKey = (currentEx.group || '').trim()
-
-      if (groupKey) {
-        const groupItems = [currentEx]
-        let j = i + 1
-        while (j < list.length && (list[j].group || '').trim().toLowerCase() === groupKey.toLowerCase()) {
-          groupItems.push(list[j])
-          j++
-        }
-        blocks.push({
-          type: 'group',
-          groupName: groupKey,
-          exercises: groupItems,
-        })
-        i = j
-      } else {
-        blocks.push({
-          type: 'single',
-          exercise: currentEx,
-        })
-        i++
-      }
-    }
-    return blocks
+    return getStructuredBlocks(sortedExercises)
   }, [sortedExercises])
 
   const totalExercises = sortedExercises.length
@@ -288,9 +303,7 @@ export default function StudentArea() {
     let nextDone = setIndex + 1
     if (currentDone === nextDone) {
       nextDone = setIndex
-    }
-
-    const updatedProgress = {
+    }const updatedProgress = {
       ...exerciseProgress,
       [exercise.id]: nextDone,
     }
@@ -420,6 +433,9 @@ export default function StudentArea() {
     )
   }
 
+  const eval1 = evaluations.find((e) => (e.date || e.id) === compareId1) || latestEvaluation
+  const eval2 = evaluations.find((e) => (e.date || e.id) === compareId2) || latestEvaluation
+
   return (
     <div className="min-h-dvh bg-ink-950 pb-48 text-white relative">
       <header className="sticky top-0 z-30 border-b border-white/5 bg-ink-950/95 backdrop-blur">
@@ -480,9 +496,7 @@ export default function StudentArea() {
             <span>Painel Oficial</span>
           </div>
         </div>
-      </header>
-
-      <main className="mx-auto max-w-md px-4 py-5 safe-bottom">
+      </header><main className="mx-auto max-w-md px-4 py-5 safe-bottom">
         {!selectedWorkoutDay ? (
           <div className="space-y-4">
             <div 
@@ -610,13 +624,29 @@ export default function StudentArea() {
               <h1 className="mt-1 font-display text-2xl uppercase">
                 Todas as Fichas ({activeDays.join(' / ')})
               </h1>
-              <p className="text-xs text-zinc-400 mt-1">Lista sintética das planilhas de treino.</p>
+              <p className="text-xs text-zinc-400 mt-1">Lista completa com os blocos conjugados organizados.</p>
             </div>
 
             <div className="space-y-5">
               {activeDays.map((dKey) => {
                 const wData = workouts[dKey]
                 const exList = wData?.exercises || []
+                
+                const groupedMap = new Map()
+                const ungrouped = []
+                exList.forEach((ex) => {
+                  const groupKey = (ex.group || '').trim()
+                  if (groupKey) {
+                    if (!groupedMap.has(groupKey)) groupedMap.set(groupKey, [])
+                    groupedMap.get(groupKey).push(ex)
+                  } else {
+                    ungrouped.push(ex)
+                  }
+                })
+                const allOrdered = []
+                groupedMap.forEach((groupItems) => allOrdered.push(...groupItems))
+                allOrdered.push(...ungrouped)
+                const blocksForDay = getStructuredBlocks(allOrdered)
 
                 return (
                   <div 
@@ -652,80 +682,118 @@ export default function StudentArea() {
                       </button>
                     </div>
 
-                    {exList.length === 0 ? (
+                    {blocksForDay.length === 0 ? (
                       <p className="text-xs text-zinc-500 italic py-2 text-center">
                         Nenhum exercício no Treino {dKey}.
                       </p>
                     ) : (
-                      <div className="space-y-2.5">
-                        {exList.map((exercise, idx) => {
-                          const videoId = youtubeId(exercise.video)
-
-                          return (
-                            <div 
-                              key={exercise.id || idx} 
-                              className="flex items-center gap-3.5 rounded-xl border border-white/5 bg-ink-800 p-2.5 transition hover:border-gold-400/30"
-                            >
-                              <div className="h-16 w-16 shrink-0 rounded-lg overflow-hidden border border-gold-400/40 bg-black relative">
-                                {exercise.video ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => openVideo(exercise)}
-                                    className="h-full w-full relative flex items-center justify-center group"
-                                  >
-                                    {videoId ? (
-                                      <img
-                                        src={`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`}
-                                        alt={exercise.name}
-                                        className="h-full w-full object-cover opacity-75 group-hover:scale-105 transition"
-                                      />
-                                    ) : (
-                                      <div className="bg-ink-700 h-full w-full flex items-center justify-center text-gold-400">
-                                        <Play size={16} />
-                                      </div>
-                                    )}
-                                    <div className="absolute inset-0 bg-black/30" />
-                                    <div className="absolute flex h-7 w-7 items-center justify-center rounded-full bg-gold-400 text-ink-950 shadow-md">
-                                      <Play size={14} fill="currentColor" className="ml-0.5" />
-                                    </div>
-                                  </button>
-                                ) : (
-                                  <div className="h-full w-full flex items-center justify-center text-zinc-600 bg-ink-950">
-                                    <Dumbbell size={18} />
+                      <div className="space-y-3">
+                        {blocksForDay.map((block, bIdx) => {
+                          if (block.type === 'group') {
+                            return (
+                              <div key={`all-block-${bIdx}`} className="rounded-2xl border-2 border-gold-400 bg-ink-950/80 p-3 space-y-2.5">
+                                <div className="flex items-center justify-between border-b border-gold-400/30 pb-2">
+                                  <div className="flex items-center gap-1.5 text-gold-400 font-bold text-xs uppercase tracking-wider">
+                                    <Link2 size={15} />
+                                    <span>{block.groupName}</span>
                                   </div>
-                                )}
+                                  <span className="text-[9px] font-bold uppercase bg-gold-400/20 text-gold-300 px-2 py-0.5 rounded border border-gold-400/30">
+                                    Conjugado
+                                  </span>
+                                </div>
+                                <div className="space-y-2">
+                                  {block.exercises.map((exercise, eIdx) => {
+                                    const videoId = youtubeId(exercise.video)
+                                    return (
+                                      <div key={exercise.id || eIdx} className="flex items-center gap-3 rounded-xl border border-white/5 bg-ink-800 p-2">
+                                        <div className="h-14 w-14 shrink-0 rounded-lg overflow-hidden border border-gold-400/40 bg-black relative">
+                                          {exercise.video ? (
+                                            <button
+                                              type="button"
+                                              onClick={() => openVideo(exercise)}
+                                              className="h-full w-full relative flex items-center justify-center group"
+                                            >
+                                              {videoId ? (
+                                                <img
+                                                  src={`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`}
+                                                  alt={exercise.name}
+                                                  className="h-full w-full object-cover opacity-75 group-hover:scale-105 transition"
+                                                />
+                                              ) : (
+                                                <div className="bg-ink-700 h-full w-full flex items-center justify-center text-gold-400">
+                                                  <Play size={14} />
+                                                </div>
+                                              )}
+                                              <div className="absolute inset-0 bg-black/30" />
+                                              <div className="absolute flex h-6 w-6 items-center justify-center rounded-full bg-gold-400 text-ink-950 shadow-md">
+                                                <Play size={12} fill="currentColor" className="ml-0.5" />
+                                              </div>
+                                            </button>
+                                          ) : (
+                                            <div className="h-full w-full flex items-center justify-center text-zinc-600 bg-ink-950">
+                                              <Dumbbell size={16} />
+                                            </div>
+                                          )}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                          <h3 className="font-display text-sm uppercase text-white tracking-wide truncate">
+                                            {exercise.name}
+                                          </h3>
+                                          <p className="font-display text-xs text-gold-400 font-extrabold mt-0.5">
+                                            {exercise.sets || '-'} séries <span className="text-zinc-500 font-normal">/</span> {exercise.reps || '-'} rep
+                                          </p>
+                                        </div>
+                                      </div>
+                                    )
+                                  })}
+                                </div>
                               </div>
-
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                  {exercise.group && (
-                                    <span className="rounded bg-gold-400/20 px-1.5 py-0.5 text-[9px] uppercase font-bold text-gold-300 border border-gold-400/30">
-                                      {exercise.group}
-                                    </span>
+                            )
+                          } else {
+                            const exercise = block.exercise
+                            const videoId = youtubeId(exercise.video)
+                            return (
+                              <div key={exercise.id || bIdx} className="flex items-center gap-3.5 rounded-xl border border-white/5 bg-ink-800 p-2.5">
+                                <div className="h-16 w-16 shrink-0 rounded-lg overflow-hidden border border-gold-400/40 bg-black relative">
+                                  {exercise.video ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => openVideo(exercise)}
+                                      className="h-full w-full relative flex items-center justify-center group"
+                                    >
+                                      {videoId ? (
+                                        <img
+                                          src={`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`}
+                                          alt={exercise.name}
+                                          className="h-full w-full object-cover opacity-75 group-hover:scale-105 transition"
+                                        />
+                                      ) : (
+                                        <div className="bg-ink-700 h-full w-full flex items-center justify-center text-gold-400">
+                                          <Play size={16} />
+                                        </div>
+                                      )}
+                                      <div className="absolute inset-0 bg-black/30" />
+                                      <div className="absolute flex h-7 w-7 items-center justify-center rounded-full bg-gold-400 text-ink-950 shadow-md">
+                                        <Play size={14} fill="currentColor" className="ml-0.5" />
+                                      </div>
+                                    </button>
+                                  ) : (
+                                    <div className="h-full w-full flex items-center justify-center text-zinc-600 bg-ink-950">
+                                      <Dumbbell size={18} />
+                                    </div>
                                   )}
                                 </div>
-
-                                <h3 className="font-display text-base uppercase text-white tracking-wide truncate">
-                                  {exercise.name}
-                                </h3>
-
-                                <p className="font-display text-sm text-gold-400 font-extrabold mt-0.5">
-                                  {exercise.sets || '-'} <span className="text-zinc-500 font-normal">/</span> {exercise.reps || '-'}
-                                </p>
+                                <div className="flex-1 min-w-0">
+                                  <h3 className="font-display text-base uppercase text-white tracking-wide truncate">
+                                    {exercise.name}
+                                  </h3>
+                                  <p className="font-display text-sm text-gold-400 font-extrabold mt-0.5">
+                                    {exercise.sets || '-'} <span className="text-zinc-500 font-normal">/</span> {exercise.reps || '-'}
+                                  </p>
+                                </div>
                               </div>
-
-                              {exercise.notes && (
-                                <button
-                                  type="button"
-                                  onClick={() => setSelectedObs({ title: exercise.name, notes: exercise.notes })}
-                                  className="text-gold-400/80 hover:text-gold-300 p-1.5 shrink-0"
-                                  title="Ver observação"
-                                >
-                                  <Lightbulb size={16} />
-                                </button>
-                              )}
-                            </div>
-                          )
+                            )
+                          }
                         })}
                       </div>
                     )}
@@ -818,7 +886,6 @@ export default function StudentArea() {
               Enviar cargas e feedback no WhatsApp
             </button>
 
-            {/* RENDERIZAÇÃO DOS BLOCOS (VISÃO NORMAL) */}
             <div className="mt-5 space-y-4">
               {structuredExercises.map((block, bIndex) => {
                 if (block.type === 'group') {
@@ -865,7 +932,8 @@ export default function StudentArea() {
                               </div>
 
                               <div className="flex items-stretch gap-3 mb-3">
-                                <div className="w-28 shrink-0 flex flex-col">{exercise.video ? (
+                                <div className="w-28 shrink-0 flex flex-col">
+                                  {exercise.video ? (
                                     <button
                                       type="button"
                                       onClick={() => openVideo(exercise)}
@@ -1082,7 +1150,6 @@ export default function StudentArea() {
             </div>
           </div>
         ) : (
-          /* MODO TREINO IMERSIVO (AGORA SUPORTA BLOCOS UNIFICADOS - BI-SET / TRI-SET) */
           <div className="space-y-4 animate-fade-in">
             <div className="flex items-center justify-between rounded-2xl bg-ink-900 border border-gold-400/40 p-3.5">
               <div className="flex items-center gap-2">
@@ -1127,7 +1194,6 @@ export default function StudentArea() {
               if (!currentBlock) return null
 
               if (currentBlock.type === 'group') {
-                // MODO IMERSIVO PARA BI-SET / TRI-SET (EXIBE OS EXERCÍCIOS JUNTOS NO QUADRO)
                 return (
                   <div className="rounded-3xl border-2 border-gold-400 bg-ink-900 p-5 shadow-2xl space-y-5">
                     <div className="flex items-center justify-between border-b border-gold-400/30 pb-3">
@@ -1150,7 +1216,7 @@ export default function StudentArea() {
                         const isAllDone = doneSets >= totalSets
 
                         return (
-                          <div key={exercise.id || `imm-group-${idx}`} className="rounded-2xl border border-white/15 bg-ink-800 p-4 space-y-3">
+                          <div key={exercise.id || idx} className="rounded-2xl border border-white/15 bg-ink-800 p-4 space-y-3">
                             <div>
                               <p className="text-[10px] uppercase tracking-wider text-zinc-400 font-bold">
                                 Exercício {idx + 1} do bloco
@@ -1222,8 +1288,7 @@ export default function StudentArea() {
                                     <button
                                       key={sIdx}
                                       type="button"
-                                      onClick={() => handleSetClick(exercise, sIdx)}
-                                      className={`flex-1 py-2.5 rounded-xl border text-xs font-display font-extrabold uppercase transition-all flex items-center justify-center gap-1 ${
+                                      onClick={() => handleSetClick(exercise, sIdx)}className={`flex-1 py-2.5 rounded-xl border text-xs font-display font-extrabold uppercase transition-all flex items-center justify-center gap-1 ${
                                         isDone
                                           ? 'bg-emerald-500 text-ink-950 border-emerald-400 shadow-md'
                                           : 'bg-ink-700 text-gold-300 border-gold-400/40 hover:bg-gold-400 hover:text-ink-950'
@@ -1279,7 +1344,6 @@ export default function StudentArea() {
                   </div>
                 )
               } else {
-                // MODO IMERSIVO PARA EXERCÍCIO INDIVIDUAL
                 const exercise = currentBlock.exercise
                 const videoId = youtubeId(exercise.video)
                 const totalSets = parseInt(exercise.sets) || 1
@@ -1502,91 +1566,227 @@ export default function StudentArea() {
               </button>
             </div>
 
-            {latestEvaluation ? (
-              <div className="space-y-5">
-                <div className="flex items-center justify-between bg-ink-950/60 p-3 rounded-xl border border-white/5">
-                  <span className="text-xs text-zinc-400 font-medium">Data da Avaliação:</span>
-                  <span className="text-xs font-bold text-gold-400">{latestEvaluation.date}</span>
-                </div>
-
-                <div>
-                  <p className="text-xs uppercase font-bold tracking-widest text-gold-400 mb-2.5 flex items-center gap-1.5">
-                    <Scale size={14} /> Composição Corporal
-                  </p>
-                  <div className="grid grid-cols-2 gap-2.5">
-                    <div className="rounded-xl bg-ink-800 p-3 border border-white/5">
-                      <p className="text-[10px] uppercase tracking-wider text-zinc-400">Peso Total</p>
-                      <p className="font-display text-lg text-white font-bold">{latestEvaluation.weight} kg</p>
-                    </div>
-                    <div className="rounded-xl bg-ink-800 p-3 border border-white/5">
-                      <p className="text-[10px] uppercase tracking-wider text-zinc-400">Altura</p>
-                      <p className="font-display text-lg text-white font-bold">{latestEvaluation.height} m</p>
-                    </div>
-                    <div className="rounded-xl bg-ink-800 p-3 border border-white/5">
-                      <p className="text-[10px] uppercase tracking-wider text-zinc-400">% de Gordura (%BF)</p>
-                      <p className="font-display text-lg text-gold-400 font-bold">{latestEvaluation.fatPercentage}%</p>
-                    </div>
-                    <div className="rounded-xl bg-ink-800 p-3 border border-white/5">
-                      <p className="text-[10px] uppercase tracking-wider text-zinc-400">Massa Magra</p>
-                      <p className="font-display text-lg text-emerald-400 font-bold">{latestEvaluation.leanMass} kg</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <p className="text-xs uppercase font-bold tracking-widest text-gold-400 mb-2.5 flex items-center gap-1.5">
-                    <Flame size={14} /> Metabolismo & Calorias
-                  </p>
-                  <div className="grid grid-cols-2 gap-2.5">
-                    <div className="rounded-xl bg-ink-800 p-3 border border-white/5">
-                      <p className="text-[10px] uppercase tracking-wider text-zinc-400">Taxa Metabólica Basal (TMB)</p>
-                      <p className="font-display text-base text-white font-bold">{latestEvaluation.tmb} kcal</p>
-                    </div>
-                    <div className="rounded-xl bg-ink-800 p-3 border border-white/5">
-                      <p className="text-[10px] uppercase tracking-wider text-zinc-400">Gasto Energético Total (GET)</p>
-                      <p className="font-display text-base text-gold-400 font-bold">{latestEvaluation.get} kcal</p>
-                    </div>
-                  </div>
-                </div>
-
-                {latestEvaluation.circumferences && (
-                  <div>
-                    <p className="text-xs uppercase font-bold tracking-widest text-gold-400 mb-2.5 flex items-center gap-1.5">
-                      <UserCheck size={14} /> Circunferências (cm)
-                    </p>
-                    <div className="grid grid-cols-3 gap-2 text-center">
-                      <div className="rounded-xl bg-ink-800 p-2.5 border border-white/5">
-                        <p className="text-[9px] uppercase tracking-wider text-zinc-400">Tórax</p>
-                        <p className="font-display text-sm text-white font-bold mt-0.5">{latestEvaluation.circumferences.chest} cm</p>
-                      </div>
-                      <div className="rounded-xl bg-ink-800 p-2.5 border border-white/5">
-                        <p className="text-[9px] uppercase tracking-wider text-zinc-400">Braço</p>
-                        <p className="font-display text-sm text-white font-bold mt-0.5">{latestEvaluation.circumferences.arm} cm</p>
-                      </div>
-                      <div className="rounded-xl bg-ink-800 p-2.5 border border-white/5">
-                        <p className="text-[9px] uppercase tracking-wider text-zinc-400">Cintura</p>
-                        <p className="font-display text-sm text-white font-bold mt-0.5">{latestEvaluation.circumferences.waist} cm</p>
-                      </div>
-                      <div className="rounded-xl bg-ink-800 p-2.5 border border-white/5">
-                        <p className="text-[9px] uppercase tracking-wider text-zinc-400">Quadril</p>
-                        <p className="font-display text-sm text-white font-bold mt-0.5">{latestEvaluation.circumferences.hips} cm</p>
-                      </div>
-                      <div className="rounded-xl bg-ink-800 p-2.5 border border-white/5">
-                        <p className="text-[9px] uppercase tracking-wider text-zinc-400">Coxa</p>
-                        <p className="font-display text-sm text-white font-bold mt-0.5">{latestEvaluation.circumferences.thigh} cm</p>
-                      </div>
-                      <div className="rounded-xl bg-ink-800 p-2.5 border border-white/5">
-                        <p className="text-[9px] uppercase tracking-wider text-zinc-400">Panturrilha</p>
-                        <p className="font-display text-sm text-white font-bold mt-0.5">{latestEvaluation.circumferences.calf} cm</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
+            {evaluations.length > 0 && (
+              <div className="flex rounded-xl bg-ink-950 p-1 border border-white/10 mb-5">
+                <button
+                  type="button"
+                  onClick={() => setEvalTab('details')}
+                  className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition ${
+                    evalTab === 'details' ? 'bg-gold-400 text-ink-950 shadow-md' : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  Ficha Atual / Histórico
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEvalTab('compare')}
+                  className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition flex items-center justify-center gap-1.5 ${
+                    evalTab === 'compare' ? 'bg-gold-400 text-ink-950 shadow-md' : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  <TrendingUp size={14} /> Comparativo
+                </button>
               </div>
-            ) : (
+            )}
+
+            {evaluations.length === 0 ? (
               <div className="py-10 text-center space-y-3">
                 <Activity size={40} className="mx-auto text-gold-400/40 animate-pulse" />
                 <p className="text-sm font-medium text-zinc-300">Nenhuma avaliação física cadastrada.</p>
+              </div>
+            ) : evalTab === 'details' ? (
+              <div className="space-y-5">
+                <div className="flex items-center justify-between bg-ink-950/60 p-3 rounded-xl border border-white/5">
+                  <span className="text-xs text-zinc-400 font-medium">Selecionar Data:</span>
+                  <select
+                    value={compareId1}
+                    onChange={(e) => setCompareId1(e.target.value)}
+                    className="bg-ink-800 border border-gold-400/40 rounded-lg px-3 py-1.5 text-xs text-gold-300 font-bold uppercase focus:outline-none"
+                  >
+                    {evaluations.map((ev, idx) => {
+                      const evKey = ev.date || ev.id
+                      return (
+                        <option key={evKey} value={evKey}>
+                          {ev.date || `Avaliação ${idx + 1}`}
+                        </option>
+                      )
+                    })}
+                  </select>
+                </div>
+
+                {(() => {
+                  const evShow = evaluations.find((e) => (e.date || e.id) === compareId1) || latestEvaluation
+                  if (!evShow) return null
+                  return (
+                    <div className="space-y-5">
+                      <div>
+                        <p className="text-xs uppercase font-bold tracking-widest text-gold-400 mb-2.5 flex items-center gap-1.5">
+                          <Scale size={14} /> Composição Corporal ({evShow.date})
+                        </p>
+                        <div className="grid grid-cols-2 gap-2.5">
+                          <div className="rounded-xl bg-ink-800 p-3 border border-white/5">
+                            <p className="text-[10px] uppercase tracking-wider text-zinc-400">Peso Total</p>
+                            <p className="font-display text-lg text-white font-bold">{evShow.weight} kg</p>
+                          </div>
+                          <div className="rounded-xl bg-ink-800 p-3 border border-white/5">
+                            <p className="text-[10px] uppercase tracking-wider text-zinc-400">Altura</p>
+                            <p className="font-display text-lg text-white font-bold">{evShow.height} m</p>
+                          </div>
+                          <div className="rounded-xl bg-ink-800 p-3 border border-white/5">
+                            <p className="text-[10px] uppercase tracking-wider text-zinc-400">% de Gordura (%BF)</p>
+                            <p className="font-display text-lg text-gold-400 font-bold">{evShow.fatPercentage}%</p>
+                          </div>
+                          <div className="rounded-xl bg-ink-800 p-3 border border-white/5">
+                            <p className="text-[10px] uppercase tracking-wider text-zinc-400">Massa Magra</p>
+                            <p className="font-display text-lg text-emerald-400 font-bold">{evShow.leanMass} kg</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <p className="text-xs uppercase font-bold tracking-widest text-gold-400 mb-2.5 flex items-center gap-1.5">
+                          <Flame size={14} /> Metabolismo & Calorias
+                        </p>
+                        <div className="grid grid-cols-2 gap-2.5">
+                          <div className="rounded-xl bg-ink-800 p-3 border border-white/5">
+                            <p className="text-[10px] uppercase tracking-wider text-zinc-400">Taxa Metabólica Basal (TMB)</p>
+                            <p className="font-display text-base text-white font-bold">{evShow.tmb} kcal</p>
+                          </div>
+                          <div className="rounded-xl bg-ink-800 p-3 border border-white/5">
+                            <p className="text-[10px] uppercase tracking-wider text-zinc-400">Gasto Energético Total (GET)</p>
+                            <p className="font-display text-base text-gold-400 font-bold">{evShow.get} kcal</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {evShow.circumferences && (
+                        <div>
+                          <p className="text-xs uppercase font-bold tracking-widest text-gold-400 mb-2.5 flex items-center gap-1.5">
+                            <UserCheck size={14} /> Circunferências (cm)
+                          </p>
+                          <div className="grid grid-cols-3 gap-2 text-center">
+                            <div className="rounded-xl bg-ink-800 p-2.5 border border-white/5">
+                              <p className="text-[9px] uppercase tracking-wider text-zinc-400">Tórax</p>
+                              <p className="font-display text-sm text-white font-bold mt-0.5">{evShow.circumferences.chest} cm</p>
+                            </div>
+                            <div className="rounded-xl bg-ink-800 p-2.5 border border-white/5">
+                              <p className="text-[9px] uppercase tracking-wider text-zinc-400">Braço</p>
+                              <p className="font-display text-sm text-white font-bold mt-0.5">{evShow.circumferences.arm} cm</p>
+                            </div>
+                            <div className="rounded-xl bg-ink-800 p-2.5 border border-white/5">
+                              <p className="text-[9px] uppercase tracking-wider text-zinc-400">Cintura</p>
+                              <p className="font-display text-sm text-white font-bold mt-0.5">{evShow.circumferences.waist} cm</p>
+                            </div>
+                            <div className="rounded-xl bg-ink-800 p-2.5 border border-white/5">
+                              <p className="text-[9px] uppercase tracking-wider text-zinc-400">Quadril</p>
+                              <p className="font-display text-sm text-white font-bold mt-0.5">{evShow.circumferences.hips} cm</p>
+                            </div>
+                            <div className="rounded-xl bg-ink-800 p-2.5 border border-white/5">
+                              <p className="text-[9px] uppercase tracking-wider text-zinc-400">Coxa</p>
+                              <p className="font-display text-sm text-white font-bold mt-0.5">{evShow.circumferences.thigh} cm</p>
+                            </div>
+                            <div className="rounded-xl bg-ink-800 p-2.5 border border-white/5">
+                              <p className="text-[9px] uppercase tracking-wider text-zinc-400">Panturrilha</p>
+                              <p className="font-display text-sm text-white font-bold mt-0.5">{evShow.circumferences.calf} cm</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })()}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <p className="text-xs text-zinc-400">Selecione duas datas para comparar a sua evolução corporal:</p>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase font-bold text-gold-400">Data Inicial (Antiga):</label>
+                    <select
+                      value={compareId1}
+                      onChange={(e) => setCompareId1(e.target.value)}
+                      className="w-full bg-ink-800 border border-white/15 rounded-xl px-3 py-2 text-xs text-white font-bold uppercase focus:outline-none"
+                    >
+                      {evaluations.map((ev) => {
+                        const evKey = ev.date || ev.id
+                        return <option key={evKey} value={evKey}>{ev.date}</option>
+                      })}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase font-bold text-emerald-400">Data Final (Recente):</label>
+                    <select
+                      value={compareId2}
+                      onChange={(e) => setCompareId2(e.target.value)}
+                      className="w-full bg-ink-800 border border-white/15 rounded-xl px-3 py-2 text-xs text-white font-bold uppercase focus:outline-none"
+                    >
+                      {evaluations.map((ev) => {
+                        const evKey = ev.date || ev.id
+                        return <option key={evKey} value={evKey}>{ev.date}</option>
+                      })}
+                    </select>
+                  </div>
+                </div>
+
+                {eval1 && eval2 && (
+                  <div className="space-y-3 pt-2">
+                    <div className="rounded-2xl bg-ink-950 p-4 border border-gold-400/30 space-y-3">
+                      <h4 className="font-display text-sm uppercase text-gold-400 tracking-wide text-center">Resumo da Evolução</h4>
+                      
+                      <div className="space-y-2 text-xs">
+                        <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                          <span className="text-zinc-400 uppercase font-bold">Peso Total</span>
+                          <div className="flex items-center gap-3">
+                            <span className="text-zinc-400">{eval1.weight} kg</span>
+                            <span>→</span>
+                            <span className="text-white font-bold">{eval2.weight} kg</span>
+                            {(() => {
+                              const diff = (parseFloat(eval2.weight) - parseFloat(eval1.weight)).toFixed(1)
+                              if (diff > 0) return <span className="text-red-400 flex items-center font-bold">+{diff}kg <ArrowUpRight size={14} /></span>
+                              if (diff < 0) return <span className="text-emerald-400 flex items-center font-bold">{diff}kg <ArrowDownRight size={14} /></span>
+                              return <span className="text-zinc-400 flex items-center">0kg <Minus size={14} /></span>
+                            })()}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                          <span className="text-zinc-400 uppercase font-bold">% de Gordura</span>
+                          <div className="flex items-center gap-3">
+                            <span className="text-zinc-400">{eval1.fatPercentage}%</span>
+                            <span>→</span>
+                            <span className="text-white font-bold">{eval2.fatPercentage}%</span>
+                            {(() => {
+                              const diff = (parseFloat(eval2.fatPercentage) - parseFloat(eval1.fatPercentage)).toFixed(1)
+                              if (diff > 0) return <span className="text-red-400 flex items-center font-bold">+{diff}% <ArrowUpRight size={14} /></span>
+                              if (diff < 0) return <span className="text-emerald-400 flex items-center font-bold">{diff}% <ArrowDownRight size={14} /></span>
+                              return <span className="text-zinc-400 flex items-center">0% <Minus size={14} /></span>
+                            })()}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <span className="text-zinc-400 uppercase font-bold">Massa Magra</span>
+                          <div className="flex items-center gap-3">
+                            <span className="text-zinc-400">{eval1.leanMass} kg</span>
+                            <span>→</span>
+                            <span className="text-white font-bold">{eval2.leanMass} kg</span>
+                            {(() => {
+                              const diff = (parseFloat(eval2.leanMass) - parseFloat(eval1.leanMass)).toFixed(1)
+                              if (diff > 0) return <span className="text-emerald-400 flex items-center font-bold">+{diff}kg <ArrowUpRight size={14} /></span>
+                              if (diff < 0) return <span className="text-red-400 flex items-center font-bold">{diff}kg <ArrowDownRight size={14} /></span>
+                              return <span className="text-zinc-400 flex items-center">0kg <Minus size={14} /></span>
+                            })()}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl bg-gold-400/10 border border-gold-400/30 p-3 text-xs text-zinc-300 leading-relaxed text-center">
+                      <p className="italic">"Continue focado(a) na consistência! Acompanhe os seus ganhos e ajustes de carga diretamente com o professor."</p>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
