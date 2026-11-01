@@ -163,7 +163,7 @@ export default function StudentArea({ supabaseClient }) {
     }
   }, [current?.id, student?.id, supabaseClient])
 
-  const workouts = current?.workouts || {}
+ const workouts = current?.workouts || current?.treinos || {}
   const activeDays = Array.isArray(current?.activeDays) && current.activeDays.length > 0
     ? DAYS.filter((day) => current.activeDays.includes(day))
     : DAYS
