@@ -11,9 +11,17 @@ import { BrandProvider } from './brand.jsx'
 function ProtectedStudent({ children }) {
   const { studentSession } = useAuth()
 
+  console.log('[ROTA ALUNO] Sessão recebida:', studentSession)
+  console.log('[ROTA ALUNO] Aluno:', studentSession?.student)
+
   if (!studentSession?.student) {
+    console.log('[ROTA ALUNO] BLOQUEANDO ACESSO')
     return <Navigate to="/aluno" replace />
   }
+
+  console.log('[ROTA ALUNO] ACESSO AUTORIZADO')
+  return children
+}
 
   return children
 }
