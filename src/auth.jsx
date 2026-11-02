@@ -47,9 +47,19 @@ export function AuthProvider({ children }) {
             // Aqui garantimos que ele entra com o cache e sabe que há update.
           }
 
-          setStudent(studentData)
-          sessionStorage.setItem('dl_student', JSON.stringify(studentData))
-          return true
+        console.log('[TESTE SESSÃO] Dados carregados:', studentData)
+console.log('[TESTE SESSÃO] ID:', studentData?.id)
+console.log('[TESTE SESSÃO] Nome:', studentData?.name)
+
+setStudent(studentData)
+sessionStorage.setItem('dl_student', JSON.stringify(studentData))
+
+console.log(
+  '[TESTE SESSÃO] Sessão gravada:',
+  sessionStorage.getItem('dl_student')
+)
+
+return true
         } catch (err) {
           console.error('Erro no login do aluno:', err)
           throw err
