@@ -10,7 +10,6 @@ import {
   Search,
   Library,
   X,
-  Dumbbell,
   CheckCircle2,
   Link2,
   Pencil,
@@ -47,7 +46,6 @@ import {
 } from '../storage'
 
 const DAYS = ['A', 'B', 'C', 'D', 'E']
-
 const TABS = [
   { id: 'brand', label: 'Marca' },
   { id: 'library', label: 'Biblioteca' },
@@ -116,9 +114,7 @@ export default function AdminPanel() {
   const [showEvaluationModal, setShowEvaluationModal] = useState(false)
   const [evaluatingStudent, setEvaluatingStudent] = useState(null)
   const [evaluationForm, setEvaluationForm] = useState(emptyEvaluationForm())
-
   const [showEvalHistoryModal, setShowEvalHistoryModal] = useState(false)
-
   const [studentForm, setStudentForm] = useState({
     name: '',
     code: generateAccessCode(),
@@ -134,25 +130,20 @@ export default function AdminPanel() {
 
   useEffect(() => {
     let active = true
-
     const stop = subscribeData((next) => {
       if (!active) return
-
       setData(next)
       setSelectedStudentId((current) => current || next.students[0]?.id || '')
     })
-
     fetchData()
       .then((next) => {
         if (!active) return
-
         setData(next)
         setSelectedStudentId((current) => current || next.students[0]?.id || '')
       })
       .catch((error) => {
         console.error('Erro ao carregar dados do Supabase:', error)
       })
-
     return () => {
       active = false
       stop()
@@ -200,20 +191,16 @@ export default function AdminPanel() {
   function persist(next) {
     setData(next)
     saveData(next)
-
     setSaved('Alterações salvas neste dispositivo. Publique para enviar aos alunos.')
     setTimeout(() => setSaved(''), 3000)
   }
 
   async function handlePublish() {
     if (publishing) return
-
     setPublishing(true)
     setSaved('Publicando alterações...')
-
     try {
       const result = await publishData()
-
       if (result?.success === false || (result?.errors?.length > 0)) {
         const errorCount = result?.errors?.length || 0
         throw new Error(
@@ -223,7 +210,6 @@ export default function AdminPanel() {
             : 'Não foi possível concluir a publicação.')
         )
       }
-
       setSaved(result?.message || 'Alterações publicadas com sucesso!')
     } catch (error) {
       console.error('Erro ao publicar alterações:', error)
@@ -300,6 +286,7 @@ export default function AdminPanel() {
         ? {
             ...item,
             workouts,
+            _hasRemoteUpdate: true,
             updatedAt: new Date().toISOString(),
           }
         : item
@@ -308,7 +295,6 @@ export default function AdminPanel() {
       ...data,
       students: updatedStudents,
     })
-
     const targetStudent = updatedStudents.find((s) => s.id === selectedStudent.id)
     if (targetStudent) {
       markStudentAsPending(targetStudent)
@@ -318,7 +304,6 @@ export default function AdminPanel() {
   function handleDeleteEvaluation(studentId, evalIndex) {
     const confirmed = window.confirm('Deseja realmente excluir esta avaliação física?')
     if (!confirmed) return
-
     const updatedStudents = data.students.map((student) => {
       if (student.id === studentId) {
         const evaluations = [...(student.evaluations || [])]
@@ -326,17 +311,15 @@ export default function AdminPanel() {
         return {
           ...student,
           evaluations,
+          _hasRemoteUpdate: true,
           updatedAt: new Date().toISOString(),
         }
       }
       return student
     })
-
     persist({ ...data, students: updatedStudents })
-
     const targetStudent = updatedStudents.find((s) => s.id === studentId)
     if (targetStudent) markStudentAsPending(targetStudent)
-
     setSaved('Avaliação excluída localmente. Publique para sincronizar.')
     setTimeout(() => setSaved(''), 2200)
   }
@@ -555,16 +538,15 @@ export default function AdminPanel() {
         return {
           ...student,
           evaluations: [...(student.evaluations || []), newEvaluation],
+          _hasRemoteUpdate: true,
           updatedAt: new Date().toISOString(),
         }
       }
       return student
     })
     persist({ ...data, students: updatedStudents })
-
     const targetStudent = updatedStudents.find((s) => s.id === evaluatingStudent.id)
     if (targetStudent) markStudentAsPending(targetStudent)
-
     setShowEvaluationModal(false)
     setEvaluatingStudent(null)
     setEvaluationForm(emptyEvaluationForm())
@@ -573,7 +555,6 @@ export default function AdminPanel() {
   }
 
   const libraryExercises = data.exercisesLibrary || []
-
   const availableMuscles = useMemo(() => {
     const muscles = new Set()
     libraryExercises.forEach((item) => {
@@ -606,11 +587,9 @@ export default function AdminPanel() {
       if (!student.workouts) return student
       let studentUpdated = false
       const nextWorkouts = { ...student.workouts }
-
       DAYS.forEach((d) => {
         if (nextWorkouts[d]?.exercises) {
           let dayUpdated = false
-
           const newExercises = nextWorkouts[d].exercises.map((ex) => {
             const isMatch = ex.libraryId
               ? ex.libraryId === updatedExercise.id
@@ -620,12 +599,9 @@ export default function AdminPanel() {
                   ex.name.trim().toLowerCase() ===
                     originalExerciseName.trim().toLowerCase()
                 )
-
             if (!isMatch) return ex
-
             dayUpdated = true
             studentUpdated = true
-
             return {
               ...ex,
               libraryId: updatedExercise.id,
@@ -636,7 +612,6 @@ export default function AdminPanel() {
               group: updatedExercise.group || ex.group,
             }
           })
-
           if (dayUpdated) {
             nextWorkouts[d] = {
               ...nextWorkouts[d],
@@ -645,11 +620,11 @@ export default function AdminPanel() {
           }
         }
       })
-
       if (studentUpdated) {
         const updatedStudent = {
           ...student,
           workouts: nextWorkouts,
+          _hasRemoteUpdate: true,
           updatedAt: new Date().toISOString(),
         }
         markStudentAsPending(updatedStudent)
@@ -732,14 +707,12 @@ export default function AdminPanel() {
     const activeDays = DAYS.slice(0, count)
     const updatedStudents = data.students.map((student) =>
       student.id === studentId
-        ? { ...student, activeDays, updatedAt: new Date().toISOString() }
+        ? { ...student, activeDays, _hasRemoteUpdate: true, updatedAt: new Date().toISOString() }
         : student
     )
     persist({ ...data, students: updatedStudents })
-
     const targetStudent = updatedStudents.find((s) => s.id === studentId)
     if (targetStudent) markStudentAsPending(targetStudent)
-
     if (!activeDays.includes(day)) setDay(activeDays[0])
     setSaved(`Quantidade de planilhas atualizada para ${count}.`)
     setTimeout(() => setSaved(''), 3000)
@@ -768,6 +741,7 @@ export default function AdminPanel() {
       password,
       active: true,
       activeDays: DAYS.slice(0, count),
+      _hasRemoteUpdate: true,
       updatedAt: new Date().toISOString(),
       workouts: cloneWorkouts(data.workouts),
       evaluations: [],
@@ -793,22 +767,18 @@ export default function AdminPanel() {
     const count = Math.max(1, Math.min(5, Number(editStudentForm.planCount) || 5))
     const activeDays = DAYS.slice(0, count)
     if (!newCode || !newPass) return
-
     if (data.students.some((st) => (st.code || '').trim().toUpperCase() === newCode && st.id !== studentId)) {
       alert('Já existe outro aluno cadastrado com este código.')
       return
     }
-
     const updatedStudents = data.students.map((st) =>
       st.id === studentId
-        ? { ...st, code: newCode, password: newPass, activeDays, updatedAt: new Date().toISOString() }
+        ? { ...st, code: newCode, password: newPass, activeDays, _hasRemoteUpdate: true, updatedAt: new Date().toISOString() }
         : st
     )
     persist({ ...data, students: updatedStudents })
-
     const targetStudent = updatedStudents.find((s) => s.id === studentId)
     if (targetStudent) markStudentAsPending(targetStudent)
-
     setEditingStudentCredsId(null)
     setSaved('Credenciais e planilhas do aluno atualizadas!')
     setTimeout(() => setSaved(''), 2200)
@@ -816,13 +786,12 @@ export default function AdminPanel() {
 
   function toggleStudent(id) {
     const updatedStudents = data.students.map((item) =>
-      item.id === id ? { ...item, active: !item.active, updatedAt: new Date().toISOString() } : item
+      item.id === id ? { ...item, active: !item.active, _hasRemoteUpdate: true, updatedAt: new Date().toISOString() } : item
     )
     persist({
       ...data,
       students: updatedStudents,
     })
-
     const targetStudent = updatedStudents.find((s) => s.id === id)
     if (targetStudent) markStudentAsPending(targetStudent)
   }
@@ -831,23 +800,17 @@ export default function AdminPanel() {
     const confirmed = window.confirm(
       'Deseja realmente excluir este aluno? A exclusão será enviada ao Supabase quando você publicar as alterações.'
     )
-
     if (!confirmed) return
-
     const studentToDelete = data.students.find((s) => s.id === id)
     removeStudentRecord(id, studentToDelete?.code)
-
     const next = data.students.filter((item) => item.id !== id)
-
     persist({
       ...data,
       students: next,
     })
-
     if (selectedStudentId === id) {
       setSelectedStudentId(next[0]?.id || '')
     }
-
     setSaved('Aluno excluído localmente. Publique para confirmar a exclusão na nuvem.')
     setTimeout(() => setSaved(''), 3500)
   }
@@ -879,7 +842,6 @@ export default function AdminPanel() {
           <span className="font-display text-xl tracking-wider text-gold-400 font-bold">
             DANILO LOPES
           </span>
-
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -893,7 +855,6 @@ export default function AdminPanel() {
               />
               {publishing ? 'Publicando...' : 'Publicar alterações'}
             </button>
-
             <button
               onClick={exit}
               className="rounded-full border border-white/10 p-2.5 text-zinc-200 hover:text-gold-400 transition"
@@ -902,7 +863,6 @@ export default function AdminPanel() {
             </button>
           </div>
         </div>
-
         <div className="mx-auto grid max-w-md grid-cols-4 gap-2 px-4 pb-3.5">
           {TABS.map((item) => (
             <button
@@ -919,7 +879,6 @@ export default function AdminPanel() {
           ))}
         </div>
       </header>
-
       <main className="mx-auto max-w-md px-4 py-6 pb-28">
         {saved && (
           <p className="mb-4 flex items-center gap-2 rounded-xl bg-gold-400/25 px-3.5 py-3 text-xs font-semibold text-gold-300 border border-gold-400/30">
@@ -927,7 +886,6 @@ export default function AdminPanel() {
             {saved}
           </p>
         )}
-
         {tab === 'brand' && (
           <section className="space-y-4">
             <h1 className="font-display text-3xl uppercase">Logomarca</h1>
@@ -959,7 +917,6 @@ export default function AdminPanel() {
             {logoError && <p className="text-sm font-semibold text-red-400">{logoError}</p>}
           </section>
         )}
-
         {tab === 'library' && (
           <section className="space-y-4">
             <div className="flex items-center justify-between">
@@ -1125,7 +1082,6 @@ export default function AdminPanel() {
             </div>
           </section>
         )}
-
         {tab === 'workouts' && (
           <section className="flex flex-col h-[calc(100vh-140px)] overflow-hidden">
             <div className="shrink-0 bg-ink-950 pb-3 z-10 space-y-3 border-b border-white/10">
@@ -1213,7 +1169,6 @@ export default function AdminPanel() {
                 Selecionar da biblioteca rápida
               </button>
             </div>
-
             <div className="flex-1 overflow-y-auto space-y-3 pt-4 pb-20">
               {(currentWorkout.exercises || []).map((exercise, index, arr) => {
                 const isExpanded = expandedExercises[exercise.id] !== false
@@ -1362,7 +1317,6 @@ export default function AdminPanel() {
             </div>
           </section>
         )}
-
         {tab === 'students' && (
           <section>
             <h1 className="font-display text-3xl uppercase">Alunos e acessos</h1>
@@ -1565,7 +1519,6 @@ export default function AdminPanel() {
                           >
                             Editar treinos
                           </button>
-
                           <button
                             onClick={() => {
                               setSelectedStudentId(student.id)
@@ -1576,7 +1529,6 @@ export default function AdminPanel() {
                             <Activity size={14} />
                             Ver Avaliações ({student.evaluations?.length || 0})
                           </button>
-
                           <button
                             onClick={() => {
                               setEvaluatingStudent(student)
@@ -1605,7 +1557,6 @@ export default function AdminPanel() {
           </section>
         )}
       </main>
-
       {/* MODAL HISTÓRICO AVALIAÇÕES */}
       {showEvalHistoryModal && selectedStudent && (
         <div
@@ -1663,7 +1614,6 @@ export default function AdminPanel() {
           </div>
         </div>
       )}
-
       {/* MODAL BIBLIOTECA RÁPIDA */}
       {libraryOpen && (
         <div
@@ -1725,7 +1675,6 @@ export default function AdminPanel() {
           </div>
         </div>
       )}
-
       {/* MODAL SUBSTITUIR EXERCÍCIO */}
       {replaceModalOpen && (
         <div
@@ -1769,7 +1718,6 @@ export default function AdminPanel() {
           </div>
         </div>
       )}
-
       {/* MODAL AVALIAÇÃO FÍSICA */}
       {showEvaluationModal && evaluatingStudent && (
         <div
