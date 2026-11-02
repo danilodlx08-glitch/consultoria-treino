@@ -1,4 +1,3 @@
-
 import { Navigate, Route, Routes } from 'react-router-dom'
 import LandingPage from './pages/LandingPage.jsx'
 import StudentLogin from './pages/StudentLogin.jsx'
@@ -20,9 +19,6 @@ function ProtectedStudent({ children }) {
   }
 
   console.log('[ROTA ALUNO] ACESSO AUTORIZADO')
-  return children
-}
-
   return children
 }
 
