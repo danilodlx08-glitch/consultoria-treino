@@ -221,7 +221,7 @@ const defaultData = {
           sets: '4',
           reps: '8-10',
           notes: 'Barra raspando as pernas. Quadril para trás.',
-          video: 'https://www.youtube.com/watch?v=jEy_czb3RKA',
+          video: 'https://youtube.com/shorts/XGEWbICxTck?si=_VsuUdm8Uz3PE4F_',
           muscle: 'Posterior',
         },
       ]),
