@@ -456,17 +456,13 @@ export default function StudentArea() {
                   setShowFinishedScreen(false)
                   setActiveRestMenu(false)
                 }}
-                className="flex items-center gap-1.5 rounded-xl border border-gold-400/50 bg-ink-900 px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-gold-400 transition hover:bg-gold-400 hover:text-ink-950 shadow-sm"
+                className="flex items-center gap-2 rounded-xl border border-gold-400/50 bg-ink-900 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-gold-400 transition hover:bg-gold-400 hover:text-ink-950 shadow-md"
                 title="Voltar aos treinos"
               >
-                <ArrowLeft size={14} />
+                <ArrowLeft size={16} />
                 <span>Voltar</span>
               </button>
             )}
-          
-              <LogOut size={14} />
-              <span>Sair</span>
-            </button>
           </div>
         </div>
         <div className="mx-auto max-w-md px-4 pb-2.5 flex items-center justify-between border-t border-white/5 pt-2">
