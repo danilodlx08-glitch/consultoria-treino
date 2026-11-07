@@ -1473,46 +1473,49 @@ export default function StudentArea() {
         )}
       </main>
 
+   {/* ========================================================= */}
+      {/* BARRA DE NAVEGAÇÃO INFERIOR FIXA (COMPLETA E CORRIGIDA)    */}
       {/* ========================================================= */}
-      {/* BARRA DE NAVEGAÇÃO INFERIOR FIXA                          */}
-      {/* ========================================================= */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-ink-950/95 border-t border-white/10 backdrop-blur-md px-1.5 py-2 shadow-2xl">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-ink-950/95 border-t border-white/10 backdrop-blur-md px-1 py-2 pb-safe shadow-2xl">
         <div className="max-w-md mx-auto flex items-center justify-around">
           
           {/* 1. Início / Home */}
           <button
+            type="button"
             onClick={() => {
               setSelectedWorkoutDay(null)
               setShowFinishedScreen(false)
               setInWorkoutMode(false)
               setActiveRestMenu(false)
             }}
-            className={`flex flex-col items-center justify-center py-1 px-1.5 rounded-xl transition ${
+            className={`flex flex-1 flex-col items-center justify-center py-1 rounded-xl transition ${
               !selectedWorkoutDay ? 'text-gold-400 font-bold' : 'text-zinc-400 hover:text-white'
             }`}
           >
-            <Home size={19} />
-            <span className="text-[10px] uppercase mt-1 tracking-wider">Início</span>
+            <Home size={18} />
+            <span className="text-[10px] uppercase mt-1 tracking-wider leading-none">Início</span>
           </button>
 
-          {/* 2. Treinos (Abre TODOS os exercícios) */}
+          {/* 2. Treinos (Abre Visão Geral / Todos os Exercícios) */}
           <button
+            type="button"
             onClick={() => {
               setSelectedWorkoutDay('ALL')
               setShowFinishedScreen(false)
               setInWorkoutMode(false)
               setActiveRestMenu(false)
             }}
-            className={`flex flex-col items-center justify-center py-1 px-1.5 rounded-xl transition ${
+            className={`flex flex-1 flex-col items-center justify-center py-1 rounded-xl transition ${
               selectedWorkoutDay === 'ALL' ? 'text-gold-400 font-bold' : 'text-zinc-400 hover:text-white'
             }`}
           >
-            <Dumbbell size={19} />
-            <span className="text-[10px] uppercase mt-1 tracking-wider">Treinos</span>
+            <Dumbbell size={18} />
+            <span className="text-[10px] uppercase mt-1 tracking-wider leading-none">Treinos</span>
           </button>
 
           {/* 3. Timer / Descanso */}
           <button
+            type="button"
             onClick={() => {
               if (timerActive) {
                 stopTimer()
@@ -1520,103 +1523,92 @@ export default function StudentArea() {
                 setActiveRestMenu(!activeRestMenu)
               }
             }}
-            className={`flex flex-col items-center justify-center py-1 px-1.5 rounded-xl transition ${
+            className={`flex flex-1 flex-col items-center justify-center py-1 rounded-xl transition ${
               timerActive ? 'text-gold-400 animate-pulse font-bold' : 'text-zinc-400 hover:text-white'
             }`}
           >
-            <Timer size={19} />
-            <span className="text-[10px] uppercase mt-1 tracking-wider">
+            <Timer size={18} />
+            <span className="text-[10px] uppercase mt-1 tracking-wider leading-none truncate max-w-[50px] text-center">
               {timerActive ? `${timerSeconds}s` : 'Timer'}
             </span>
           </button>
 
           {/* 4. Evolução / Avaliação */}
           <button
+            type="button"
             onClick={() => setIsEvaluationOpen(true)}
-            className="flex flex-col items-center justify-center py-1 px-1.5 rounded-xl text-zinc-400 hover:text-white transition"
+            className="flex flex-1 flex-col items-center justify-center py-1 rounded-xl text-zinc-400 hover:text-white transition"
           >
-            <Activity size={19} />
-            <span className="text-[10px] uppercase mt-1 tracking-wider">Evolução</span>
+            <Activity size={18} />
+            <span className="text-[10px] uppercase mt-1 tracking-wider leading-none">Evolução</span>
           </button>
 
-          {/* 5. Mensagens (WhatsApp direto) */}
+          {/* 5. Mensagens (WhatsApp Direto) */}
           <button
+            type="button"
             onClick={sendRealtimeDoubt}
-            className="flex flex-col items-center justify-center py-1 px-1.5 rounded-xl text-emerald-400 hover:text-emerald-300 transition"
+            className="flex flex-1 flex-col items-center justify-center py-1 rounded-xl text-emerald-400 hover:text-emerald-300 transition"
           >
-            <MessageCircle size={19} />
-            <span className="text-[10px] uppercase mt-1 tracking-wider">Zap</span>
+            <MessageCircle size={18} />
+            <span className="text-[10px] uppercase mt-1 tracking-wider leading-none">Zap</span>
           </button>
 
-          {/* 6. Atualizar (Aparece em destaque se houver atualização) */}
+          {/* 6. Atualizar (Aparece apenas quando houver atualização disponível) */}
           {updateAvailable && (
             <button
+              type="button"
               onClick={handleApplyUpdate}
               disabled={loadingUpdate}
-              className="relative flex flex-col items-center justify-center py-1 px-1.5 rounded-xl text-gold-400 font-bold animate-pulse transition"
+              className="relative flex flex-1 flex-col items-center justify-center py-1 rounded-xl text-gold-400 font-bold animate-pulse transition"
               title="Baixar novo treino"
             >
-              <span className="absolute -top-1 -right-0.5 flex h-2.5 w-2.5">
+              <span className="absolute top-0 right-2 flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-gold-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-gold-500"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-gold-500"></span>
               </span>
-              <Sparkles size={19} className="text-gold-400" />
-              <span className="text-[10px] uppercase mt-1 tracking-wider text-gold-300">
+              <Sparkles size={18} className="text-gold-400" />
+              <span className="text-[10px] uppercase mt-1 tracking-wider leading-none text-gold-300">
                 {loadingUpdate ? 'Baixando' : 'Atualizar'}
               </span>
             </button>
           )}
 
-          {/* 7. Voltar */}
+          {/* 7. Sair (Substituiu o botão Voltar duplicado) */}
           <button
-            onClick={() => {
-              if (selectedWorkoutDay) {
-                setSelectedWorkoutDay(null)
-                setShowFinishedScreen(false)
-                setInWorkoutMode(false)
-              } else {
-                exit()
-              }
-            }}
-            className="flex flex-col items-center justify-center py-1 px-1.5 rounded-xl text-zinc-400 hover:text-red-400 transition"
+            type="button"
+            onClick={exit}
+            className="flex flex-1 flex-col items-center justify-center py-1 rounded-xl text-zinc-400 hover:text-red-400 transition"
+            title="Sair da conta"
           >
-            <ArrowLeft size={19} />
-            <span className="text-[10px] uppercase mt-1 tracking-wider">Voltar</span>
+            <LogOut size={18} />
+            <span className="text-[10px] uppercase mt-1 tracking-wider leading-none">Sair</span>
           </button>
 
         </div>
       </nav>
 
-      {/* Selector de timer flutuante acima da barra */}
+      {/* Menu Seletor de Tempo (Flutuando limpo acima da barra) */}
       {activeRestMenu && !timerActive && (
-        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-2xl border border-gold-400/50 bg-ink-900/95 p-2 shadow-2xl backdrop-blur animate-fade-in">
+        <div className="fixed bottom-16 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1.5 rounded-2xl border border-gold-400/50 bg-ink-900/95 p-2 shadow-2xl backdrop-blur animate-fade-in">
           {[30, 45, 60, 90].map((sec) => (
             <button
               key={sec}
+              type="button"
               onClick={() => startTimer(sec)}
-              className="rounded-xl border border-gold-400/30 bg-ink-800 px-3 py-2 text-xs font-bold text-gold-300 hover:bg-gold-400 hover:text-ink-950 transition"
+              className="rounded-xl border border-gold-400/30 bg-ink-800 px-3 py-1.5 text-xs font-bold text-gold-300 hover:bg-gold-400 hover:text-ink-950 transition"
             >
               {sec}s
             </button>
           ))}
           <button
+            type="button"
             onClick={() => setActiveRestMenu(false)}
-            className="rounded-xl bg-white/10 p-2 text-zinc-300 hover:text-white transition"
+            className="rounded-xl bg-white/10 p-1.5 text-zinc-300 hover:text-white transition"
           >
             <X size={14} />
           </button>
         </div>
       )}
-
-      {/* Modais de Avaliação, Vídeos e Observações */}
-      {isEvaluationOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) {
-              setIsEvaluationOpen(false)
-            }
-          }}
         >
           <div className="w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-3xl border border-gold-400/40 bg-ink-900 p-6 shadow-2xl animate-fade-in text-white">
             <div className="flex items-center justify-between border-b border-white/10 pb-4 mb-4">
