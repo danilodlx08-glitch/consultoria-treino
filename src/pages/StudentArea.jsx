@@ -463,12 +463,7 @@ export default function StudentArea() {
                 <span>Voltar</span>
               </button>
             )}
-            <button
-              onClick={exit}
-              className="flex items-center gap-1 rounded-xl border border-white/10 bg-ink-900 px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-zinc-400 transition hover:border-red-500/40 hover:text-red-400 hover:bg-red-500/10"
-              aria-label="Sair da conta"
-              title="Sair da conta"
-            >
+          
               <LogOut size={14} />
               <span>Sair</span>
             </button>
