@@ -1473,9 +1473,7 @@ export default function StudentArea() {
         )}
       </main>
 
-   {/* ========================================================= */}
-      {/* BARRA DE NAVEGAÇÃO INFERIOR FIXA (COMPLETA E CORRIGIDA)    */}
-      {/* ========================================================= */}
+      {/* BARRA DE NAVEGAÇÃO INFERIOR FIXA */}
       <nav className="fixed bottom-0 left-0 right-0 z-40 bg-ink-950/95 border-t border-white/10 backdrop-blur-md px-1 py-2 pb-safe shadow-2xl">
         <div className="max-w-md mx-auto flex items-center justify-around">
           
@@ -1573,7 +1571,7 @@ export default function StudentArea() {
             </button>
           )}
 
-          {/* 7. Sair (Substituiu o botão Voltar duplicado) */}
+          {/* 7. Sair */}
           <button
             type="button"
             onClick={exit}
@@ -1587,7 +1585,7 @@ export default function StudentArea() {
         </div>
       </nav>
 
-      {/* Menu Seletor de Tempo (Flutuando limpo acima da barra) */}
+      {/* Menu Seletor de Tempo (Flutuando acima da barra) */}
       {activeRestMenu && !timerActive && (
         <div className="fixed bottom-16 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1.5 rounded-2xl border border-gold-400/50 bg-ink-900/95 p-2 shadow-2xl backdrop-blur animate-fade-in">
           {[30, 45, 60, 90].map((sec) => (
@@ -1609,6 +1607,16 @@ export default function StudentArea() {
           </button>
         </div>
       )}
+
+      {/* Modais de Avaliação, Vídeos e Observações */}
+      {isEvaluationOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setIsEvaluationOpen(false)
+            }
+          }}
         >
           <div className="w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-3xl border border-gold-400/40 bg-ink-900 p-6 shadow-2xl animate-fade-in text-white">
             <div className="flex items-center justify-between border-b border-white/10 pb-4 mb-4">
