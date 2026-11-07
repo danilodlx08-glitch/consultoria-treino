@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ExternalLink, LogOut, RefreshCw, X, Play, Timer, MessageCircle, Link2, CheckCircle2, Trophy, Lightbulb, ArrowLeft, Activity, Scale, Flame, UserCheck, ChevronRight, ChevronLeft, AlertCircle, Loader2, Dumbbell, ThumbsUp, Award, Zap, ShieldCheck, FileText, TrendingUp, ArrowUpRight, ArrowDownRight, Minus, Sparkles, FlameKindling } from 'lucide-react'
+import { ExternalLink, LogOut, RefreshCw, X, Play, Timer, MessageCircle, Link2, CheckCircle2, Trophy, Lightbulb, ArrowLeft, Activity, Scale, Flame, UserCheck, ChevronRight, ChevronLeft, AlertCircle, Loader2, Dumbbell, ThumbsUp, Award, Zap, ShieldCheck, FileText, TrendingUp, ArrowUpRight, ArrowDownRight, Minus, Sparkles, FlameKindling, Home } from 'lucide-react'
 import Logo from '../components/Logo.jsx'
 import { useAuth } from '../auth.jsx'
 import { fetchSingleStudentData } from '../storage'
 
 const DAYS = ['A', 'B', 'C', 'D', 'E']
+
 const COACH_TIPS = [
   "Priorize a execução correta antes de aumentar a carga.",
   "A consistência supera a intensidade ocasional. Faça o seu melhor hoje!",
@@ -76,7 +77,6 @@ function getSetIcon(index) {
 export default function StudentArea() {
   const { studentSession, logoutStudent, updateStudentSession } = useAuth()
   const navigate = useNavigate()
-
   const [isLoadingAuth, setIsLoadingAuth] = useState(true)
   const [selectedWorkoutDay, setSelectedWorkoutDay] = useState(null)
   const [syncedAt, setSyncedAt] = useState('')
@@ -115,7 +115,6 @@ export default function StudentArea() {
     return () => clearTimeout(timer)
   }, [student])
 
-  // Identifica se há atualização remota pendente sinalizada pelo login
   useEffect(() => {
     if (student?._hasRemoteUpdate) {
       setUpdateAvailable(true)
@@ -231,7 +230,6 @@ export default function StudentArea() {
 
   const progressPercent = totalExercises > 0 ? Math.round((completedCount / totalExercises) * 100) : 0
 
-  // Timer de Descanso
   useEffect(() => {
     let interval = null
     if (timerActive && timerSeconds > 0) {
@@ -253,7 +251,6 @@ export default function StudentArea() {
     return () => clearInterval(interval)
   }, [timerActive, timerSeconds])
 
-  // Cronômetro da Sessão de Treino
   useEffect(() => {
     let interval = null
     if (sessionActive && !sessionPaused && !showFinishedScreen) {
@@ -341,7 +338,6 @@ export default function StudentArea() {
   function sendWhatsAppFeedback() {
     const studentName = student?.name || 'Aluno'
     const workoutTitle = workout.title || `Treino ${currentDay}`
-    
     const exercisesList = (sortedExercises || [])
       .map((ex, idx) => {
         const groupTag = ex.group ? ` [${ex.group}]` : ''
@@ -437,7 +433,7 @@ export default function StudentArea() {
   const eval2 = evaluations.find((e) => (e.date || e.id) === compareId2) || latestEvaluation
 
   return (
-    <div className="min-h-dvh bg-ink-950 pb-48 text-white relative">
+    <div className="min-h-dvh bg-ink-950 pb-36 text-white relative">
       <header className="sticky top-0 z-30 border-b border-white/5 bg-ink-950/95 backdrop-blur">
         <div className="mx-auto flex max-w-md items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
@@ -505,7 +501,7 @@ export default function StudentArea() {
           </p>
         )}
 
-        {/* Banner de Atualização Disponível */}
+        {/* Banner Superior de Atualização Pendente */}
         {updateAvailable && (
           <div className="flex flex-col gap-2.5 rounded-2xl border border-gold-400/50 bg-gold-400/15 p-4 text-white shadow-lg animate-fadeIn">
             <div className="flex items-center gap-2">
@@ -661,6 +657,7 @@ export default function StudentArea() {
               </h1>
               <p className="text-xs text-zinc-400 mt-1">Lista completa com os blocos conjugados organizados.</p>
             </div>
+
             <div className="space-y-5">
               {activeDays.map((dKey) => {
                 const wData = workouts[dKey]
@@ -1476,38 +1473,45 @@ export default function StudentArea() {
         )}
       </main>
 
-      <div className="fixed bottom-6 right-4 z-45 flex flex-col items-end gap-3">
-        <button
-          onClick={sendRealtimeDoubt}
-          className="group flex items-center gap-2.5 rounded-full bg-emerald-500 text-ink-950 p-3.5 shadow-xl shadow-emerald-500/30 border border-emerald-400 transition-all duration-300 hover:scale-105 hover:bg-emerald-400"
-          aria-label="Deixe sua dúvida ou mudanças no WhatsApp"
-          title="Deixe sua dúvida ou mudanças"
-        >
-          <MessageCircle size={22} fill="currentColor" className="text-ink-950 animate-pulse shrink-0" />
-          <span className="max-w-0 overflow-hidden whitespace-nowrap font-display text-xs font-bold uppercase tracking-wider transition-all duration-300 group-hover:max-w-xs group-hover:pr-1">
-            Deixe sua dúvida
-          </span>
-        </button>
-        <div className="flex flex-col items-end gap-2">
-          {activeRestMenu && !timerActive && (
-            <div className="flex items-center gap-1.5 rounded-2xl border border-gold-400/50 bg-ink-900/95 p-2 shadow-2xl backdrop-blur animate-fade-in">
-              {[30, 45, 60, 90].map((sec) => (
-                <button
-                  key={sec}
-                  onClick={() => startTimer(sec)}
-                  className="rounded-xl border border-gold-400/30 bg-ink-800 px-3 py-2 text-xs font-bold text-gold-300 hover:bg-gold-400 hover:text-ink-950 transition"
-                >
-                  {sec}s
-                </button>
-              ))}
-              <button
-                onClick={() => setActiveRestMenu(false)}
-                className="rounded-xl bg-white/10 p-2 text-zinc-300 hover:text-white transition"
-              >
-                <X size={14} />
-              </button>
-            </div>
-          )}
+      {/* ========================================================= */}
+      {/* BARRA DE NAVEGAÇÃO INFERIOR FIXA                          */}
+      {/* ========================================================= */}
+      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-ink-950/95 border-t border-white/10 backdrop-blur-md px-1.5 py-2 shadow-2xl">
+        <div className="max-w-md mx-auto flex items-center justify-around">
+          
+          {/* 1. Início / Home */}
+          <button
+            onClick={() => {
+              setSelectedWorkoutDay(null)
+              setShowFinishedScreen(false)
+              setInWorkoutMode(false)
+              setActiveRestMenu(false)
+            }}
+            className={`flex flex-col items-center justify-center py-1 px-1.5 rounded-xl transition ${
+              !selectedWorkoutDay ? 'text-gold-400 font-bold' : 'text-zinc-400 hover:text-white'
+            }`}
+          >
+            <Home size={19} />
+            <span className="text-[10px] uppercase mt-1 tracking-wider">Início</span>
+          </button>
+
+          {/* 2. Treinos (Abre TODOS os exercícios) */}
+          <button
+            onClick={() => {
+              setSelectedWorkoutDay('ALL')
+              setShowFinishedScreen(false)
+              setInWorkoutMode(false)
+              setActiveRestMenu(false)
+            }}
+            className={`flex flex-col items-center justify-center py-1 px-1.5 rounded-xl transition ${
+              selectedWorkoutDay === 'ALL' ? 'text-gold-400 font-bold' : 'text-zinc-400 hover:text-white'
+            }`}
+          >
+            <Dumbbell size={19} />
+            <span className="text-[10px] uppercase mt-1 tracking-wider">Treinos</span>
+          </button>
+
+          {/* 3. Timer / Descanso */}
           <button
             onClick={() => {
               if (timerActive) {
@@ -1516,22 +1520,95 @@ export default function StudentArea() {
                 setActiveRestMenu(!activeRestMenu)
               }
             }}
-            className={`group flex items-center gap-2.5 rounded-full p-3.5 shadow-xl transition-all duration-300 border ${
-              timerActive
-                ? 'bg-gold-400 text-ink-950 border-gold-300 animate-pulse font-extrabold px-5 scale-105'
-                : 'bg-ink-900 text-gold-400 border-gold-400/40 hover:border-gold-400 hover:bg-ink-800 p-3'
+            className={`flex flex-col items-center justify-center py-1 px-1.5 rounded-xl transition ${
+              timerActive ? 'text-gold-400 animate-pulse font-bold' : 'text-zinc-400 hover:text-white'
             }`}
-            aria-label="Cronómetro de descanso"
-            title={timerActive ? 'Parar descanso' : 'Iniciar descanso'}
           >
-            <Timer size={timerActive ? 24 : 20} className="shrink-0" />
-            <span className={`font-display text-xs font-bold uppercase tracking-wider ${timerActive ? 'inline' : 'max-w-0 overflow-hidden whitespace-nowrap transition-all duration-300 group-hover:max-w-xs group-hover:pr-1'}`}>
-              {timerActive ? `${timerSeconds}s (Parar)` : 'Descanso'}
+            <Timer size={19} />
+            <span className="text-[10px] uppercase mt-1 tracking-wider">
+              {timerActive ? `${timerSeconds}s` : 'Timer'}
             </span>
           </button>
-        </div>
-      </div>
 
+          {/* 4. Evolução / Avaliação */}
+          <button
+            onClick={() => setIsEvaluationOpen(true)}
+            className="flex flex-col items-center justify-center py-1 px-1.5 rounded-xl text-zinc-400 hover:text-white transition"
+          >
+            <Activity size={19} />
+            <span className="text-[10px] uppercase mt-1 tracking-wider">Evolução</span>
+          </button>
+
+          {/* 5. Mensagens (WhatsApp direto) */}
+          <button
+            onClick={sendRealtimeDoubt}
+            className="flex flex-col items-center justify-center py-1 px-1.5 rounded-xl text-emerald-400 hover:text-emerald-300 transition"
+          >
+            <MessageCircle size={19} />
+            <span className="text-[10px] uppercase mt-1 tracking-wider">Zap</span>
+          </button>
+
+          {/* 6. Atualizar (Aparece em destaque se houver atualização) */}
+          {updateAvailable && (
+            <button
+              onClick={handleApplyUpdate}
+              disabled={loadingUpdate}
+              className="relative flex flex-col items-center justify-center py-1 px-1.5 rounded-xl text-gold-400 font-bold animate-pulse transition"
+              title="Baixar novo treino"
+            >
+              <span className="absolute -top-1 -right-0.5 flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-gold-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-gold-500"></span>
+              </span>
+              <Sparkles size={19} className="text-gold-400" />
+              <span className="text-[10px] uppercase mt-1 tracking-wider text-gold-300">
+                {loadingUpdate ? 'Baixando' : 'Atualizar'}
+              </span>
+            </button>
+          )}
+
+          {/* 7. Voltar */}
+          <button
+            onClick={() => {
+              if (selectedWorkoutDay) {
+                setSelectedWorkoutDay(null)
+                setShowFinishedScreen(false)
+                setInWorkoutMode(false)
+              } else {
+                exit()
+              }
+            }}
+            className="flex flex-col items-center justify-center py-1 px-1.5 rounded-xl text-zinc-400 hover:text-red-400 transition"
+          >
+            <ArrowLeft size={19} />
+            <span className="text-[10px] uppercase mt-1 tracking-wider">Voltar</span>
+          </button>
+
+        </div>
+      </nav>
+
+      {/* Selector de timer flutuante acima da barra */}
+      {activeRestMenu && !timerActive && (
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-2xl border border-gold-400/50 bg-ink-900/95 p-2 shadow-2xl backdrop-blur animate-fade-in">
+          {[30, 45, 60, 90].map((sec) => (
+            <button
+              key={sec}
+              onClick={() => startTimer(sec)}
+              className="rounded-xl border border-gold-400/30 bg-ink-800 px-3 py-2 text-xs font-bold text-gold-300 hover:bg-gold-400 hover:text-ink-950 transition"
+            >
+              {sec}s
+            </button>
+          ))}
+          <button
+            onClick={() => setActiveRestMenu(false)}
+            className="rounded-xl bg-white/10 p-2 text-zinc-300 hover:text-white transition"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
+      {/* Modais de Avaliação, Vídeos e Observações */}
       {isEvaluationOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm"
